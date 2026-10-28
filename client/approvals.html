@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Account Approvals · School District Monitoring System</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="app-body" data-page="approvals">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-person-check"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading pending registrations…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Access confirmation</p>
+            <h1>Account approvals</h1>
+            <p class="page-subtitle">Confirm the registrations assigned to your level of the school and district hierarchy.</p>
+          </div>
+          <div class="page-header__actions">
+            <button type="button" class="btn btn-light" id="refreshApprovals">
+              <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="approvalPageAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="kpi-grid kpi-grid--three" aria-label="Approval summary">
+          <article class="stat-card kpi-card stat-card--blue">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-hourglass-split" aria-hidden="true"></i></span>
+              <span class="stat-tag">Queue</span>
+            </div>
+            <p class="stat-label">Pending confirmations</p>
+            <p class="stat-value" id="approvalKpiPending">—</p>
+            <p class="stat-description">Registrations currently waiting for your decision</p>
+          </article>
+          <article class="stat-card kpi-card stat-card--teal">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-person-badge" aria-hidden="true"></i></span>
+              <span class="stat-tag">Reviewer</span>
+            </div>
+            <p class="stat-label">Your approval level</p>
+            <p class="stat-value stat-value--role" id="approvalKpiRole">—</p>
+            <p class="stat-description">You review registrations assigned to your role</p>
+          </article>
+          <article class="stat-card kpi-card stat-card--rose">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-diagram-3" aria-hidden="true"></i></span>
+              <span class="stat-tag">Hierarchy</span>
+            </div>
+            <p class="stat-label">Confirmation route</p>
+            <p class="stat-value stat-value--role">Role based</p>
+            <p class="stat-description">PSDS → admin · School head → PSDS · Teacher/NT/Adviser → school head · Learner → adviser</p>
+          </article>
+        </section>
+
+        <section class="surface-card table-card" aria-labelledby="approvalTableHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="approvalTableHeading">Registrations awaiting confirmation</h2>
+              <p id="approvalTableSubtitle">Approve an account to allow sign-in, or return it with a reason.</p>
+            </div>
+            <span class="role-policy"><i class="bi bi-shield-check" aria-hidden="true"></i> Decisions are audit logged</span>
+          </header>
+
+          <div class="table-responsive">
+            <table class="app-table" id="approvalTable">
+              <caption class="sr-only">Pending account registrations with role, district, school, and decision actions</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Applicant</th>
+                  <th scope="col">Requested role</th>
+                  <th scope="col">District</th>
+                  <th scope="col">School</th>
+                  <th scope="col">Registered</th>
+                  <th scope="col" class="text-right">Decision</th>
+                </tr>
+              </thead>
+              <tbody id="approvalTableBody">
+                <tr class="skeleton-row"><td colspan="6"><span class="skeleton skeleton-block"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <p class="table-footer__meta" id="approvalTableMeta">Loading registrations…</p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 North Valley Unified School District</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+        <span class="app-footer__right" id="footerUpdated"></span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="modal fade" id="rejectModal" tabindex="-1" role="dialog" aria-labelledby="rejectTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title" id="rejectTitle">Return this registration</h2>
+            <p class="modal-subtitle" id="rejectSubtitle">Explain why the account cannot be confirmed.</p>
+          </div>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <form id="rejectForm" novalidate>
+          <div class="modal-body">
+            <div id="rejectAlert" class="d-none mb-3" role="alert"></div>
+            <div class="form-group mb-0">
+              <label for="rejectNote">Reason (optional)</label>
+              <textarea class="form-control" id="rejectNote" name="note" rows="4" maxlength="500" placeholder="e.g. Please use your official school email address."></textarea>
+              <span class="form-text">The applicant sees this reason after their next sign-in attempt.</span>
+              <span class="field-error"></span>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-danger" id="rejectSubmit">
+              <i class="bi bi-x-circle" aria-hidden="true"></i>
+              <span>Return registration</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/approvals.js"></script>
+</body>
+</html>

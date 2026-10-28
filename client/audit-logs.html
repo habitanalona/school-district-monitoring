@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Audit Logs · School District Monitoring System</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="app-body" data-page="audit">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-shield-check"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading the audit trail…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Security and compliance</p>
+            <h1>Audit logs</h1>
+            <p class="page-subtitle">Review an immutable trail of administrative and authentication activity across the system.</p>
+          </div>
+          <div class="page-header__actions">
+            <div class="select-control d-none" id="auditDistrictControl">
+              <label for="auditDistrictFilter">District</label>
+              <select class="custom-select custom-select-sm" id="auditDistrictFilter"></select>
+            </div>
+            <button type="button" class="btn btn-light" id="refreshAudit">
+              <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="auditPageAlert" class="d-none mb-3" role="alert"></div>
+
+        <div class="audit-banner" role="note">
+          <span class="audit-banner__icon"><i class="bi bi-shield-lock" aria-hidden="true"></i></span>
+          <div>
+            <strong>Restricted system record</strong>
+            <p>Audit entries are written automatically for sensitive administrative actions. Only system administrators can access this trail.</p>
+          </div>
+          <span class="audit-banner__badge"><i class="bi bi-lock-fill" aria-hidden="true"></i> Read only</span>
+        </div>
+
+        <section class="surface-card table-card" aria-labelledby="auditTableHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="auditTableHeading">Activity trail</h2>
+              <p>Newest events first, including sign-ins, record changes, and administrative actions.</p>
+            </div>
+            <span class="role-policy"><i class="bi bi-database-check" aria-hidden="true"></i> Database-backed</span>
+          </header>
+
+          <div class="school-filters">
+            <label class="search-field">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <span class="sr-only">Search audit logs</span>
+              <input type="search" id="auditSearch" placeholder="Search by action, entity, user, or details…" autocomplete="off">
+            </label>
+            <select class="custom-select custom-select-sm" id="auditActionFilter" aria-label="Filter by action">
+              <option value="">All actions</option>
+              <optgroup label="Authentication">
+                <option value="user.login">Sign in</option>
+                <option value="user.logout">Sign out</option>
+                <option value="user.login_failed">Failed sign-in</option>
+              </optgroup>
+              <optgroup label="Accounts">
+                <option value="user.created">Account created</option>
+                <option value="user.updated">Account updated</option>
+                <option value="user.activated">Account activated</option>
+                <option value="user.deactivated">Account deactivated</option>
+                <option value="user.password_reset_requested">Password reset requested</option>
+                <option value="user.password_reset">Password reset</option>
+                <option value="profile.updated">Profile updated</option>
+                <option value="profile.password_changed">Password changed</option>
+              </optgroup>
+              <optgroup label="Schools">
+                <option value="school.created">School registered</option>
+                <option value="school.updated">School updated</option>
+                <option value="school.archived">School archived</option>
+                <option value="school.restored">School restored</option>
+              </optgroup>
+              <optgroup label="Reports and announcements">
+                <option value="report.created">Report recorded</option>
+                <option value="report.updated">Report updated</option>
+                <option value="announcement.created">Announcement created</option>
+                <option value="announcement.updated">Announcement updated</option>
+              </optgroup>
+            </select>
+            <select class="custom-select custom-select-sm" id="auditEntityFilter" aria-label="Filter by entity type">
+              <option value="">All entities</option>
+              <option value="user">User</option>
+              <option value="school">School</option>
+              <option value="school_report">School report</option>
+              <option value="announcement">Announcement</option>
+            </select>
+            <button type="button" class="btn btn-ghost btn-sm" id="resetAuditFilters">
+              <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="app-table audit-table" id="auditTable">
+              <caption class="sr-only">Audit log entries with actor, action, entity, district, and origin</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Timestamp</th>
+                  <th scope="col">Actor</th>
+                  <th scope="col">Action</th>
+                  <th scope="col">Entity</th>
+                  <th scope="col">District</th>
+                  <th scope="col">IP Address</th>
+                  <th scope="col">Details</th>
+                </tr>
+              </thead>
+              <tbody id="auditTableBody">
+                <tr class="skeleton-row"><td colspan="7"><span class="skeleton skeleton-block"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <p class="table-footer__meta" id="auditTableMeta">Loading activity…</p>
+            <div id="auditPagination" class="pagination-wrap"></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 North Valley Unified School District</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+        <span class="app-footer__right" id="footerUpdated"></span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/audit-logs.js"></script>
+</body>
+</html>

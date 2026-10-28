@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Reports and Analytics · School District Monitoring System</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="app-body" data-page="reports">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-clipboard-data"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading district reports…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Monitoring cycle</p>
+            <h1>Reports and analytics</h1>
+            <p class="page-subtitle">Track school submissions, review compliance, and record reporting outcomes.</p>
+          </div>
+          <div class="page-header__actions">
+            <div class="select-control d-none" id="reportDistrictControl">
+              <label for="reportDistrictFilter">District</label>
+              <select class="custom-select custom-select-sm" id="reportDistrictFilter"></select>
+            </div>
+            <div class="select-control">
+              <label for="reportPeriodFilter">Reporting period</label>
+              <select class="custom-select custom-select-sm" id="reportPeriodFilter" aria-label="Reporting period"></select>
+            </div>
+            <button type="button" class="btn btn-primary" id="newReportButton">
+              <i class="bi bi-plus-lg" aria-hidden="true"></i>
+              <span>Record report</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="reportPageAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="kpi-grid" aria-label="Report summary">
+          <article class="stat-card kpi-card stat-card--blue">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-clipboard-data" aria-hidden="true"></i></span>
+              <span class="stat-tag" id="reportPeriodTag">—</span>
+            </div>
+            <p class="stat-label">Reports recorded</p>
+            <p class="stat-value" id="reportKpiTotal">—</p>
+            <p class="stat-description">Reports on file for the selected period</p>
+          </article>
+          <article class="stat-card kpi-card stat-card--teal">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-check2-circle" aria-hidden="true"></i></span>
+              <span class="stat-tag">Complete</span>
+            </div>
+            <p class="stat-label">Reviewed reports</p>
+            <p class="stat-value" id="reportKpiReviewed">—</p>
+            <p class="stat-description">Reviewed and accepted by district staff</p>
+          </article>
+          <article class="stat-card kpi-card stat-card--amber">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-hourglass-split" aria-hidden="true"></i></span>
+              <span class="stat-tag">Follow-up</span>
+            </div>
+            <p class="stat-label">Pending reports</p>
+            <p class="stat-value" id="reportKpiPending">—</p>
+            <p class="stat-description">Still awaiting school submission</p>
+          </article>
+          <article class="stat-card kpi-card stat-card--rose">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></span>
+              <span class="stat-tag">Overdue</span>
+            </div>
+            <p class="stat-label">Late reports</p>
+            <p class="stat-value" id="reportKpiLate">—</p>
+            <p class="stat-description">Submitted after the expected deadline</p>
+          </article>
+        </section>
+
+        <section class="surface-card report-overview" aria-labelledby="reportOverviewTitle">
+          <header class="card-heading">
+            <div>
+              <h3 id="reportOverviewTitle">Submission coverage</h3>
+              <p id="reportOverviewSubtitle">Status distribution for the selected reporting period</p>
+            </div>
+            <span class="chart-chip" id="reportOverviewChip"><i class="bi bi-activity" aria-hidden="true"></i> Status</span>
+          </header>
+          <div class="insight-body" id="reportOverviewBody">
+            <div class="insight-skeleton">
+              <span class="skeleton skeleton-text" style="width:86%"></span>
+              <span class="skeleton skeleton-text" style="width:68%"></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="surface-card table-card" aria-labelledby="reportTableHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="reportTableHeading">School report records</h2>
+              <p>Every report submitted for the selected period, across report types.</p>
+            </div>
+            <a class="text-button" href="schools.html"><i class="bi bi-buildings" aria-hidden="true"></i> School register</a>
+          </header>
+
+          <div class="school-filters">
+            <label class="search-field">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <span class="sr-only">Search reports</span>
+              <input type="search" id="reportSearch" placeholder="Search by school name or code…" autocomplete="off">
+            </label>
+            <select class="custom-select custom-select-sm" id="reportStatusFilter" aria-label="Filter by submission status">
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="submitted">Submitted</option>
+              <option value="late">Late</option>
+              <option value="reviewed">Reviewed</option>
+            </select>
+            <select class="custom-select custom-select-sm" id="reportTypeFilter" aria-label="Filter by report type">
+              <option value="">All report types</option>
+              <option>Monthly Enrollment</option>
+              <option>Performance Review</option>
+              <option>Compliance</option>
+            </select>
+            <button type="button" class="btn btn-ghost btn-sm" id="resetReportFilters">
+              <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="app-table" id="reportTable">
+              <caption class="sr-only">School reports with submission status and review history</caption>
+              <thead>
+                <tr>
+                  <th scope="col">School</th>
+                  <th scope="col">Reporting Period</th>
+                  <th scope="col">Report Type</th>
+                  <th scope="col">Submission Status</th>
+                  <th scope="col">Submitted By</th>
+                  <th scope="col">Submitted</th>
+                  <th scope="col">Last Updated</th>
+                  <th scope="col" class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="reportTableBody">
+                <tr class="skeleton-row"><td colspan="8"><span class="skeleton skeleton-block"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <p class="table-footer__meta" id="reportTableMeta">Loading reports…</p>
+            <div id="reportPagination" class="pagination-wrap"></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 North Valley Unified School District</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+        <span class="app-footer__right" id="footerUpdated"></span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="modal fade" id="reportFormModal" tabindex="-1" role="dialog" aria-labelledby="reportFormTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title" id="reportFormTitle">Record a school report</h2>
+            <p class="modal-subtitle" id="reportFormSubtitle">Log a new submission or update an existing report.</p>
+          </div>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <form id="reportForm" novalidate>
+          <div class="modal-body">
+            <div id="reportFormAlert" class="d-none mb-3" role="alert"></div>
+            <p class="form-section-label">Report details</p>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="reportSchool">School <span class="required-mark">*</span></label>
+                  <select class="custom-select" id="reportSchool" name="schoolId" required>
+                    <option value="">Select a school</option>
+                  </select>
+                  <span class="field-error"></span>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="reportPeriod">Reporting period <span class="required-mark">*</span></label>
+                  <input type="month" class="form-control" id="reportPeriod" name="reportingPeriod" required>
+                  <span class="field-error"></span>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="reportType">Report type <span class="required-mark">*</span></label>
+                  <select class="custom-select" id="reportType" name="reportType" required>
+                    <option>Monthly Enrollment</option>
+                    <option>Performance Review</option>
+                    <option>Compliance</option>
+                  </select>
+                  <span class="field-error"></span>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="reportStatus">Submission status <span class="required-mark">*</span></label>
+                  <select class="custom-select" id="reportStatus" name="submissionStatus" required>
+                    <option value="pending">Pending</option>
+                    <option value="submitted">Submitted</option>
+                    <option value="late">Late</option>
+                    <option value="reviewed">Reviewed</option>
+                  </select>
+                  <span class="field-error"></span>
+                </div>
+              </div>
+              <div class="col-12">
+                <div class="form-group">
+                  <label for="reportRemarks">Remarks</label>
+                  <textarea class="form-control" id="reportRemarks" name="remarks" rows="3" maxlength="2000" placeholder="Add review notes or follow-up context for this submission."></textarea>
+                  <span class="form-text">Optional. Visible to district administrators and authorized staff.</span>
+                  <span class="field-error"></span>
+                </div>
+              </div>
+            </div>
+            <p class="form-note" id="reportFormNote">A report can only be recorded once per school, period, and report type.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="reportSaveButton">
+              <i class="bi bi-check2" aria-hidden="true"></i>
+              <span>Save report</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="reportViewModal" tabindex="-1" role="dialog" aria-labelledby="reportViewTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <p class="modal-eyebrow" id="reportViewEyebrow">School report</p>
+            <h2 class="modal-title" id="reportViewTitle">Report details</h2>
+          </div>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="modal-body" id="reportViewBody"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" id="reportViewEdit"><i class="bi bi-pencil-square" aria-hidden="true"></i> Edit report</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/reports.js"></script>
+</body>
+</html>

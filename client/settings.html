@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Account Settings · School District Monitoring System</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="app-body" data-page="settings">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-sliders"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading account settings…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Account</p>
+            <h1>Account settings</h1>
+            <p class="page-subtitle">Manage your password and review the security controls protecting your district session.</p>
+          </div>
+          <div class="page-header__actions">
+            <a class="btn btn-light" href="profile.html"><i class="bi bi-person" aria-hidden="true"></i> View profile</a>
+          </div>
+        </div>
+
+        <div id="settingsAlert" class="d-none mb-3" role="alert"></div>
+
+        <div class="settings-layout">
+          <div class="settings-main">
+            <section class="surface-card settings-card" aria-labelledby="passwordCardTitle">
+              <header class="settings-card__head">
+                <span class="settings-icon settings-icon--blue"><i class="bi bi-key" aria-hidden="true"></i></span>
+                <div>
+                  <h2 id="passwordCardTitle">Change password</h2>
+                  <p>Use at least 10 characters, including a letter and a number.</p>
+                </div>
+              </header>
+              <form id="passwordForm" class="settings-card__body" novalidate>
+                <div id="passwordAlert" class="d-none mb-3" role="alert"></div>
+                <div class="form-group">
+                  <label for="currentPassword">Current password <span class="required-mark">*</span></label>
+                  <div class="password-field">
+                    <input type="password" class="form-control" id="currentPassword" name="currentPassword" required maxlength="128" autocomplete="current-password">
+                    <button type="button" class="password-toggle" data-toggle-password="currentPassword" aria-label="Show current password" aria-pressed="false"><i class="bi bi-eye" aria-hidden="true"></i></button>
+                  </div>
+                  <span class="field-error"></span>
+                </div>
+                <div class="form-row">
+                  <div class="form-group col-md-6">
+                    <label for="newPassword">New password <span class="required-mark">*</span></label>
+                    <div class="password-field">
+                      <input type="password" class="form-control" id="newPassword" name="newPassword" required minlength="10" maxlength="128" autocomplete="new-password">
+                      <button type="button" class="password-toggle" data-toggle-password="newPassword" aria-label="Show new password" aria-pressed="false"><i class="bi bi-eye" aria-hidden="true"></i></button>
+                    </div>
+                    <span class="field-error"></span>
+                  </div>
+                  <div class="form-group col-md-6">
+                    <label for="confirmPassword">Confirm new password <span class="required-mark">*</span></label>
+                    <div class="password-field">
+                      <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required minlength="10" maxlength="128" autocomplete="new-password">
+                      <button type="button" class="password-toggle" data-toggle-password="confirmPassword" aria-label="Show confirmed password" aria-pressed="false"><i class="bi bi-eye" aria-hidden="true"></i></button>
+                    </div>
+                    <span class="field-error"></span>
+                  </div>
+                </div>
+                <div class="password-strength" id="passwordStrength" aria-live="polite"></div>
+                <div class="settings-card__footer">
+                  <p class="form-note"><i class="bi bi-info-circle" aria-hidden="true"></i> Changing your password signs out your other active sessions.</p>
+                  <button type="submit" class="btn btn-primary" id="passwordSaveButton">
+                    <i class="bi bi-shield-check" aria-hidden="true"></i>
+                    <span>Update password</span>
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            <section class="surface-card settings-card" aria-labelledby="profileCardTitle">
+              <header class="settings-card__head">
+                <span class="settings-icon settings-icon--teal"><i class="bi bi-person-lines-fill" aria-hidden="true"></i></span>
+                <div>
+                  <h2 id="profileCardTitle">Profile information</h2>
+                  <p>Keep your name and contact email current for district records.</p>
+                </div>
+              </header>
+              <div class="settings-card__body">
+                <div class="settings-profile">
+                  <span class="avatar avatar--lg" id="settingsAvatar">—</span>
+                  <div>
+                    <strong id="settingsUserName">—</strong>
+                    <span id="settingsUserEmail">—</span>
+                    <em id="settingsUserRole">—</em>
+                  </div>
+                  <a class="btn btn-light btn-sm" href="profile.html"><i class="bi bi-pencil-square" aria-hidden="true"></i> Edit profile</a>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <aside class="settings-side" aria-label="Account and session details">
+            <section class="surface-card settings-card" aria-labelledby="accessCardTitle">
+              <header class="settings-card__head settings-card__head--compact">
+                <span class="settings-icon settings-icon--indigo"><i class="bi bi-person-badge" aria-hidden="true"></i></span>
+                <div>
+                  <h2 id="accessCardTitle">Access details</h2>
+                  <p>Assigned role and district scope.</p>
+                </div>
+              </header>
+              <dl class="settings-definitions">
+                <div><dt>Username</dt><dd id="settingsUsername">—</dd></div>
+                <div><dt>Role</dt><dd id="settingsRole">—</dd></div>
+                <div><dt>District</dt><dd id="settingsDistrict">—</dd></div>
+                <div><dt>Last sign-in</dt><dd id="settingsLastLogin">—</dd></div>
+              </dl>
+            </section>
+
+            <section class="surface-card settings-card" aria-labelledby="securityCardTitle">
+              <header class="settings-card__head settings-card__head--compact">
+                <span class="settings-icon settings-icon--emerald"><i class="bi bi-shield-lock" aria-hidden="true"></i></span>
+                <div>
+                  <h2 id="securityCardTitle">Session protection</h2>
+                  <p>Controls enforced by the SDMS server.</p>
+                </div>
+              </header>
+              <ul class="security-list">
+                <li><i class="bi bi-check2-circle" aria-hidden="true"></i><span><strong>HTTP-only session cookie</strong>Scripts cannot read your session token.</span></li>
+                <li><i class="bi bi-check2-circle" aria-hidden="true"></i><span><strong>SameSite protection</strong>Cross-site requests cannot reuse your session.</span></li>
+                <li><i class="bi bi-check2-circle" aria-hidden="true"></i><span><strong>CSRF validation</strong>State-changing requests require a signed token.</span></li>
+                <li><i class="bi bi-check2-circle" aria-hidden="true"></i><span><strong>Rate-limited sign-in</strong>Repeated failed attempts are slowed automatically.</span></li>
+              </ul>
+              <div class="settings-card__footer">
+                <p class="form-note"><i class="bi bi-clock-history" aria-hidden="true"></i> Password last changed <span id="settingsPasswordChanged">—</span></p>
+                <button type="button" class="btn btn-danger-soft btn-sm" id="settingsLogout">
+                  <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Sign out
+                </button>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 North Valley Unified School District</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+        <span class="app-footer__right" id="footerUpdated"></span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/settings.js"></script>
+</body>
+</html>

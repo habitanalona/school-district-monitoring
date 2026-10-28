@@ -1,0 +1,1511 @@
+{
+  "info": {
+    "_postman_id": "9f6f2f7e-3f1e-4f0b-9d7a-6d0c4b8a2e11",
+    "name": "School District Monitoring System API",
+    "description": "REST API for the School District Monitoring System.\n\n**Base URL:** `{{baseUrl}}` (default `http://localhost:3000/api`).\n\n**Authentication workflow**\n1. Set `username` and `password` in the environment.\n2. Run **Authentication → Login**. Postman's cookie jar stores the HTTP-only session cookie automatically.\n3. The login request fetches `/auth/csrf`, sends `X-CSRF-Token`, then saves the rotated token from the response.\n4. Every POST/PUT/PATCH/DELETE in this collection attaches the saved token automatically through the collection pre-request script.\n5. Run **Logout** when finished. Sessions expire after 8 hours (7 days with Remember me).\n\n**IDs**\n`schoolId`, `reportId`, `userId`, and `announcementId` are captured from create responses. Run the requests in folder order the first time. `period` must use `YYYY-MM`.\n\n**Credentials**\nNo credentials are stored in this collection or its environment. Use the demo accounts listed in the README, or provision your own account.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(pm.request.method)) {",
+          "  const token = pm.collectionVariables.get('csrfToken');",
+          "  if (token) {",
+          "    pm.request.headers.upsert({ key: 'X-CSRF-Token', value: token });",
+          "  }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "csrfToken",
+      "value": ""
+    },
+    {
+      "key": "currentUser",
+      "value": ""
+    },
+    {
+      "key": "currentFullName",
+      "value": ""
+    },
+    {
+      "key": "currentEmail",
+      "value": ""
+    },
+    {
+      "key": "districtOfficeId",
+      "value": ""
+    },
+    {
+      "key": "districtOfficeCode",
+      "value": ""
+    },
+    {
+      "key": "schoolId",
+      "value": ""
+    },
+    {
+      "key": "reportId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "announcementId",
+      "value": ""
+    },
+    {
+      "key": "notificationId",
+      "value": ""
+    },
+    {
+      "key": "registeredUserId",
+      "value": ""
+    },
+    {
+      "key": "resetToken",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Get CSRF token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/auth/csrf",
+            "description": "Creates an anonymous session (if needed) and returns the CSRF token. The login request refreshes this automatically, so this request is mainly a diagnostic helper."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('CSRF token returned', () => pm.expect(body.data.csrfToken).to.be.a('string').and.not.empty);",
+                  "pm.collectionVariables.set('csrfToken', body.data.csrfToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "description": "Signs in with a username or email. Set `username` and `password` in the environment first. Postman stores the HTTP-only session cookie in its cookie jar. The CSRF token is fetched immediately before login and rotated again on success.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"remember\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const baseUrl = pm.variables.get('baseUrl');",
+                  "pm.sendRequest({ url: baseUrl + '/auth/csrf', method: 'GET', header: { Accept: 'application/json' } }, (error, response) => {",
+                  "  if (!error && response.code === 200) {",
+                  "    const token = response.json().data.csrfToken;",
+                  "    pm.collectionVariables.set('csrfToken', token);",
+                  "    pm.request.headers.upsert({ key: 'X-CSRF-Token', value: token });",
+                  "  }",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login succeeds', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Session user returned', () => pm.expect(body.data.user.username).to.be.a('string'));",
+                  "pm.collectionVariables.set('csrfToken', body.data.csrfToken);",
+                  "pm.collectionVariables.set('currentUser', JSON.stringify(body.data.user));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Current session",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/auth/me",
+            "description": "Returns the signed-in user, role permissions, available districts, and the current CSRF token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('User payload present', () => pm.expect(body.data.user.id).to.be.a('number'));",
+                  "pm.collectionVariables.set('csrfToken', body.data.csrfToken);",
+                  "pm.collectionVariables.set('currentFullName', body.data.user.fullName);",
+                  "pm.collectionVariables.set('currentEmail', body.data.user.email);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Forgot password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/forgot-password",
+            "description": "Creates an expiring reset token. The response is intentionally generic so it does not reveal whether an account exists. In non-production environments a `devResetUrl` is also returned for local testing; copy its token into the `resetToken` variable only if you intend to test Reset password.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{username}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Generic response returned', () => pm.response.to.have.status(200));",
+                  "const payload = pm.response.json();",
+                  "pm.test('Message does not reveal account existence', () => pm.expect(payload.data.message).to.match(/if an account matches/i));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reset password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/reset-password",
+            "description": "Consumes a single-use reset token. Set `resetToken` (from a development reset URL) and `newPassword` first. Tokens expire and cannot be reused.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"password\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Reset endpoint responds without exposing internals', () => pm.expect(pm.response.code).to.be.oneOf([200, 400, 410, 429]));",
+                  "if (pm.response.code === 429) {",
+                  "  pm.test('Rate limit response is generic', () => pm.expect(pm.response.json().code).to.eql('RATE_LIMITED'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dashboard/summary",
+            "description": "Six headline metrics plus the resolved reporting period. Optional query params: `districtId` (system administrators only) and `period` (YYYY-MM)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Headline metrics present', () => {",
+                  "  pm.expect(payload.totalSchools).to.be.a('number');",
+                  "  pm.expect(payload.activeSchools).to.be.a('number');",
+                  "  pm.expect(payload.totalStudents).to.be.a('number');",
+                  "  pm.expect(payload.totalTeachers).to.be.a('number');",
+                  "  pm.expect(payload.pendingReports).to.be.a('number');",
+                  "  pm.expect(payload.attentionSchools).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Enrollment by school",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dashboard/enrollment",
+            "description": "School-level enrollment data used by the enrollment chart."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Schools array returned', () => pm.expect(pm.response.json().data.schools).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Performance comparison",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dashboard/performance",
+            "description": "Performance scores used by the performance comparison chart."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Schools array returned', () => pm.expect(pm.response.json().data.schools).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Monthly reporting status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dashboard/report-status",
+            "description": "Status counts for the selected reporting period. Accepts the optional `period` query parameter."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Status counts present', () => pm.expect(payload.statuses).to.be.an('object'));",
+                  "pm.test('Period is returned', () => pm.expect(payload.period).to.match(/^[0-9]{4}-(0[1-9]|1[0-2])$/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Recent activity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dashboard/recent-activity",
+            "description": "Latest audit activity visible in the current district scope."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Activities array returned', () => pm.expect(pm.response.json().data.activities).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Districts",
+      "item": [
+        {
+          "name": "List districts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/districts",
+            "description": "All districts visible to the signed-in user, each with its two PSDS assignments and school, account, and announcement counts."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('District array returned', () => pm.expect(body.data).to.be.an('array'));",
+                  "pm.test('Every district has two PSDS', () => {",
+                  "  body.data.forEach((district) => pm.expect(district.psds).to.have.lengthOf(2));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "District hierarchy",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/districts/hierarchy",
+            "description": "School Division Office to district to school tree that powers the sidebar. Totals only count districts and schools the signed-in user can see."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json().data;",
+                  "pm.test('Hierarchy totals returned', () => {",
+                  "  pm.expect(body.totals.districts).to.be.a('number');",
+                  "  pm.expect(body.totals.schools).to.be.a('number');",
+                  "});",
+                  "pm.test('Districts carry schools and PSDS', () => {",
+                  "  body.districts.forEach((district) => {",
+                  "    pm.expect(district.schools).to.be.an('array');",
+                  "    pm.expect(district.psds).to.have.lengthOf(2);",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create district",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/districts",
+            "description": "Creates a district with exactly two PSDS assignments. Requires a system administrator. The code is generated from the current timestamp and the new ID is stored for the following requests.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"API Verification District\",\n  \"code\": \"API-{{$timestamp}}\",\n  \"address\": \"200 API Verification Avenue\",\n  \"contactEmail\": \"api.district@example.com\",\n  \"psds\": [\n    {\n      \"name\": \"API PSDS One\",\n      \"email\": \"api.psds.one@example.com\",\n      \"phone\": \"+1 555 010 3030\"\n    },\n    {\n      \"name\": \"API PSDS Two\",\n      \"email\": \"api.psds.two@example.com\",\n      \"phone\": \"+1 555 010 3031\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('District created', () => pm.response.to.have.status(201));",
+                  "const district = pm.response.json().data;",
+                  "pm.collectionVariables.set('districtOfficeId', district.id);",
+                  "pm.collectionVariables.set('districtOfficeCode', district.code);",
+                  "pm.test('District has two PSDS', () => pm.expect(district.psds).to.have.lengthOf(2));",
+                  "pm.test('District code returned', () => pm.expect(district.code).to.match(/^API-[0-9]+$/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "District detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/districts/{{districtOfficeId}}",
+            "description": "Full record for one district. IDs outside the signed-in user district return 404 so their existence is not disclosed."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const district = pm.response.json().data;",
+                  "pm.test('District detail returned', () => {",
+                  "  pm.expect(district.id).to.be.a('number');",
+                  "  pm.expect(district.psds).to.have.lengthOf(2);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update district",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/districts/{{districtOfficeId}}",
+            "description": "Replaces district details and both PSDS assignments. Requires a system administrator; the code from the create request is reused.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"API Verification District Updated\",\n  \"code\": \"{{districtOfficeCode}}\",\n  \"address\": \"201 API Verification Avenue\",\n  \"contactEmail\": \"api.district@example.com\",\n  \"psds\": [\n    {\n      \"name\": \"API PSDS One\",\n      \"email\": \"api.psds.one@example.com\",\n      \"phone\": \"+1 555 010 3030\"\n    },\n    {\n      \"name\": \"API PSDS Two Updated\",\n      \"email\": \"api.psds.two@example.com\",\n      \"phone\": \"+1 555 010 3031\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('District updated', () => pm.response.to.have.status(200));",
+                  "const district = pm.response.json().data;",
+                  "pm.test('Updated name returned', () => pm.expect(district.name).to.include('Updated'));",
+                  "pm.test('Both PSDS returned', () => pm.expect(district.psds).to.have.lengthOf(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete district",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/districts/{{districtOfficeId}}",
+            "description": "Deletes a district that has no schools, accounts, or announcements. Seeded districts with data return 409 DISTRICT_IN_USE. Requires a system administrator."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('District deleted', () => pm.response.to.have.status(200));",
+                  "pm.test('Deletion message returned', () => pm.expect(pm.response.json().data.message).to.include('deleted'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Schools",
+      "item": [
+        {
+          "name": "Sidebar school list",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/schools/sidebar",
+            "description": "Compact list of enrolled schools used by the dashboard sidebar."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('School array returned', () => pm.expect(pm.response.json().data.schools).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List schools",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/schools?page=1&pageSize=10&sort=name&direction=asc",
+            "description": "Paginated school register. Supports `search`, `type`, `status`, `reportStatus`, `sort`, `direction`, `page`, and `pageSize`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Pagination metadata returned', () => {",
+                  "  pm.expect(body.pagination.page).to.eql(1);",
+                  "  pm.expect(body.pagination.pageSize).to.eql(10);",
+                  "  pm.expect(body.pagination.total).to.be.a('number');",
+                  "});",
+                  "if (body.data.length && !pm.collectionVariables.get('schoolId')) {",
+                  "  pm.collectionVariables.set('schoolId', body.data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "School detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/schools/{{schoolId}}",
+            "description": "Full record for one school. Out-of-district IDs return 404 so their existence is not disclosed."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('School record returned', () => pm.expect(pm.response.json().data.id).to.be.a('number'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create school",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/schools",
+            "description": "Registers a school. A unique code is generated from the current timestamp. Requires a system administrator or district administrator. Set `districtId` in the environment (1 in the demo seed).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schoolCode\": \"API-{{$timestamp}}\",\n  \"schoolName\": \"API Verification School\",\n  \"schoolType\": \"Elementary School\",\n  \"address\": \"100 API Verification Way\",\n  \"schoolHead\": \"API Test Head\",\n  \"contactEmail\": \"api.school@example.com\",\n  \"contactPhone\": \"+1 555 010 2020\",\n  \"studentCount\": 250,\n  \"teacherCount\": 18,\n  \"performanceScore\": 82.5,\n  \"status\": \"active\",\n  \"districtId\": \"{{districtId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('School created', () => pm.response.to.have.status(201));",
+                  "const school = pm.response.json().data;",
+                  "pm.collectionVariables.set('schoolId', school.id);",
+                  "pm.test('School code returned', () => pm.expect(school.code).to.match(/^API-[0-9]+$/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update school",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/schools/{{schoolId}}",
+            "description": "Updates the school created above while keeping its code and district.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schoolCode\": \"API-{{$timestamp}}\",\n  \"schoolName\": \"API Verification School Updated\",\n  \"schoolType\": \"Elementary School\",\n  \"address\": \"100 API Verification Way\",\n  \"schoolHead\": \"API Test Head\",\n  \"contactEmail\": \"api.school@example.com\",\n  \"contactPhone\": \"+1 555 010 2020\",\n  \"studentCount\": 260,\n  \"teacherCount\": 19,\n  \"performanceScore\": 84,\n  \"status\": \"active\",\n  \"districtId\": \"{{districtId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('School updated', () => pm.response.to.have.status(200));",
+                  "pm.test('Updated name returned', () => pm.expect(pm.response.json().data.name).to.include('Updated'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Archive school",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/schools/{{schoolId}}/archive",
+            "description": "Archives a school without deleting it. Reports and history are retained."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('School archived', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is archived', () => pm.expect(pm.response.json().data.status).to.eql('archived'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Restore school",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/schools/{{schoolId}}/restore",
+            "description": "Restores an archived school to active status."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('School restored', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is active', () => pm.expect(pm.response.json().data.status).to.eql('active'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Report summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/reports/summary",
+            "description": "Status distribution and available periods. Optional `period` query parameter."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Summary payload returned', () => pm.expect(pm.response.json().data).to.be.an('object'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List reports",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/reports?page=1&pageSize=10",
+            "description": "Paginated report records. Supports `period`, `status`, `type`, and `search` filters."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Report rows returned', () => pm.expect(body.data).to.be.an('array'));",
+                  "if (body.data.length && !pm.collectionVariables.get('reportId')) {",
+                  "  pm.collectionVariables.set('reportId', body.data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Report detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/reports/{{reportId}}",
+            "description": "Full report record, including school, period, type, status, remarks, and submitter."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Report returned', () => pm.expect(pm.response.json().data.id).to.be.a('number'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/reports",
+            "description": "Records one report per school, period, and type. Run Create school first so `schoolId` points at a fresh record. Set `period` in the environment (YYYY-MM).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schoolId\": \"{{schoolId}}\",\n  \"reportingPeriod\": \"{{period}}\",\n  \"reportType\": \"Compliance\",\n  \"submissionStatus\": \"pending\",\n  \"remarks\": \"Created from the Postman verification collection.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Report created', () => pm.response.to.have.status(201));",
+                  "const report = pm.response.json().data;",
+                  "pm.collectionVariables.set('reportId', report.id);",
+                  "pm.test('Report is pending', () => pm.expect(report.submissionStatus).to.eql('pending'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update report",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/reports/{{reportId}}",
+            "description": "Updates the submission status and review remarks for an existing report.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schoolId\": \"{{schoolId}}\",\n  \"reportingPeriod\": \"{{period}}\",\n  \"reportType\": \"Compliance\",\n  \"submissionStatus\": \"reviewed\",\n  \"remarks\": \"Reviewed through the Postman verification collection.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Report updated', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is reviewed', () => pm.expect(pm.response.json().data.submissionStatus).to.eql('reviewed'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/users?page=1&pageSize=10",
+            "description": "Paginated accounts. System administrators see every district; district administrators see only their own district and cannot see system administrators."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('User rows returned', () => pm.expect(body.data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users",
+            "description": "Provisions a staff account. Set `newUserPassword` in the environment first (minimum 10 characters with a letter and a number). The username and email are generated from the current timestamp.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"API Test Staff\",\n  \"username\": \"api.staff.{{$timestamp}}\",\n  \"email\": \"api.staff.{{$timestamp}}@example.com\",\n  \"role\": \"staff\",\n  \"districtId\": \"{{districtId}}\",\n  \"password\": \"{{newUserPassword}}\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('User created', () => pm.response.to.have.status(201));",
+                  "const user = pm.response.json().data;",
+                  "pm.collectionVariables.set('userId', user.id);",
+                  "pm.test('User is active staff', () => {",
+                  "  pm.expect(user.role).to.eql('staff');",
+                  "  pm.expect(user.isActive).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update user",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/{{userId}}",
+            "description": "Updates profile details and role assignment for an existing account.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"API Test Staff Updated\",\n  \"username\": \"api.staff.{{$timestamp}}\",\n  \"email\": \"api.staff.{{$timestamp}}@example.com\",\n  \"role\": \"staff\",\n  \"districtId\": \"{{districtId}}\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('User updated', () => pm.response.to.have.status(200));",
+                  "pm.test('Updated name returned', () => pm.expect(pm.response.json().data.fullName).to.include('Updated'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deactivate user",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/users/{{userId}}/status",
+            "description": "Activates or deactivates an account. The last active system administrator cannot be deactivated.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('User deactivated', () => pm.response.to.have.status(200));",
+                  "pm.test('Account is inactive', () => pm.expect(pm.response.json().data.isActive).to.eql(false));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Registration and approvals",
+      "item": [
+        {
+          "name": "Registration options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/auth/registration-options",
+            "description": "Public list of self-registrable roles, districts, and active schools. Each role states which role must confirm the new account."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Options returned', () => pm.response.to.have.status(200));",
+                  "pm.test('Self-registration roles are listed', () => {",
+                  "  const roles = pm.response.json().data.roles.map((role) => role.value);",
+                  "  pm.expect(roles).to.include.members(['psds', 'school_head', 'teacher', 'nt', 'adviser', 'learner']);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/register",
+            "description": "Creates a pending account. The applicant cannot sign in until the immediate superior confirms it: PSDS → district administrator, school head → PSDS, teacher/NT/adviser → school head, learner → adviser. Change the username before running this request twice; `schoolId` must belong to `districtId`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Postman Applicant\",\n  \"username\": \"postman.applicant\",\n  \"email\": \"postman.applicant@example.com\",\n  \"password\": \"Applicant1234\",\n  \"role\": \"teacher\",\n  \"districtId\": {{districtId}},\n  \"schoolId\": {{schoolId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const baseUrl = pm.variables.get('baseUrl');",
+                  "pm.sendRequest({ url: baseUrl + '/auth/csrf', method: 'GET', header: { Accept: 'application/json' } }, (error, response) => {",
+                  "  if (!error && response.code === 200) {",
+                  "    const token = response.json().data.csrfToken;",
+                  "    pm.collectionVariables.set('csrfToken', token);",
+                  "    pm.request.headers.upsert({ key: 'X-CSRF-Token', value: token });",
+                  "  }",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Registration accepted', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json().data;",
+                  "pm.test('Account is pending', () => pm.expect(body.user.approvalStatus).to.eql('pending'));",
+                  "pm.test('Account cannot sign in yet', () => pm.expect(body.user.isActive).to.eql(false));",
+                  "pm.collectionVariables.set('registeredUserId', body.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List pending approvals",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/approvals",
+            "description": "Lists registrations the signed-in account is allowed to confirm. Sign in as the immediate superior (for example `northhead` for a teacher) before running this request."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Queue returned', () => pm.response.to.have.status(200));",
+                  "pm.test('Approvals are an array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approve registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/approvals/{{registeredUserId}}/approve",
+            "description": "Confirms a pending registration. Only the role specified by the approval chain may confirm it; system administrators can confirm any registration.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Registration approved', () => pm.response.to.have.status(200));",
+                  "pm.test('Account is active', () => pm.expect(pm.response.json().data.approvalStatus).to.eql('active'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/approvals/{{registeredUserId}}/reject",
+            "description": "Returns a pending registration with an optional reason (maximum 500 characters). The applicant is notified and cannot sign in.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Please upload your appointment documents.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Registration rejected', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is rejected', () => pm.expect(pm.response.json().data.approvalStatus).to.eql('rejected'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Announcements",
+      "item": [
+        {
+          "name": "List announcements",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/announcements",
+            "description": "Announcements visible to the signed-in role. Staff only receive published notices for their district or system-wide notices."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Announcement array returned', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create announcement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/announcements",
+            "description": "Publishes a district or system-wide notice. Requires a system administrator or district administrator. Leave `districtId` blank for system-wide.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"API Verification Notice\",\n  \"content\": \"This notice was created by the Postman verification collection to confirm announcement publishing works end to end.\",\n  \"status\": \"published\",\n  \"districtId\": \"{{districtId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Announcement created', () => pm.response.to.have.status(201));",
+                  "const announcement = pm.response.json().data;",
+                  "pm.collectionVariables.set('announcementId', announcement.id);",
+                  "pm.test('Announcement is published', () => pm.expect(announcement.status).to.eql('published'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Announcement detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/announcements/{{announcementId}}",
+            "description": "Full announcement content and audience details for the notice created above."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Announcement returned', () => pm.expect(pm.response.json().data.id).to.be.a('number'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update announcement",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/announcements/{{announcementId}}",
+            "description": "Updates the notice title, body, or publication state.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"API Verification Notice Updated\",\n  \"content\": \"This notice was updated by the Postman verification collection.\",\n  \"status\": \"published\",\n  \"districtId\": \"{{districtId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Announcement updated', () => pm.response.to.have.status(200));",
+                  "pm.test('Updated title returned', () => pm.expect(pm.response.json().data.title).to.include('Updated'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "System and account",
+      "item": [
+        {
+          "name": "Audit logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/audit-logs?page=1&pageSize=20",
+            "description": "Administrative audit trail. System administrators only; district administrators and staff receive 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Audit rows returned', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notifications",
+            "description": "Current user's notifications and unread count."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const payload = pm.response.json().data;",
+                  "pm.test('Notification payload returned', () => {",
+                  "  pm.expect(payload.notifications).to.be.an('array');",
+                  "  pm.expect(payload.unreadCount).to.be.a('number');",
+                  "});",
+                  "if (payload.notifications.length) {",
+                  "  pm.collectionVariables.set('notificationId', payload.notifications[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark notification read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/notifications/{{notificationId}}/read",
+            "description": "Marks one notification as read. Run Notifications first so a notification ID is available."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Notification read request handled', () => {",
+                  "  if (!pm.collectionVariables.get('notificationId')) {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                  "    return;",
+                  "  }",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark all notifications read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/notifications/read-all",
+            "description": "Marks every notification for the signed-in user as read."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('All notifications marked read', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Districts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/districts",
+            "description": "Districts available to the signed-in account. Non-system roles only see their own district."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('District array returned', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/profile",
+            "description": "Updates the signed-in account's name and email. The request reuses values loaded by Current session, so it is safe to run without changing seeded data.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"{{currentFullName}}\",\n  \"email\": \"{{currentEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Profile updated', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Session",
+      "item": [
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/auth/logout",
+            "description": "Destroys the server session and clears the session cookie. Run this last, because every other request needs the session."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Logout succeeds', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('csrfToken', '');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Dashboard · School District Monitoring System</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="app-body" data-page="dashboard">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="brand-mark brand-mark--loader" aria-hidden="true">
+        <svg viewBox="0 0 40 40" role="img" focusable="false">
+          <path d="M20 3.5 34.5 9v10.2c0 8.1-5.6 14.5-14.5 17.3C11.1 33.7 5.5 27.3 5.5 19.2V9L20 3.5Z" fill="rgba(29,95,191,.08)" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M20 9.5 28.8 13v6.3c0 5.2-3.5 9.4-8.8 11.3-5.3-1.9-8.8-6.1-8.8-11.3V13L20 9.5Z" fill="currentColor" opacity=".92"/>
+          <path d="m20 14.3 5.1 2v3.1c0 2.9-2 5.3-5.1 6.4-3.1-1.1-5.1-3.5-5.1-6.4v-3.1l5.1-2Z" fill="#fff"/>
+          <path d="M15.8 25.3h8.4M20 19.5v5.8" stroke="#1d5fbf" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Preparing your district dashboard…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header page-header--dashboard">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">District overview</p>
+            <h1 id="greetingHeading">Good morning, Administrator!</h1>
+            <p class="page-subtitle">
+              <span id="dashboardDate">—</span>
+              <span class="meta-dot" aria-hidden="true"></span>
+              <span id="districtOverview">Loading district snapshot…</span>
+            </p>
+          </div>
+          <div class="page-header__actions">
+            <div class="select-control d-none" id="districtControl">
+              <label for="districtFilter">District</label>
+              <select class="custom-select custom-select-sm" id="districtFilter"></select>
+            </div>
+            <div class="select-control">
+              <label for="periodFilter">Reporting period</label>
+              <select class="custom-select custom-select-sm" id="periodFilter" aria-label="Reporting period"></select>
+            </div>
+            <button type="button" class="btn btn-light btn-icon" id="refreshDashboard" aria-label="Refresh dashboard data" title="Refresh dashboard">
+              <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="dashboardAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="stat-grid" aria-label="District summary statistics">
+          <article class="stat-card stat-card--blue">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-buildings" aria-hidden="true"></i></span>
+              <span class="stat-tag">Registry</span>
+            </div>
+            <p class="stat-label">Total Enrolled Schools</p>
+            <p class="stat-value" id="statSchools">—</p>
+            <p class="stat-description" id="statSchoolsDescription">Schools registered in this district scope</p>
+          </article>
+          <article class="stat-card stat-card--teal">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-check2-circle" aria-hidden="true"></i></span>
+              <span class="stat-tag" id="statActiveRate">—</span>
+            </div>
+            <p class="stat-label">Active Schools</p>
+            <p class="stat-value" id="statActive">—</p>
+            <p class="stat-description">Currently operating and reporting to the district</p>
+          </article>
+          <article class="stat-card stat-card--indigo">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-people" aria-hidden="true"></i></span>
+              <span class="stat-tag">Learners</span>
+            </div>
+            <p class="stat-label">Total Students</p>
+            <p class="stat-value" id="statStudents">—</p>
+            <p class="stat-description">Enrolled students across all monitored schools</p>
+          </article>
+          <article class="stat-card stat-card--sky">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-person-video3" aria-hidden="true"></i></span>
+              <span class="stat-tag">Faculty</span>
+            </div>
+            <p class="stat-label">Total Teaching Personnel</p>
+            <p class="stat-value" id="statTeachers">—</p>
+            <p class="stat-description">Teaching personnel serving district schools</p>
+          </article>
+          <article class="stat-card stat-card--amber">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-hourglass-split" aria-hidden="true"></i></span>
+              <span class="stat-tag" id="statPendingTag">Reports</span>
+            </div>
+            <p class="stat-label">Pending School Reports</p>
+            <p class="stat-value" id="statPending">—</p>
+            <p class="stat-description" id="statPendingDescription">Awaiting submission for the selected period</p>
+          </article>
+          <article class="stat-card stat-card--rose">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></span>
+              <span class="stat-tag">Follow-up</span>
+            </div>
+            <p class="stat-label">Schools Requiring Attention</p>
+            <p class="stat-value" id="statAttention">—</p>
+            <p class="stat-description">Inactive schools or reports pending / late</p>
+          </article>
+        </section>
+
+        <div class="section-heading">
+          <div>
+            <h2>District analytics</h2>
+            <p>Enrollment, performance, and reporting at a glance.</p>
+          </div>
+          <div class="chart-focus">
+            <label for="chartFocus">Chart focus</label>
+            <select class="custom-select custom-select-sm" id="chartFocus">
+              <option value="">All schools</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row chart-row">
+          <div class="col-xl-7">
+            <section class="surface-card chart-card" aria-labelledby="enrollmentChartTitle">
+              <header class="card-heading">
+                <div>
+                  <h3 id="enrollmentChartTitle">Student enrollment by school</h3>
+                  <p id="enrollmentChartSubtitle">Top schools by enrolled students</p>
+                </div>
+                <span class="chart-chip"><i class="bi bi-people" aria-hidden="true"></i> Students</span>
+              </header>
+              <div class="chart-canvas chart-canvas--tall">
+                <canvas id="enrollmentChart" role="img" aria-label="Bar chart of student enrollment by school"></canvas>
+                <div class="chart-empty d-none" id="enrollmentEmpty">
+                  <i class="bi bi-bar-chart" aria-hidden="true"></i>
+                  <p>No enrollment data is available.</p>
+                </div>
+              </div>
+              <p class="chart-summary" id="enrollmentSummary"></p>
+            </section>
+          </div>
+          <div class="col-xl-5">
+            <section class="surface-card chart-card" aria-labelledby="performanceChartTitle">
+              <header class="card-heading">
+                <div>
+                  <h3 id="performanceChartTitle">School performance comparison</h3>
+                  <p id="performanceChartSubtitle">Performance scores by school</p>
+                </div>
+                <span class="chart-chip chart-chip--teal"><i class="bi bi-graph-up" aria-hidden="true"></i> Score</span>
+              </header>
+              <div class="chart-canvas chart-canvas--tall">
+                <canvas id="performanceChart" role="img" aria-label="Bar chart comparing school performance scores"></canvas>
+                <div class="chart-empty d-none" id="performanceEmpty">
+                  <i class="bi bi-graph-up" aria-hidden="true"></i>
+                  <p>No performance scores are available.</p>
+                </div>
+              </div>
+              <p class="chart-summary" id="performanceSummary"></p>
+            </section>
+          </div>
+        </div>
+
+        <div class="row chart-row">
+          <div class="col-xl-4">
+            <section class="surface-card chart-card chart-card--compact" aria-labelledby="reportChartTitle">
+              <header class="card-heading">
+                <div>
+                  <h3 id="reportChartTitle">Monthly reporting status</h3>
+                  <p id="reportChartPeriod">—</p>
+                </div>
+              </header>
+              <div class="chart-doughnut">
+                <div class="chart-canvas chart-canvas--doughnut">
+                  <canvas id="reportStatusChart" role="img" aria-label="Doughnut chart of monthly school reporting status"></canvas>
+                  <div class="doughnut-center" id="reportStatusCenter" aria-hidden="true">
+                    <strong id="reportStatusTotal">—</strong>
+                    <span>schools</span>
+                  </div>
+                  <div class="chart-empty d-none" id="reportStatusEmpty">
+                    <i class="bi bi-clipboard-x" aria-hidden="true"></i>
+                    <p>No report data for this period.</p>
+                  </div>
+                </div>
+                <ul class="chart-legend" id="reportStatusLegend"></ul>
+              </div>
+              <p class="chart-summary" id="reportStatusSummary"></p>
+            </section>
+          </div>
+          <div class="col-xl-4">
+            <section class="surface-card chart-card chart-card--compact" aria-labelledby="classificationChartTitle">
+              <header class="card-heading">
+                <div>
+                  <h3 id="classificationChartTitle">Schools by operating status</h3>
+                  <p>Active versus inactive schools</p>
+                </div>
+              </header>
+              <div class="chart-doughnut">
+                <div class="chart-canvas chart-canvas--doughnut">
+                  <canvas id="classificationChart" role="img" aria-label="Doughnut chart of schools by operating status"></canvas>
+                  <div class="doughnut-center" id="classificationCenter" aria-hidden="true">
+                    <strong id="classificationTotal">—</strong>
+                    <span>schools</span>
+                  </div>
+                  <div class="chart-empty d-none" id="classificationEmpty">
+                    <i class="bi bi-buildings" aria-hidden="true"></i>
+                    <p>No schools in this scope.</p>
+                  </div>
+                </div>
+                <ul class="chart-legend" id="classificationLegend"></ul>
+              </div>
+              <p class="chart-summary" id="classificationSummary"></p>
+            </section>
+          </div>
+          <div class="col-xl-4">
+            <section class="surface-card activity-card" aria-labelledby="activityTitle">
+              <header class="card-heading">
+                <div>
+                  <h3 id="activityTitle">Recent activity</h3>
+                  <p>Latest district actions</p>
+                </div>
+                <a href="audit-logs.html" class="text-button d-none" id="activityAuditLink">Audit logs</a>
+              </header>
+              <div class="activity-list" id="recentActivity">
+                <div class="activity-skeleton">
+                  <span class="skeleton skeleton-avatar"></span>
+                  <span class="activity-skeleton__lines"><span class="skeleton skeleton-text" style="width:78%"></span><span class="skeleton skeleton-text" style="width:52%"></span></span>
+                </div>
+                <div class="activity-skeleton">
+                  <span class="skeleton skeleton-avatar"></span>
+                  <span class="activity-skeleton__lines"><span class="skeleton skeleton-text" style="width:64%"></span><span class="skeleton skeleton-text" style="width:40%"></span></span>
+                </div>
+                <div class="activity-skeleton">
+                  <span class="skeleton skeleton-avatar"></span>
+                  <span class="activity-skeleton__lines"><span class="skeleton skeleton-text" style="width:70%"></span><span class="skeleton skeleton-text" style="width:48%"></span></span>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <section class="surface-card table-card" aria-labelledby="monitoringTitle">
+          <header class="table-card__head">
+            <div>
+              <h2 id="monitoringTitle">School monitoring</h2>
+              <p>Reporting compliance and operating status for every enrolled school.</p>
+            </div>
+            <a class="btn btn-light btn-sm" href="schools.html">
+              <i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+              <span>Open school register</span>
+            </a>
+          </header>
+
+          <div class="school-filters" id="dashboardSchoolFilters">
+            <label class="search-field">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <span class="sr-only">Search schools</span>
+              <input type="search" id="schoolSearch" placeholder="Search by school name, code, or head…" autocomplete="off">
+            </label>
+            <select class="custom-select custom-select-sm" id="schoolTypeFilter" aria-label="Filter by school type">
+              <option value="">All school types</option>
+              <option>Elementary School</option>
+              <option>High School</option>
+              <option>Integrated School</option>
+              <option>Senior High School</option>
+            </select>
+            <select class="custom-select custom-select-sm" id="schoolStatusFilter" aria-label="Filter by school status">
+              <option value="">Active records</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="archived">Archived</option>
+              <option value="all">All statuses</option>
+            </select>
+            <select class="custom-select custom-select-sm" id="reportStatusFilter" aria-label="Filter by reporting status">
+              <option value="">Any reporting status</option>
+              <option value="pending">Pending</option>
+              <option value="submitted">Submitted</option>
+              <option value="late">Late</option>
+              <option value="reviewed">Reviewed</option>
+            </select>
+            <button type="button" class="btn btn-ghost btn-sm" id="resetSchoolFilters">
+              <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="app-table" id="schoolTable">
+              <caption class="sr-only">Enrolled schools with reporting and operating status</caption>
+              <thead>
+                <tr>
+                  <th scope="col"><button type="button" class="sort-button" data-sort="code">School ID <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                  <th scope="col"><button type="button" class="sort-button" data-sort="name">School Name <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                  <th scope="col"><button type="button" class="sort-button" data-sort="type">School Type <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                  <th scope="col"><button type="button" class="sort-button" data-sort="head">School Head <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                  <th scope="col" class="text-right"><button type="button" class="sort-button" data-sort="students">Total Students <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                  <th scope="col" class="text-right"><button type="button" class="sort-button" data-sort="teachers">Teaching Personnel <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                  <th scope="col">Report Submission Status</th>
+                  <th scope="col"><button type="button" class="sort-button" data-sort="status">School Status <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                  <th scope="col"><button type="button" class="sort-button" data-sort="updated">Last Updated <i class="bi bi-arrow-down-up" aria-hidden="true"></i></button></th>
+                  <th scope="col" class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="schoolTableBody">
+                <tr class="skeleton-row"><td colspan="10"><span class="skeleton skeleton-block"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <p class="table-footer__meta" id="schoolTableMeta">Loading schools…</p>
+            <div id="schoolPagination" class="pagination-wrap"></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 North Valley Unified School District</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+        <span class="app-footer__right" id="footerUpdated"></span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="assets/vendor/chart.umd.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/school-ui.js"></script>
+  <script src="js/school-table.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

@@ -11,7 +11,8 @@ async function loadUser(req, res, next) {
 
   try {
     const result = await query(
-      `SELECT u.*, d.district_name, d.district_code, s.school_name, s.school_code
+      `SELECT u.*, d.district_name, d.district_code, s.school_name, s.school_code,
+              (SELECT p.updated_at FROM user_photos p WHERE p.user_id = u.id) AS photo_updated_at
        FROM users u
        LEFT JOIN districts d ON d.id = u.district_id
        LEFT JOIN schools s ON s.id = u.school_id

@@ -3,8 +3,13 @@
   "use strict";
 
   var state = {
-    session: null
+    session: null,
+    photoFile: null,
+    photoPreviewUrl: null
   };
+
+  var PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+  var PHOTO_MAX_BYTES = 2 * 1024 * 1024;
 
   var PERMISSIONS = [
     { key: "canManageSchools", label: "Manage school records", description: "Register, edit, archive, and restore schools." },
@@ -31,7 +36,6 @@
     var session = state.session;
     var user = session.user;
     var roleMeta = window.UI.ROLE[user.role] || { label: window.UI.titleCase(user.role), tone: "neutral" };
-    setText("profileAvatar", window.UI.initials(user.fullName));
     setText("profileSummaryName", user.fullName);
     setText("profileSummaryEmail", user.email);
     setText("profileUsername", "@" + user.username);
@@ -66,6 +70,134 @@
         "</li>"
       );
     }).join("");
+    renderPhoto();
+  }
+
+  function renderPhoto() {
+    var user = state.session.user;
+    var url = state.photoPreviewUrl || window.UI.avatarUrl(user);
+    ["profileAvatar", "photoPreview"].forEach(function (id) {
+      var node = el(id);
+      if (!node) {
+        return;
+      }
+      if (url) {
+        node.innerHTML =
+          '<img src="' +
+          window.UI.escapeHtml(url) +
+          '" alt="Profile photo of ' +
+          window.UI.escapeHtml(user.fullName) +
+          '">';
+      } else {
+        node.textContent = window.UI.initials(user.fullName);
+      }
+    });
+    var removeButton = el("photoRemoveButton");
+    if (removeButton) {
+      removeButton.classList.toggle("d-none", !window.UI.avatarUrl(user));
+    }
+  }
+
+  function clearPhotoSelection() {
+    if (state.photoPreviewUrl) {
+      window.URL.revokeObjectURL(state.photoPreviewUrl);
+    }
+    state.photoFile = null;
+    state.photoPreviewUrl = null;
+    var input = el("photoInput");
+    if (input) {
+      input.value = "";
+    }
+    var button = el("photoUploadButton");
+    if (button) {
+      button.disabled = true;
+    }
+  }
+
+  function showPhotoError(message, title) {
+    window.UI.showAlert(el("photoAlert"), "danger", message, title || "Photo not saved");
+  }
+
+  function choosePhoto() {
+    var input = el("photoInput");
+    var file = input.files && input.files[0];
+    window.UI.hideAlert(el("photoAlert"));
+    clearPhotoSelection();
+    if (!file) {
+      renderPhoto();
+      return;
+    }
+    if (PHOTO_TYPES.indexOf(file.type) === -1) {
+      showPhotoError("Choose a JPEG, PNG, or WebP image.", "Unsupported file type");
+      renderPhoto();
+      return;
+    }
+    if (file.size > PHOTO_MAX_BYTES) {
+      showPhotoError("That image is larger than 2 MB. Choose a smaller file.", "Image too large");
+      renderPhoto();
+      return;
+    }
+
+    state.photoFile = file;
+    state.photoPreviewUrl = window.URL.createObjectURL(file);
+    renderPhoto();
+    el("photoUploadButton").disabled = false;
+  }
+
+  function submitPhoto(event) {
+    event.preventDefault();
+    if (!state.photoFile) {
+      return;
+    }
+
+    var button = el("photoUploadButton");
+    var formData = new window.FormData();
+    formData.append("photo", state.photoFile);
+
+    window.UI.setButtonLoading(button, true, "Uploading…");
+    API.upload("/profile/photo", formData)
+      .then(function (response) {
+        window.UI.setButtonLoading(button, false);
+        state.session.user = Object.assign({}, state.session.user, response.data);
+        window.AppShell.updateUser(response.data);
+        clearPhotoSelection();
+        renderPhoto();
+        window.UI.toast("Photo updated", "Your profile photo is now visible across the district system.", "success");
+      })
+      .catch(function (error) {
+        window.UI.setButtonLoading(button, false);
+        showPhotoError(error.message || "Your photo could not be uploaded. Try again.");
+      });
+  }
+
+  function removePhoto() {
+    window.UI
+      .confirm({
+        title: "Remove profile photo",
+        message: "Your photo will disappear from your profile and from the account menus. You can upload a new one at any time.",
+        confirmLabel: "Remove photo",
+        tone: "danger"
+      })
+      .then(function (confirmed) {
+        if (!confirmed) {
+          return;
+        }
+        var button = el("photoRemoveButton");
+        window.UI.setButtonLoading(button, true, "Removing…");
+        return API.delete("/profile/photo")
+          .then(function (response) {
+            window.UI.setButtonLoading(button, false);
+            state.session.user = Object.assign({}, state.session.user, response.data);
+            window.AppShell.updateUser(response.data);
+            clearPhotoSelection();
+            renderPhoto();
+            window.UI.toast("Photo removed", "Your profile no longer shows a photo.", "success");
+          })
+          .catch(function (error) {
+            window.UI.setButtonLoading(button, false);
+            showPhotoError(error.message || "Your photo could not be removed. Try again.");
+          });
+      });
   }
 
   function submitProfile(event) {
@@ -127,6 +259,9 @@
       state.session = session;
       fillProfile();
       el("profileForm").addEventListener("submit", submitProfile);
+      el("photoForm").addEventListener("submit", submitPhoto);
+      el("photoInput").addEventListener("change", choosePhoto);
+      el("photoRemoveButton").addEventListener("click", removePhoto);
       var footer = el("footerUpdated");
       if (footer) {
         footer.textContent = "Signed in as " + session.user.fullName;

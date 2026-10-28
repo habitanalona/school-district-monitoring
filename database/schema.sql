@@ -92,6 +92,19 @@ UPDATE users SET approval_status = 'active' WHERE approval_status IS NULL;
 CREATE INDEX IF NOT EXISTS users_school_idx ON users (school_id);
 CREATE INDEX IF NOT EXISTS users_approval_idx ON users (approval_status);
 
+-- Profile photos are normalised to a 512px square WebP before they are stored,
+-- so a row can never exceed the 2 MB upload limit. Keeping the bytes in
+-- PostgreSQL makes them survive container restarts on hosts with ephemeral disks.
+CREATE TABLE IF NOT EXISTS user_photos (
+  user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  mime_type VARCHAR(32) NOT NULL,
+  byte_size INTEGER NOT NULL CHECK (byte_size > 0 AND byte_size <= 2097152),
+  width INTEGER NOT NULL CHECK (width > 0),
+  height INTEGER NOT NULL CHECK (height > 0),
+  image_data BYTEA NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS school_reports (
   id BIGSERIAL PRIMARY KEY,
   school_id BIGINT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,

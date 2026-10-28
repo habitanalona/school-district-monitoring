@@ -6,6 +6,7 @@ process.env.NODE_ENV = "test";
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const request = require("supertest");
+const sharp = require("sharp");
 
 const app = require("../server/app");
 const { pool } = require("../server/config/database");
@@ -17,7 +18,9 @@ const DEMO = {
   northStaff: { username: "northstaff", password: "Staff@2026" },
   northPsds: { username: "northpsds", password: "Demo@2026" },
   northHead: { username: "northhead", password: "Demo@2026" },
-  northAdviser: { username: "northadviser", password: "Demo@2026" }
+  northAdviser: { username: "northadviser", password: "Demo@2026" },
+  northLearner: { username: "northlearner", password: "Demo@2026" },
+  southAdmin: { username: "southadmin", password: "District@2026" }
 };
 const TEST_PASSWORD = "TestPass1234";
 const REGISTERED_PASSWORD = "Registered1234";
@@ -789,4 +792,140 @@ test("registration validates roles, school scope, duplicates, CSRF, and queue ac
   const staff = await login(DEMO.northStaff);
   const forbidden = await staff.agent.get("/api/approvals");
   assert.equal(forbidden.status, 403);
+});
+
+test("profile photos are validated, normalised, scoped, and removable", async () => {
+  const admin = await login(DEMO.system);
+  const created = await admin.agent
+    .post("/api/users")
+    .set("X-CSRF-Token", admin.csrfToken)
+    .send({
+      fullName: "Test Photo Learner",
+      username: "tst.photo.learner",
+      email: "tst.photo.learner@example.com",
+      password: TEST_PASSWORD,
+      role: "learner",
+      districtId: northDistrictId,
+      schoolId: northSchoolId,
+      isActive: true
+    });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const learnerId = created.body.data.id;
+
+  const learner = await login({ username: "tst.photo.learner", password: TEST_PASSWORD });
+  assert.equal(learner.user.id, learnerId);
+
+  const png = await sharp({
+    create: { width: 640, height: 480, channels: 3, background: { r: 32, g: 96, b: 160 } }
+  })
+    .png()
+    .toBuffer();
+
+  const anonymous = await request(app).get(`/api/users/${learnerId}/photo`);
+  assert.equal(anonymous.status, 401);
+
+  const noCsrf = await learner.agent
+    .post("/api/profile/photo")
+    .attach("photo", png, { filename: "learner.png", contentType: "image/png" });
+  assert.equal(noCsrf.status, 403);
+  assert.equal(noCsrf.body.code, "CSRF_INVALID");
+
+  const upload = await learner.agent
+    .post("/api/profile/photo")
+    .set("X-CSRF-Token", learner.csrfToken)
+    .attach("photo", png, { filename: "learner.png", contentType: "image/png" });
+  assert.equal(upload.status, 200, JSON.stringify(upload.body));
+  assert.ok(upload.body.data.photoUpdatedAt);
+
+  const me = await learner.agent.get("/api/auth/me");
+  assert.equal(me.status, 200);
+  assert.ok(me.body.data.user.photoUpdatedAt);
+
+  const head = await login(DEMO.northHead);
+  const image = await head.agent.get(`/api/users/${learnerId}/photo`);
+  assert.equal(image.status, 200);
+  assert.equal(image.headers["content-type"], "image/webp");
+  assert.equal(image.headers["x-content-type-options"], "nosniff");
+  assert.equal(image.headers["cache-control"], "private, max-age=60, must-revalidate");
+  const metadata = await sharp(image.body).metadata();
+  assert.equal(metadata.format, "webp");
+  assert.equal(metadata.width, 512);
+  assert.equal(metadata.height, 512);
+
+  const cached = await head.agent
+    .get(`/api/users/${learnerId}/photo`)
+    .set("If-None-Match", image.headers.etag);
+  assert.equal(cached.status, 304);
+
+  const gif = await learner.agent
+    .post("/api/profile/photo")
+    .set("X-CSRF-Token", learner.csrfToken)
+    .attach("photo", png, { filename: "learner.gif", contentType: "image/gif" });
+  assert.equal(gif.status, 415);
+  assert.equal(gif.body.code, "PHOTO_TYPE_UNSUPPORTED");
+
+  const spoofed = await learner.agent
+    .post("/api/profile/photo")
+    .set("X-CSRF-Token", learner.csrfToken)
+    .attach("photo", Buffer.from("this is not an image", "utf8"), {
+      filename: "fake.png",
+      contentType: "image/png"
+    });
+  assert.equal(spoofed.status, 415);
+  assert.equal(spoofed.body.code, "PHOTO_INVALID");
+
+  const tooLarge = await learner.agent
+    .post("/api/profile/photo")
+    .set("X-CSRF-Token", learner.csrfToken)
+    .attach("photo", Buffer.alloc(2 * 1024 * 1024 + 1, 0x41), {
+      filename: "huge.png",
+      contentType: "image/png"
+    });
+  assert.equal(tooLarge.status, 413);
+  assert.equal(tooLarge.body.code, "PHOTO_TOO_LARGE");
+
+  const selfOnly = await learner.agent
+    .put(`/api/users/${head.user.id}/photo`)
+    .set("X-CSRF-Token", learner.csrfToken)
+    .attach("photo", png, { filename: "learner.png", contentType: "image/png" });
+  assert.equal(selfOnly.status, 403);
+
+  const northAdmin = await login(DEMO.northAdmin);
+  const adminUpload = await northAdmin.agent
+    .put(`/api/users/${learnerId}/photo`)
+    .set("X-CSRF-Token", northAdmin.csrfToken)
+    .attach("photo", png, { filename: "learner.png", contentType: "image/png" });
+  assert.equal(adminUpload.status, 200, JSON.stringify(adminUpload.body));
+
+  const southAdmin = await login(DEMO.southAdmin);
+  const crossAdmin = await southAdmin.agent
+    .put(`/api/users/${learnerId}/photo`)
+    .set("X-CSRF-Token", southAdmin.csrfToken)
+    .attach("photo", png, { filename: "learner.png", contentType: "image/png" });
+  assert.equal(crossAdmin.status, 403);
+
+  const southUser = await pool.query("SELECT id FROM users WHERE username = 'southstaff'");
+  const crossView = await learner.agent.get(`/api/users/${southUser.rows[0].id}/photo`);
+  assert.equal(crossView.status, 403);
+  assert.equal(crossView.body.code, "PHOTO_FORBIDDEN");
+
+  const removed = await learner.agent
+    .delete("/api/profile/photo")
+    .set("X-CSRF-Token", learner.csrfToken);
+  assert.equal(removed.status, 200);
+  assert.equal(removed.body.data.photoUpdatedAt, null);
+
+  const gone = await head.agent.get(`/api/users/${learnerId}/photo`);
+  assert.equal(gone.status, 404);
+  assert.equal(gone.body.code, "PHOTO_NOT_FOUND");
+
+  const audit = await pool.query(
+    `SELECT action FROM audit_logs
+     WHERE entity_type = 'user' AND entity_id = $1 AND action LIKE '%photo%'`,
+    [String(learnerId)]
+  );
+  const actions = audit.rows.map((row) => row.action);
+  assert.ok(actions.includes("profile.photo_updated"), JSON.stringify(actions));
+  assert.ok(actions.includes("user.photo_updated"), JSON.stringify(actions));
+  assert.ok(actions.includes("profile.photo_removed"), JSON.stringify(actions));
 });

@@ -176,6 +176,28 @@
     return (first + last).toUpperCase();
   }
 
+  function avatarUrl(user) {
+    if (!user || !user.id || !user.photoUpdatedAt) {
+      return "";
+    }
+    var stamp = new Date(user.photoUpdatedAt).getTime();
+    var version = isNaN(stamp) ? encodeURIComponent(String(user.photoUpdatedAt)) : String(stamp);
+    return "/api/users/" + encodeURIComponent(String(user.id)) + "/photo?v=" + version;
+  }
+
+  function avatarMarkup(user, extraClass, alt) {
+    var classes = "avatar" + (extraClass ? " " + extraClass : "");
+    var url = avatarUrl(user);
+    if (url) {
+      return (
+        '<span class="' + classes + '">' +
+        '<img src="' + escapeHtml(url) + '" alt="' + escapeHtml(alt || "Profile photo") + '" loading="lazy" decoding="async">' +
+        "</span>"
+      );
+    }
+    return '<span class="' + classes + '">' + escapeHtml(initials(user && user.fullName)) + "</span>";
+  }
+
   function firstName(name) {
     var parts = String(name || "").trim().split(/\s+/);
     return parts[0] || "there";
@@ -729,6 +751,8 @@
     month: month,
     relativeTime: relativeTime,
     initials: initials,
+    avatarUrl: avatarUrl,
+    avatarMarkup: avatarMarkup,
     firstName: firstName,
     badge: badge,
     pillarBadge: pillarBadge,

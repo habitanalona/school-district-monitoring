@@ -25,6 +25,7 @@ function serializeUser(row) {
     approvedBy: numberOrNull(row.approved_by),
     approvedAt: row.approved_at || null,
     rejectionNote: row.rejection_note || null,
+    photoUpdatedAt: row.photo_updated_at || null,
     lastLoginAt: row.last_login_at || null,
     passwordChangedAt: row.password_changed_at || null,
     createdAt: row.created_at,

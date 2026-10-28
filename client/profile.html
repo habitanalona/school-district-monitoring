@@ -62,6 +62,36 @@
           </aside>
 
           <div class="profile-main">
+            <section class="surface-card settings-card" aria-labelledby="photoTitle">
+              <header class="settings-card__head">
+                <span class="settings-icon settings-icon--blue"><i class="bi bi-camera" aria-hidden="true"></i></span>
+                <div>
+                  <h2 id="photoTitle">Profile photo</h2>
+                  <p>Your photo appears beside your name across the district system.</p>
+                </div>
+              </header>
+              <form id="photoForm" class="settings-card__body" novalidate>
+                <div id="photoAlert" class="d-none mb-3" role="alert"></div>
+                <div class="photo-editor">
+                  <span class="avatar avatar--xl" id="photoPreview">—</span>
+                  <div class="photo-editor__controls">
+                    <input class="sr-only" type="file" id="photoInput" accept="image/jpeg,image/png,image/webp">
+                    <label class="btn btn-light btn-sm mb-0" for="photoInput">
+                      <i class="bi bi-image" aria-hidden="true"></i> Choose image
+                    </label>
+                    <button type="submit" class="btn btn-primary btn-sm" id="photoUploadButton" disabled>
+                      <i class="bi bi-upload" aria-hidden="true"></i>
+                      <span>Upload photo</span>
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm d-none" id="photoRemoveButton">
+                      <i class="bi bi-trash" aria-hidden="true"></i> Remove
+                    </button>
+                    <p class="form-text photo-editor__hint">JPEG, PNG, or WebP up to 2 MB. Images are cropped to a square and stripped of location and camera metadata before storage.</p>
+                  </div>
+                </div>
+              </form>
+            </section>
+
             <section class="surface-card settings-card" aria-labelledby="editProfileTitle">
               <header class="settings-card__head">
                 <span class="settings-icon settings-icon--blue"><i class="bi bi-person-gear" aria-hidden="true"></i></span>

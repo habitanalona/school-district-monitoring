@@ -37,6 +37,14 @@ const registrationLimiter = rateLimit({
   handler: handler("Too many account requests. Please try again later.")
 });
 
+const photoUploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 60,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  handler: handler("Too many photo uploads. Please try again later.")
+});
+
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 600,
@@ -45,4 +53,10 @@ const apiLimiter = rateLimit({
   handler: handler("Too many requests. Please slow down and try again.")
 });
 
-module.exports = { loginLimiter, passwordResetLimiter, registrationLimiter, apiLimiter };
+module.exports = {
+  loginLimiter,
+  passwordResetLimiter,
+  registrationLimiter,
+  photoUploadLimiter,
+  apiLimiter
+};

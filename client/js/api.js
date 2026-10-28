@@ -100,8 +100,9 @@
     var prepare = mutating ? ensureCsrfToken(false) : Promise.resolve(null);
 
     return prepare.then(function (token) {
+      var formData = opts.formData instanceof window.FormData ? opts.formData : null;
       var headers = { Accept: "application/json" };
-      if (opts.body !== undefined) {
+      if (!formData && opts.body !== undefined) {
         headers["Content-Type"] = "application/json";
       }
       if (mutating && token) {
@@ -113,7 +114,7 @@
           method: upperMethod,
           credentials: "same-origin",
           headers: headers,
-          body: opts.body === undefined ? undefined : JSON.stringify(opts.body)
+          body: formData || (opts.body === undefined ? undefined : JSON.stringify(opts.body))
         })
         .then(function (response) {
           return parseBody(response).then(function (payload) {
@@ -173,6 +174,9 @@
     },
     post: function (path, body, options) {
       return request("POST", path, Object.assign({}, options || {}, { body: body }));
+    },
+    upload: function (path, formData, options) {
+      return request("POST", path, Object.assign({}, options || {}, { formData: formData }));
     },
     put: function (path, body, options) {
       return request("PUT", path, Object.assign({}, options || {}, { body: body }));

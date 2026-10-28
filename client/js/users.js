@@ -141,8 +141,7 @@
     return (
       '<tr data-user-id="' + user.id + '">' +
         '<td data-label="User"><div class="user-cell">' +
-        '<span class="avatar avatar--sm avatar--' + window.UI.escapeHtml(user.role) + '">' +
-        window.UI.escapeHtml(window.UI.initials(user.fullName)) + "</span>" +
+        window.UI.avatarMarkup(user, "avatar--sm avatar--" + window.UI.escapeHtml(user.role), "Profile photo for " + user.fullName) +
         "<div><strong>" + window.UI.escapeHtml(user.fullName) +
         (isSelf(user) ? '<span class="self-chip">You</span>' : "") +
         "</strong><small>@" + window.UI.escapeHtml(user.username) + " · " + window.UI.escapeHtml(user.email) + "</small></div></div></td>" +

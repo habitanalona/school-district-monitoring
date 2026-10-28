@@ -165,9 +165,7 @@
       "</div>" +
       '<div class="sidebar-footer">' +
       '<button type="button" class="sidebar-user" id="sidebarProfile">' +
-      '<span class="avatar avatar--sm">' +
-      window.UI.escapeHtml(window.UI.initials(session.user.fullName)) +
-      "</span>" +
+      window.UI.avatarMarkup(session.user, "avatar--sm", "Your profile photo") +
       '<span class="sidebar-user__copy"><strong>' +
       window.UI.escapeHtml(session.user.fullName) +
       "</strong><small>" +
@@ -449,11 +447,7 @@
       "</div>" +
       '<div class="dropdown profile-dropdown">' +
       '<button type="button" class="profile-trigger" id="profileToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">' +
-      '<span class="avatar avatar--' +
-      window.UI.escapeHtml(user.role) +
-      '">' +
-      window.UI.escapeHtml(window.UI.initials(user.fullName)) +
-      "</span>" +
+      window.UI.avatarMarkup(user, "avatar--" + user.role, "Your profile photo") +
       '<span class="profile-trigger__copy"><strong>' +
       window.UI.escapeHtml(user.fullName) +
       "</strong><small>" +
@@ -463,11 +457,7 @@
       "</button>" +
       '<div class="dropdown-menu dropdown-menu-right profile-menu" aria-labelledby="profileToggle">' +
       '<div class="profile-menu__head">' +
-      '<span class="avatar avatar--lg avatar--' +
-      window.UI.escapeHtml(user.role) +
-      '">' +
-      window.UI.escapeHtml(window.UI.initials(user.fullName)) +
-      "</span>" +
+      window.UI.avatarMarkup(user, "avatar--lg avatar--" + user.role, "Your profile photo") +
       "<div><strong>" +
       window.UI.escapeHtml(user.fullName) +
       "</strong><span>" +

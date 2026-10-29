@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Attendance · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+  <link rel="stylesheet" href="css/forms.css">
+</head>
+<body class="app-body" data-page="attendance">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-calendar2-check"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading attendance…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Daily school operations</p>
+            <h1>Attendance</h1>
+            <p class="page-subtitle">Record daily attendance by section and reconcile the monthly register used by SF 2 and SF 4. Unrecorded school days are flagged, never assumed present.</p>
+          </div>
+        </div>
+
+        <div id="attendanceAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="surface-card" aria-labelledby="attendanceHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="attendanceHeading">Class attendance</h2>
+              <p id="attendanceScopeLabel">Choose a section to begin.</p>
+            </div>
+            <span class="status-badge status-badge--neutral" id="attendanceDayBadge"><span class="status-dot"></span>School day</span>
+          </header>
+
+          <div class="ops-toolbar">
+            <div class="field d-none" id="attendanceSchoolControl">
+              <label for="attendanceSchoolFilter">School</label>
+              <select class="custom-select custom-select-sm" id="attendanceSchoolFilter"></select>
+            </div>
+            <div class="field">
+              <label for="attendanceYearFilter">School year</label>
+              <select class="custom-select custom-select-sm" id="attendanceYearFilter"></select>
+            </div>
+            <div class="field">
+              <label for="attendanceSectionFilter">Section</label>
+              <select class="custom-select custom-select-sm" id="attendanceSectionFilter">
+                <option value="">Select a section</option>
+              </select>
+            </div>
+            <div class="field" id="attendanceDateField">
+              <label for="attendanceDate">Date</label>
+              <input type="date" class="form-control" id="attendanceDate">
+            </div>
+            <div class="field d-none" id="attendanceMonthField">
+              <label for="attendanceMonth">Month</label>
+              <select class="custom-select custom-select-sm" id="attendanceMonth"></select>
+            </div>
+            <div class="toolbar-actions">
+              <button type="button" class="btn btn-light btn-sm" id="attendanceCalendarButton">
+                <i class="bi bi-calendar3" aria-hidden="true"></i> Calendar
+              </button>
+            </div>
+          </div>
+
+          <div class="module-tabs" role="tablist" aria-label="Attendance views">
+            <button type="button" role="tab" id="tabDaily" aria-selected="true" aria-controls="panelDaily" data-tab="daily">Daily sheet</button>
+            <button type="button" role="tab" id="tabMonthly" aria-selected="false" aria-controls="panelMonthly" data-tab="monthly">Monthly register</button>
+            <button type="button" role="tab" id="tabCalendar" aria-selected="false" aria-controls="panelCalendar" data-tab="calendar">School calendar</button>
+          </div>
+
+          <div class="tab-panel" id="panelDaily" role="tabpanel" aria-labelledby="tabDaily">
+            <div class="ops-toolbar" style="border-bottom:0">
+              <div class="legend" style="flex:1">
+                <span><i style="background:var(--success)"></i> Present</span>
+                <span><i style="background:var(--danger)"></i> Absent</span>
+                <span><i style="background:#d39223"></i> Tardy</span>
+                <span><i style="background:var(--info)"></i> Excused</span>
+                <span><i style="background:var(--violet)"></i> Half day</span>
+              </div>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-light btn-sm d-none" id="markAllPresentButton">
+                  <i class="bi bi-check2-all" aria-hidden="true"></i> Mark all present
+                </button>
+                <button type="button" class="btn btn-primary btn-sm d-none" id="saveAttendanceButton">
+                  <i class="bi bi-save" aria-hidden="true"></i> Save attendance
+                </button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table attendance-table">
+                <caption class="sr-only">Daily attendance roster for the selected section</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Learner</th>
+                    <th scope="col">LRN</th>
+                    <th scope="col">Sex</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody id="attendanceBody">
+                  <tr class="skeleton-row"><td colspan="6"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer">
+              <p class="table-footer__meta" id="attendanceMeta">Select a section and date.</p>
+            </div>
+          </div>
+
+          <div class="tab-panel d-none" id="panelMonthly" role="tabpanel" aria-labelledby="tabMonthly">
+            <div class="ops-toolbar" style="border-bottom:0">
+              <p class="field-hint m-0" style="flex:1" id="monthlyMeta">Choose a section and month.</p>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-light btn-sm" id="printMonthlyButton">
+                  <i class="bi bi-printer" aria-hidden="true"></i> Print register
+                </button>
+              </div>
+            </div>
+            <div class="info-banner d-none" id="monthlyWarning" style="margin:0 18px 12px">
+              <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+              <div id="monthlyWarningText"></div>
+            </div>
+            <div class="table-responsive">
+              <table class="month-matrix" id="monthlyTable">
+                <thead id="monthlyHead"></thead>
+                <tbody id="monthlyBody">
+                  <tr><td class="empty-cell">Monthly register has not been loaded.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="legend" style="padding:10px 18px 16px">
+              <span><i style="background:var(--success)"></i> P — Present</span>
+              <span><i style="background:var(--danger)"></i> A — Absent</span>
+              <span><i style="background:#d39223"></i> T — Tardy</span>
+              <span><i style="background:var(--info)"></i> E — Excused</span>
+              <span><i style="background:var(--violet)"></i> H — Half day</span>
+            </div>
+          </div>
+
+          <div class="tab-panel d-none" id="panelCalendar" role="tabpanel" aria-labelledby="tabCalendar">
+            <div class="ops-toolbar">
+              <div class="field">
+                <label for="calendarMonth">Month</label>
+                <select class="custom-select custom-select-sm" id="calendarMonth"></select>
+              </div>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-primary btn-sm d-none" id="addCalendarButton">
+                  <i class="bi bi-plus-lg" aria-hidden="true"></i> Add calendar day
+                </button>
+              </div>
+            </div>
+            <div class="info-banner" style="margin:0 18px 12px">
+              <i class="bi bi-info-circle" aria-hidden="true"></i>
+              <div>Weekends default to no class. Mark holidays, suspensions, and orientation days here so they are excluded from attendance requirements and form validation.</div>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Day type</th>
+                    <th scope="col">Label</th>
+                    <th scope="col" class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="calendarBody">
+                  <tr class="skeleton-row"><td colspan="4"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/forms-common.js"></script>
+  <script src="js/attendance.js"></script>
+</body>
+</html>

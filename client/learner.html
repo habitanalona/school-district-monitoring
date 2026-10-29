@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
   <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/forms.css">
   <link rel="stylesheet" href="css/learner.css">
 </head>
 <body class="app-body" data-page="learner">
@@ -52,6 +53,12 @@
           <button type="button" data-tab="personal" aria-selected="false"><i class="bi bi-person-vcard" aria-hidden="true"></i> Personal Information</button>
           <button type="button" data-tab="guardians" aria-selected="false"><i class="bi bi-people" aria-hidden="true"></i> Parents / Guardians <span class="count-chip" id="guardianCount">0</span></button>
           <button type="button" data-tab="enrollment" aria-selected="false"><i class="bi bi-journal-bookmark" aria-hidden="true"></i> School Year Records <span class="count-chip" id="enrollmentCount">0</span></button>
+          <button type="button" data-tab="attendance" aria-selected="false" data-permission="canViewAttendance"><i class="bi bi-calendar-check" aria-hidden="true"></i> Attendance</button>
+          <button type="button" data-tab="grades" aria-selected="false" data-permission="canViewGrades"><i class="bi bi-journal-check" aria-hidden="true"></i> Grades <span class="count-chip" id="learnerGradeCount">—</span></button>
+          <button type="button" data-tab="books" aria-selected="false" data-permission="canViewBooks"><i class="bi bi-book" aria-hidden="true"></i> Books <span class="count-chip" id="learnerBookCount">—</span></button>
+          <button type="button" data-tab="health" aria-selected="false" data-permission="canViewHealth"><i class="bi bi-heart-pulse" aria-hidden="true"></i> Health &amp; Nutrition</button>
+          <button type="button" data-tab="forms" aria-selected="false" data-permission="canViewSchoolForms"><i class="bi bi-files" aria-hidden="true"></i> School Forms</button>
+          <button type="button" data-tab="permanent" aria-selected="false" data-permission="canViewPermanentRecords"><i class="bi bi-shield-check" aria-hidden="true"></i> Permanent Records</button>
           <button type="button" data-tab="subjects" aria-selected="false"><i class="bi bi-easel2" aria-hidden="true"></i> Subjects and Teachers <span class="count-chip" id="subjectCount">0</span></button>
           <button type="button" data-tab="activities" aria-selected="false"><i class="bi bi-trophy" aria-hidden="true"></i> Curricular Activities <span class="count-chip" id="activityCount">0</span></button>
           <button type="button" data-tab="history" aria-selected="false"><i class="bi bi-clock-history" aria-hidden="true"></i> History and Audit Trail</button>
@@ -172,6 +179,219 @@
           </div>
         </section>
 
+        <section class="profile-panel" id="panel-attendance" data-panel="attendance" hidden>
+          <div class="surface-card p-3 p-md-4 mb-3">
+            <div class="panel-heading">
+              <div>
+                <h2>Attendance record</h2>
+                <p>Daily attendance saved by the class adviser. Days without a saved entry are never counted as present or absent.</p>
+              </div>
+              <div class="profile-toolbar">
+                <label class="sr-only" for="attendanceYearFilter">School year</label>
+                <select class="custom-select custom-select-sm" id="attendanceYearFilter"></select>
+                <a class="btn btn-light btn-sm" id="attendanceWorkspaceLink" href="attendance.html"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Attendance workspace</a>
+              </div>
+            </div>
+            <div class="mini-grid" id="attendanceSummary">
+              <div class="mini-card"><span>Recorded days</span><strong>—</strong></div>
+            </div>
+            <p class="profile-footnote"><i class="bi bi-info-circle" aria-hidden="true"></i> Attendance figures come only from the daily attendance sheet. No attendance is inferred from grades, enrollment, or calendar days.</p>
+          </div>
+          <div class="surface-card p-3 p-md-4 mb-3">
+            <div class="panel-heading">
+              <div>
+                <h3>Monthly summary</h3>
+                <p>Recorded entries per month for the selected school year.</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <caption class="sr-only">Monthly attendance summary</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Month</th>
+                    <th scope="col" class="text-right">Present</th>
+                    <th scope="col" class="text-right">Absent</th>
+                    <th scope="col" class="text-right">Tardy</th>
+                    <th scope="col" class="text-right">Excused</th>
+                    <th scope="col" class="text-right">Half day</th>
+                    <th scope="col" class="text-right">Recorded</th>
+                  </tr>
+                </thead>
+                <tbody id="attendanceMonthBody">
+                  <tr><td colspan="7" class="empty-cell">Loading attendance…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="surface-card p-3 p-md-4">
+            <div class="panel-heading">
+              <div>
+                <h3>Daily entries</h3>
+                <p>Most recent first. Corrections are recorded in the audit trail by the attendance workspace.</p>
+              </div>
+            </div>
+            <div class="table-responsive learner-table-scroll">
+              <table class="app-table">
+                <caption class="sr-only">Daily attendance entries</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody id="attendanceLogBody">
+                  <tr><td colspan="3" class="empty-cell">Loading attendance…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="profile-panel" id="panel-grades" data-panel="grades" hidden>
+          <div class="surface-card p-3 p-md-4">
+            <div class="panel-heading">
+              <div>
+                <h2>Grades and promotion</h2>
+                <p>Quarter grades and finalized final grades across school years. Final grades are computed by the school's approved grading policy.</p>
+              </div>
+              <a class="btn btn-light btn-sm" id="gradesWorkspaceLink" href="grades.html"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Grades workspace</a>
+            </div>
+            <div id="learnerGradesMount">
+              <div class="skeleton skeleton-block" style="height:160px"></div>
+            </div>
+            <p class="profile-footnote"><i class="bi bi-lock" aria-hidden="true"></i> Finalized grades cannot be edited in this profile. Changes require the authorized correction workflow and are logged.</p>
+          </div>
+        </section>
+
+        <section class="profile-panel" id="panel-books" data-panel="books" hidden>
+          <div class="surface-card p-3 p-md-4">
+            <div class="panel-heading">
+              <div>
+                <h2>Books and learning materials</h2>
+                <p>Textbook and material issuances recorded for this learner, including returns and outstanding copies.</p>
+              </div>
+              <a class="btn btn-light btn-sm" href="books.html"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Books workspace</a>
+            </div>
+            <div class="mini-grid" id="booksLearnerSummary"></div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <caption class="sr-only">Book issuances for this learner</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Title</th>
+                    <th scope="col">School year</th>
+                    <th scope="col" class="text-right">Issued</th>
+                    <th scope="col" class="text-right">Returned</th>
+                    <th scope="col" class="text-right">Outstanding</th>
+                    <th scope="col">Issued on</th>
+                    <th scope="col">Expected return</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="booksLearnerBody">
+                  <tr><td colspan="8" class="empty-cell">Loading book records…</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="profile-footnote"><i class="bi bi-info-circle" aria-hidden="true"></i> Issuance and return history is preserved. Materials are archived, not deleted.</p>
+          </div>
+        </section>
+
+        <section class="profile-panel" id="panel-health" data-panel="health" hidden>
+          <div class="surface-card p-3 p-md-4">
+            <div class="panel-heading">
+              <div>
+                <h2>Health and nutrition</h2>
+                <p>Restricted measurements recorded by authorized school health personnel. Visible only to accounts with health access.</p>
+              </div>
+              <a class="btn btn-light btn-sm" href="health.html"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Health workspace</a>
+            </div>
+            <div class="info-banner info-banner--warning" style="margin:0 0 1rem">
+              <i class="bi bi-shield-lock" aria-hidden="true"></i>
+              <div><strong>Restricted record.</strong> Height, weight, BMI, and nutritional status are sensitive personal information under the Data Privacy Act. Do not print, export, or share this section without authorization.</div>
+            </div>
+            <div id="healthLearnerMount">
+              <div class="skeleton skeleton-block" style="height:160px"></div>
+            </div>
+            <p class="profile-footnote"><i class="bi bi-clipboard-pulse" aria-hidden="true"></i> BMI is computed from valid measurements. Nutritional status is an authorized assessment; the system does not apply adult BMI cutoffs to children.</p>
+          </div>
+        </section>
+
+        <section class="profile-panel" id="panel-forms" data-panel="forms" hidden>
+          <div class="surface-card p-3 p-md-4 mb-3">
+            <div class="panel-heading">
+              <div>
+                <h2>School forms for this learner</h2>
+                <p>Learner-level records generated from saved enrollment, grades, and permanent academic data. Missing or unfinished source records are reported as validation issues.</p>
+              </div>
+              <a class="btn btn-light btn-sm" id="formsWorkspaceLink" href="school-forms.html"><i class="bi bi-files" aria-hidden="true"></i> Forms center</a>
+            </div>
+            <div class="form-choice-grid" id="learnerFormsCards">
+              <div class="skeleton skeleton-block" style="height:150px"></div>
+            </div>
+            <p class="profile-footnote"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Previews use the configured layout. Verify every layout against the current official DepEd form before printing for certification.</p>
+          </div>
+          <div class="surface-card p-3 p-md-4">
+            <div class="panel-heading">
+              <div>
+                <h3>Related school-year submissions</h3>
+                <p>Forms submitted for this learner's section and school-wide forms for the school year.</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <caption class="sr-only">Related school form submissions</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Form</th>
+                    <th scope="col">Scope</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Completeness</th>
+                    <th scope="col">Updated</th>
+                    <th scope="col" class="text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="learnerFormsSubmissions">
+                  <tr><td colspan="6" class="empty-cell">Loading school forms…</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="profile-footnote"><i class="bi bi-eye" aria-hidden="true"></i> Only submissions within your authorized scope are shown. Health forms require health access.</p>
+          </div>
+        </section>
+
+        <section class="profile-panel" id="panel-permanent" data-panel="permanent" hidden>
+          <div class="surface-card p-3 p-md-4 mb-3">
+            <div class="panel-heading">
+              <div>
+                <h2>Permanent academic record</h2>
+                <p>Cumulative school-year history used for SF 10. Verified records are distinguished from grades still awaiting finalization or verification.</p>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm d-none" id="previewSf10Button"><i class="bi bi-file-earmark-text" aria-hidden="true"></i> Preview SF 10</button>
+            </div>
+            <div class="mini-grid" id="permanentSummary">
+              <div class="mini-card"><span>School years</span><strong>—</strong></div>
+            </div>
+            <div class="info-banner" style="margin:0">
+              <i class="bi bi-shield-check" aria-hidden="true"></i>
+              <div>Permanent records are never deleted through ordinary workflows. Unverified or proposed entries are labelled and require authorized verification before they become part of the permanent record.</div>
+            </div>
+          </div>
+          <div class="surface-card p-3 p-md-4">
+            <div class="panel-heading">
+              <div>
+                <h3>Academic history by school year</h3>
+                <p>Enrollment placement, finalized grades, promotion decision, and report card status.</p>
+              </div>
+            </div>
+            <div id="permanentHistory">
+              <div class="skeleton skeleton-block" style="height:160px"></div>
+            </div>
+          </div>
+        </section>
+
         <section class="profile-panel" id="panel-subjects" data-panel="subjects" hidden>
           <div class="surface-card p-3 p-md-4 mb-3">
             <div class="panel-heading">
@@ -254,6 +474,8 @@
   <script src="js/app-shell.js"></script>
   <script src="js/learner-common.js"></script>
   <script src="js/learner-form.js"></script>
+  <script src="js/forms-common.js"></script>
+  <script src="js/learner-academic.js"></script>
   <script src="js/learner.js"></script>
 </body>
 </html>

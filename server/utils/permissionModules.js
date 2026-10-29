@@ -34,6 +34,30 @@ const ALL_ROLES = [
   "nt",
   "learner"
 ];
+// Roles that may work with learner records. Learners themselves do not manage
+// attendance, grades, books, health, or form submissions.
+const RECORD_ROLES = [
+  "system_admin",
+  "district_admin",
+  "psds",
+  "staff",
+  "school_head",
+  "teacher",
+  "coordinator",
+  "adviser",
+  "nt"
+];
+const CLASS_ROLES = [
+  "system_admin",
+  "district_admin",
+  "staff",
+  "school_head",
+  "teacher",
+  "coordinator",
+  "adviser"
+];
+const RECORDS_MANAGERS = ["system_admin", "district_admin", "staff", "school_head"];
+const HEALTH_ROLES = ["system_admin", "district_admin", "school_head", "nt"];
 
 const MODULE_DEFINITIONS = [
   {
@@ -315,6 +339,208 @@ const MODULE_DEFINITIONS = [
       add: ["system_admin"],
       edit: ["system_admin"],
       delete: ["system_admin"]
+    }
+  },
+  {
+    key: "attendance",
+    label: "Daily Attendance (SF 2)",
+    group: "School forms",
+    description: "Daily class attendance, corrections, school calendar, and monthly attendance reports.",
+    actions: ["access", "add", "edit"],
+    defaults: { access: RECORD_ROLES, add: CLASS_ROLES, edit: CLASS_ROLES },
+    grantRoles: { access: RECORD_ROLES, add: SCHOOL_STAFF_ROLES, edit: SCHOOL_STAFF_ROLES }
+  },
+  {
+    key: "books",
+    label: "Books and Materials (SF 3)",
+    group: "School forms",
+    description: "Book inventory, issuance, returns, and outstanding material reports.",
+    actions: ["access", "add", "edit", "delete"],
+    defaults: {
+      access: RECORD_ROLES,
+      add: ["system_admin", "district_admin", "staff", "school_head", "coordinator", "nt"],
+      edit: ["system_admin", "district_admin", "staff", "school_head", "coordinator", "nt"],
+      delete: RECORDS_MANAGERS
+    },
+    grantRoles: {
+      access: RECORD_ROLES,
+      add: SCHOOL_STAFF_ROLES,
+      edit: SCHOOL_STAFF_ROLES,
+      delete: SCHOOL_STAFF_ROLES
+    }
+  },
+  {
+    key: "movements",
+    label: "Learner Movement (SF 4)",
+    group: "School forms",
+    description: "Transfers in and out, dropouts, reinstatements, and monthly movement reconciliation.",
+    actions: ["access", "add", "edit", "delete"],
+    defaults: {
+      access: RECORD_ROLES,
+      add: RECORDS_MANAGERS,
+      edit: RECORDS_MANAGERS,
+      delete: ["system_admin", "district_admin"]
+    },
+    grantRoles: {
+      access: RECORD_ROLES,
+      add: SCHOOL_STAFF_ROLES,
+      edit: SCHOOL_STAFF_ROLES,
+      delete: SCHOOL_STAFF_ROLES
+    }
+  },
+  {
+    key: "grades",
+    label: "Grades and Promotion (SF 5, SF 6, SF 9)",
+    group: "School forms",
+    description: "Quarter grades, teacher submission, finalization, grading policy, and promotion decisions.",
+    actions: ["access", "add", "edit"],
+    defaults: {
+      access: RECORD_ROLES,
+      add: CLASS_ROLES,
+      edit: ["system_admin", "district_admin", "staff", "school_head", "coordinator", "adviser"]
+    },
+    grantRoles: {
+      access: RECORD_ROLES,
+      add: SCHOOL_STAFF_ROLES,
+      edit: SCHOOL_STAFF_ROLES
+    }
+  },
+  {
+    key: "health",
+    label: "Health and Nutrition (SF 8)",
+    group: "School forms",
+    description: "Restricted height, weight, BMI, and authorized nutritional assessment records.",
+    actions: ["access", "add", "edit"],
+    defaults: { access: HEALTH_ROLES, add: HEALTH_ROLES, edit: HEALTH_ROLES },
+    grantRoles: { access: HEALTH_ROLES, add: HEALTH_ROLES, edit: HEALTH_ROLES }
+  },
+  {
+    key: "personnel",
+    label: "Personnel Profiles (SF 7)",
+    group: "School forms",
+    description: "Personnel profiles, employment details, designations, and assignment completeness.",
+    actions: ["access", "add", "edit", "delete"],
+    defaults: {
+      access: RECORD_ROLES,
+      add: RECORDS_MANAGERS,
+      edit: RECORDS_MANAGERS,
+      delete: ["system_admin", "district_admin"]
+    },
+    grantRoles: {
+      access: RECORD_ROLES,
+      add: SCHOOL_STAFF_ROLES,
+      edit: SCHOOL_STAFF_ROLES,
+      delete: SCHOOL_STAFF_ROLES
+    }
+  },
+  {
+    key: "school_forms",
+    label: "DepEd School Forms Center",
+    group: "School forms",
+    description: "Generate, validate, preview, print, and export School Forms 1 to 10.",
+    actions: ["access", "add", "edit"],
+    defaults: { access: RECORD_ROLES, add: SCHOOL_STAFF_ROLES, edit: SCHOOL_STAFF_ROLES },
+    grantRoles: { access: RECORD_ROLES, add: SCHOOL_STAFF_ROLES, edit: SCHOOL_STAFF_ROLES }
+  },
+  {
+    key: "submissions",
+    label: "Form Submissions and Review",
+    group: "School forms",
+    description: "Submit, return, approve, and finalize school form submissions.",
+    actions: ["access", "add", "edit"],
+    defaults: {
+      access: RECORD_ROLES,
+      add: ["system_admin", "district_admin", "staff", "school_head"],
+      edit: ["system_admin", "district_admin", "staff", "school_head", "psds"]
+    },
+    grantRoles: {
+      access: RECORD_ROLES,
+      add: SCHOOL_STAFF_ROLES,
+      edit: ["system_admin", "district_admin", "staff", "school_head", "psds"]
+    }
+  },
+  {
+    key: "monitoring",
+    label: "District Monitoring Workspace",
+    group: "School forms",
+    description: "District-wide indicators, deadlines, discrepancies, and submission oversight.",
+    actions: ["access"],
+    defaults: { access: RECORD_ROLES },
+    grantRoles: { access: RECORD_ROLES }
+  },
+  {
+    key: "permanent_records",
+    label: "Permanent Academic Records (SF 10)",
+    group: "School forms",
+    description: "Cumulative verified academic history, imports, verification, and transfer certification.",
+    actions: ["access", "add", "edit"],
+    defaults: {
+      access: ["system_admin", "district_admin", "psds", "staff", "school_head"],
+      add: RECORDS_MANAGERS,
+      edit: RECORDS_MANAGERS
+    },
+    grantRoles: {
+      access: ["system_admin", "district_admin", "psds", "staff", "school_head"],
+      add: SCHOOL_STAFF_ROLES,
+      edit: SCHOOL_STAFF_ROLES
+    }
+  },
+  {
+    key: "class_records",
+    label: "Subject Teacher Class Records",
+    group: "Class records",
+    description: "Assessment setup, score encoding, automatic quarterly computation, and submission to the class adviser.",
+    actions: ["access", "add", "edit"],
+    defaults: { access: RECORD_ROLES, add: CLASS_ROLES, edit: CLASS_ROLES },
+    grantRoles: { access: RECORD_ROLES, add: SCHOOL_STAFF_ROLES, edit: SCHOOL_STAFF_ROLES }
+  },
+  {
+    key: "class_record_templates",
+    label: "Class Record Grading Configuration",
+    group: "Class records",
+    description: "School-level assessment components, weights, rounding, and transmutation configuration.",
+    actions: ["access", "edit"],
+    defaults: {
+      access: RECORD_ROLES,
+      edit: ["system_admin", "district_admin", "school_head"]
+    },
+    grantRoles: {
+      access: RECORD_ROLES,
+      edit: ["system_admin", "district_admin", "school_head"]
+    }
+  },
+  {
+    key: "grade_submissions",
+    label: "Grade Submission Review and Consolidation",
+    group: "Class records",
+    description: "Subject teacher submissions, adviser review, return for correction, acceptance, and completion monitoring.",
+    actions: ["access", "add", "edit"],
+    defaults: {
+      access: RECORD_ROLES,
+      add: CLASS_ROLES,
+      edit: ["system_admin", "district_admin", "school_head", "adviser"]
+    },
+    grantRoles: {
+      access: RECORD_ROLES,
+      add: SCHOOL_STAFF_ROLES,
+      edit: ["system_admin", "district_admin", "school_head", "adviser"]
+    }
+  },
+  {
+    key: "report_cards",
+    label: "SF 9 Report Cards and Consolidation",
+    group: "Class records",
+    description: "Learner report card consolidation, validation, finalization, snapshots, batch printing, and export.",
+    actions: ["access", "add", "edit"],
+    defaults: {
+      access: RECORD_ROLES,
+      add: ["system_admin", "district_admin", "staff", "school_head", "coordinator", "adviser"],
+      edit: ["system_admin", "district_admin", "school_head", "adviser"]
+    },
+    grantRoles: {
+      access: RECORD_ROLES,
+      add: SCHOOL_STAFF_ROLES,
+      edit: ["system_admin", "district_admin", "school_head", "adviser"]
     }
   },
   {

@@ -1,0 +1,796 @@
+This prompt is designed for Qoder AI to build an end-to-end DepEd Class Record → Subject Teacher → Class Adviser → SF9 (Learner’s Progress Report Card) workflow inside your existing School District Monitoring System.
+
+It emphasizes that each subject teacher maintains an independent class record for each assigned subject and section, while the class adviser consolidates the learner’s grades from all subject teachers into the learner’s Form 138 / School Form 9, following the applicable DepEd policies and official templates.
+
+Writing
+
+# MASTER DEVELOPMENT PROMPT FOR QODER AI
+
+## DEPED CLASS RECORD, SUBJECT TEACHER GRADING, CLASS ADVISER CONSOLIDATION, AND SCHOOL FORM 9 (SF9) REPORT CARD
+
+### Existing School District Monitoring System — Department of Education, Philippines
+
+## 1\. PROJECT OBJECTIVE
+
+Enhance the existing School District Monitoring System by implementing a complete, integrated, DepEd-aligned Learner Class Record and Report Card Management System.
+
+The system must manage the complete workflow from subject-level assessment and grading to the preparation, verification, consolidation, and printing of each learner's official-style School Form 9 (SF9), commonly known as the learner's report card or Form 138.
+
+The system must connect three main processes:
+
+1. **Subject Teacher Class Record Management** — Each subject teacher maintains the class record for every assigned subject and class section.
+2. **Grade Submission and Class Adviser Consolidation** — Subject teachers submit verified quarterly grades for their learners to the corresponding class adviser.
+3. **Learner Report Card Generation (SF9)** — The class adviser consolidates the learner's grades across all applicable learning areas and grading periods into the appropriate SF9 report card.
+
+The system must operate within the existing School District Monitoring System. Do not create a separate application, duplicate learner accounts, or replace existing school, enrollment, user management, or permission modules.
+
+The completed feature must be fully functional, database-connected, secure, auditable, and suitable for actual school operations.
+
+---
+
+## 2\. UNDERSTAND THE OFFICIAL DEPED DOCUMENTS FIRST
+
+Before coding, research and inspect the official DepEd templates and policies applicable to the grade levels and curriculum supported by the existing system.
+
+Identify and verify:
+
+- Official Class Record templates used by subject teachers.
+- Official SF9 Learner's Progress Report Card templates.
+- The applicable curriculum for each supported grade level and school year.
+- Grading and assessment policies applicable to each curriculum.
+- The correct grade computation, transmutation, and rounding rules.
+- The required learning areas and report card fields.
+- The prescribed treatment of quarterly grades, final grades, and learner progress.
+- Applicable attendance records and other required learner information.
+- Promotion, retention, completion, and remarks requirements, where applicable.
+- Applicable rules for transferring learners and issuing report cards.
+
+Consult official DepEd issuances, official downloadable templates, and relevant subsequent amendments or replacement policies.
+
+Investigate DepEd Order No. 8, s. 2015 and subsequent applicable issuances. Do not assume it remains the sole governing policy for every grade level, curriculum, or school year.
+
+Support the applicable versions of the MATATAG Curriculum and other curricula only where their templates and policies have been verified.
+
+**Critical requirement:** Do not invent an official form, official field, grading formula, subject weight, transmutation table, promotion rule, or certification. When an applicable official requirement cannot be verified, document the uncertainty and provide an administrator-controlled configuration rather than falsely labeling an invented format as official.
+
+---
+
+## 3\. SYSTEM ORGANIZATION AND DATA RELATIONSHIPS
+
+Implement a structured relationship among schools, school years, teachers, learners, sections, subjects, class records, grading periods, grade submissions, advisers, and report cards.
+
+The logical structure should be:
+
+School → School Year → Curriculum → Grade Level → Class Section → Enrolled Learners → Subject Assignments → Subject Teacher Class Records → Assessments and Raw Scores → Computed Quarterly Grades → Verified Grade Submissions → Class Adviser Grade Consolidation → Learner SF9 Report Card → Review, Release, and Printing
+
+Each class record must be associated with the appropriate school, school year, grade level, section, learning area, assigned subject teacher, grading policy, and grading period.
+
+Each learner's SF9 must be associated with the correct learner, school year, grade level, section, class adviser, and applicable report card template.
+
+Preserve the distinction between raw assessment scores, computed grades, submitted grades, consolidated grades, and finalized report card data.
+
+Do not calculate or consolidate grades using an unrelated class section, subject assignment, school year, or curriculum.
+
+---
+
+## 4\. SUBJECT TEACHER CLASS RECORD MODULE
+
+Develop a complete class record workspace for subject teachers.
+
+### A. Subject teacher dashboard
+
+Display only the class records that the authenticated teacher is authorized to manage.
+
+Include:
+
+- Assigned school year.
+- Assigned grade levels.
+- Assigned class sections.
+- Assigned subjects or learning areas.
+- Number of enrolled learners.
+- Grading period.
+- Assessment completion status.
+- Missing or incomplete scores.
+- Computed quarterly grades.
+- Submission status.
+- Returned grades requiring correction.
+- Finalization status.
+
+Provide search and filters for school year, section, subject, and grading period.
+
+### B. Create or initialize a class record
+
+Allow authorized teachers to select an existing teaching assignment and initialize the applicable class record.
+
+The system must automatically load:
+
+- School information.
+- School year.
+- Curriculum.
+- Grade level.
+- Section.
+- Subject or learning area.
+- Assigned teacher.
+- Officially applicable grading period.
+- Appropriate class record template.
+- Enrolled learners for the selected section.
+
+Do not let teachers arbitrarily assign themselves to subjects or sections. Use the existing teaching assignment and authorization system.
+
+Prevent duplicate class records for the same valid teaching assignment and grading structure unless the existing school setup supports legitimate multiple class groups.
+
+### C. Complete official-style class record
+
+Reproduce the applicable official DepEd Class Record template, including its actual structure, headings, assessment columns, learner list, computation tables, summaries, and print layout.
+
+Depending on the applicable template, support:
+
+- Written Work (WW).
+- Performance Tasks (PT).
+- Quarterly Assessment (QA).
+- Assessment entries and scores.
+- Maximum possible scores.
+- Total scores.
+- Percentage scores.
+- Weighted scores.
+- Initial grades.
+- Transmuted grades.
+- Quarterly grades.
+- Applicable final grade computations.
+- Required learner information and summaries.
+
+These components must be used only when applicable to the verified template and curriculum.
+
+Different subjects, grade levels, and curriculum versions must be able to use different official configurations.
+
+### D. Assessment score entry
+
+Allow teachers to encode and maintain assessment scores for their assigned learners.
+
+Support:
+
+- Adding assessments.
+- Editing authorized assessment details.
+- Encoding scores in a spreadsheet-like grid.
+- Keyboard-friendly navigation.
+- Validation of scores against maximum possible scores.
+- Distinguishing missing scores from genuine zero scores.
+- Saving changes reliably.
+- Automatic recalculation.
+- Reviewing calculation breakdowns.
+- Correcting previously encoded scores through an auditable process.
+
+Do not silently turn a missing score into zero or generate a final grade from incomplete data when the applicable rules do not permit it.
+
+### E. Automatic grade computation
+
+Implement the correct grading algorithm for the selected official template.
+
+Calculate percentage scores, weighted scores, initial grades, transmuted grades, quarterly grades, and applicable final grades only according to the verified policy.
+
+Do not use one hardcoded formula for every subject.
+
+Preserve raw assessment data and retain the grading configuration version used to calculate the result.
+
+Provide a transparent breakdown of the calculation for authorized teachers and administrators.
+
+---
+
+## 5\. SUBJECT TEACHER GRADE VERIFICATION AND SUBMISSION
+
+After completing the applicable grading period, the subject teacher must be able to verify and submit the learner grades to the class adviser.
+
+Implement the following workflow:
+
+1. Teacher completes assessment encoding.
+2. The system validates scores and identifies incomplete records.
+3. The system calculates the applicable quarterly grades.
+4. The teacher reviews the class record and computation summary.
+5. The teacher certifies or confirms the accuracy of the entries, as authorized by school policy.
+6. The teacher submits the quarterly grades.
+7. The system records the submission and notifies the assigned class adviser.
+8. The class adviser reviews the submitted grades.
+9. The adviser accepts the submission or returns it for correction.
+10. Accepted grades become available for report card consolidation.
+
+### Submission data
+
+For each submission, retain:
+
+- School year.
+- School.
+- Grade level and section.
+- Subject or learning area.
+- Subject teacher.
+- Grading period.
+- Learner identifiers.
+- Submitted grades.
+- Submission timestamp.
+- Submission status.
+- Relevant computation or grading-policy version.
+- Review and correction history.
+
+### Submission statuses
+
+Use a clear status workflow, such as:
+
+- Draft
+- In Progress
+- Ready for Submission
+- Submitted
+- Under Adviser Review
+- Returned for Correction
+- Accepted
+- Finalized
+
+Adapt the workflow to actual school requirements.
+
+Prevent the same submission from being processed repeatedly or duplicated accidentally.
+
+Once submitted, grades must not silently change when the teacher edits an assessment. Require the appropriate correction, resubmission, or reopening process.
+
+---
+
+## 6\. CLASS ADVISER GRADE CONSOLIDATION MODULE
+
+Develop a dedicated dashboard for the class adviser.
+
+The adviser must be able to access only the sections and learners assigned to them, subject to the existing authorization system.
+
+### A. Adviser dashboard
+
+Display:
+
+- Assigned school year.
+- Grade level and section.
+- Enrolled learners.
+- Assigned subjects or learning areas.
+- Subject teachers.
+- Expected grade submissions.
+- Submitted grades.
+- Pending submissions.
+- Grades under review.
+- Returned submissions.
+- Accepted grades.
+- Learner report card completion status.
+
+Provide filters for grading period, subject, teacher, and learner.
+
+### B. Grade submission monitoring
+
+For every subject assigned to the section, display the grade submission status.
+
+Example:
+
+| Learning Area | Subject Teacher | First Quarter | Second Quarter | Third Quarter | Fourth Quarter |
+| --- | --- | --- | --- | --- | --- |
+| Mathematics | Assigned teacher | Accepted | Pending | Pending | Pending |
+| English | Assigned teacher | Accepted | Accepted | Pending | Pending |
+| Science | Assigned teacher | Submitted | Pending | Pending | Pending |
+
+This table is illustrative. Populate the actual subjects, teachers, and grading periods from the school's official records.
+
+Clearly distinguish between pending, submitted, accepted, and finalized grades.
+
+Do not assume that an unsubmitted grade is zero or that an empty field means the learner failed.
+
+### C. Review and validation
+
+The class adviser must be able to:
+
+- Open a submitted grade summary.
+- Review the learner list.
+- Check that grades correspond to the correct section and subject.
+- Identify missing or inconsistent entries.
+- Review applicable grade computation summaries.
+- Accept valid submissions.
+- Return incomplete or incorrect submissions with comments.
+- Track resubmissions.
+- View the history of corrections.
+
+The adviser must not directly overwrite a subject teacher's raw assessment scores.
+
+If a grade requires correction, return it to the responsible subject teacher or use an explicitly authorized correction workflow.
+
+Any exceptional administrative override must be permission-controlled and audited.
+
+### D. Consolidation rules
+
+The system must consolidate only grades that have reached the required accepted or approved state.
+
+For each learner, retrieve the correct grade from every applicable learning area and grading period.
+
+Match records using stable learner IDs and valid school-year, section, subject, and enrollment relationships—not learner names alone.
+
+Prevent duplicate subjects and incorrect grade assignments.
+
+The adviser must be able to see which subjects have submitted grades and which remain outstanding before preparing or finalizing the report card.
+
+---
+
+## 7\. SF9 / FORM 138 LEARNER REPORT CARD MODULE
+
+Create a complete report card module that generates the applicable official DepEd SF9 Learner's Progress Report Card from verified subject teacher submissions.
+
+Use the official SF9 template applicable to the selected curriculum, grade level, and school year.
+
+Do not create a generic report card and label it official SF9 unless it faithfully follows the applicable official template.
+
+### A. Report card identity and school information
+
+Populate the applicable fields from the existing system and verified school records, such as:
+
+- School name.
+- School ID, where applicable.
+- District and Schools Division Office.
+- Region, where required.
+- School year.
+- Learner's full name.
+- Learner's prescribed identification fields.
+- Grade level.
+- Section.
+- Curriculum or program.
+- Class adviser.
+- Other information explicitly required by the applicable official form.
+
+Do not require teachers or advisers to manually encode information already available in the database.
+
+Do not invent missing learner data.
+
+### B. Learning areas and grades
+
+Display all applicable learning areas in the order required by the relevant SF9 template.
+
+For each learning area, include the required grading-period columns and final grade fields where applicable.
+
+For templates that use four quarters, display the appropriate first-, second-, third-, and fourth-quarter grades.
+
+The report card must also support other verified grading structures where applicable.
+
+Each grade must originate from the appropriate accepted subject teacher submission.
+
+Do not derive grades from unverified drafts or incomplete class records.
+
+### C. General averages and summaries
+
+Compute the general average and other grade summaries only according to the applicable official policy.
+
+Follow the prescribed rules concerning:
+
+- Included learning areas.
+- Exempted or non-applicable subjects.
+- Required decimal precision.
+- Rounding.
+- Final grade calculation.
+- Promotion or retention remarks.
+- Completion requirements.
+
+Do not calculate an average by blindly including every displayed field.
+
+Do not assume that all grades can be averaged using a simple arithmetic mean.
+
+Where the official form requires a general average, compute it using the prescribed methodology and display the required precision.
+
+### D. Learner progress and attendance
+
+Include the progress, attendance, and other required reporting sections of the applicable SF9 template.
+
+Attendance information must come from the designated authoritative attendance module or another approved data source.
+
+Do not invent attendance entries or derive them from grade submissions.
+
+Where attendance or another required field is unavailable, clearly indicate that the information is incomplete and follow the applicable school workflow.
+
+### E. Remarks and promotion status
+
+Populate remarks, promotion status, completion status, and related fields only when the applicable rules and required source data support the result.
+
+Do not automatically mark a learner as promoted, retained, or completed based solely on a general average if additional policy conditions apply.
+
+Provide an appropriate validation process before finalization.
+
+### F. Report card preview
+
+Create an on-screen report card preview that resembles the official document.
+
+Support:
+
+- Individual learner report cards.
+- Report cards for all learners in an assigned section.
+- Preview before finalization.
+- Review of missing grades.
+- Review of attendance and required information.
+- Authorized correction and regeneration.
+- Finalized historical copies.
+
+---
+
+## 8\. REPORT CARD VALIDATION AND FINALIZATION
+
+Before the adviser finalizes an SF9, validate the complete record.
+
+Check:
+
+1. All required subject grades have been received.
+2. All required subject submissions have reached the required acceptance status.
+3. No duplicate or incorrectly mapped learning areas exist.
+4. All required grading periods are complete.
+5. The report card uses the correct official template.
+6. Required learner and school information is available.
+7. General averages and final grades are computed correctly.
+8. Attendance and required remarks are complete where applicable.
+9. Promotion or completion rules have been applied correctly.
+10. No unresolved correction requests remain.
+
+Display specific validation errors instead of simply refusing to generate the report card.
+
+Allow the adviser to save an incomplete draft for review if school policy permits, but do not label it final or released.
+
+After finalization, freeze the applicable report card snapshot so later changes to the class roster, assessment scores, or school configuration do not silently alter the historical report card.
+
+If a correction is necessary after finalization, require an authorized amendment or reopening process, preserve the previous version, and record the reason and responsible user.
+
+---
+
+## 9\. PRINTING AND EXPORTING THE OFFICIAL-STYLE SF9
+
+Generate a printable PDF of the applicable SF9.
+
+Follow the official template's actual:
+
+- Page size.
+- Page orientation.
+- Margins.
+- Heading structure.
+- Table arrangement.
+- Learning area order.
+- Grading-period columns.
+- Attendance section.
+- Remarks.
+- Signature or certification fields.
+- Footer and required labels.
+
+Use official source templates as the visual reference.
+
+Requirements:
+
+- Keep learner names and grades readable.
+- Prevent table columns from being cut off.
+- Use the correct layout for each applicable grade level and curriculum.
+- Ensure all required fields appear in the correct position.
+- Preserve correct decimal precision and rounding.
+- Support printing individual report cards.
+- Support batch printing for all learners in an assigned section.
+- Include page breaks and repeated headings where appropriate.
+- Match the PDF values to the finalized database snapshot.
+
+Where an Excel export is appropriate, preserve the data structure and meaningful headings.
+
+Do not fabricate official signatures, approval stamps, seals, or certifications. Provide the appropriate fields for authorized personnel to complete according to school procedures.
+
+---
+
+## 10\. END-TO-END WORKFLOW
+
+Implement the complete workflow below.
+
+### Phase A: Subject teacher
+
+1. Log in.
+2. Open assigned subjects and sections.
+3. Open or initialize the applicable class record.
+4. Encode assessments and learner scores.
+5. Review automatic computations.
+6. Resolve missing scores and validation issues.
+7. Submit the grading period's learner grades.
+
+### Phase B: Class adviser
+
+1. Log in.
+2. Open the assigned section.
+3. Review submission status for all subjects.
+4. Open submitted grades.
+5. Accept valid submissions or return them for correction.
+6. Monitor outstanding grades.
+7. Consolidate accepted grades by learner.
+8. Review attendance and other required learner information.
+9. Preview the SF9 report card for each learner.
+10. Resolve validation issues.
+11. Finalize report cards when authorized.
+12. Print or export individual or batch report cards.
+
+### Phase C: School head
+
+1. Monitor completion and submission status.
+2. Review applicable records within the authorized school.
+3. Review finalized or pending report cards where permitted.
+4. Perform authorized review or approval steps if required by school policy.
+5. Monitor unresolved submissions and correction requests.
+
+### Phase D: PSDS and district administration
+
+1. Monitor school-level completion.
+2. View submission summaries across authorized schools.
+3. Identify sections with outstanding grades.
+4. Review authorized completion reports.
+5. Avoid unnecessary access to individual learner records where summary data is sufficient.
+
+---
+
+## 11\. NOTIFICATIONS AND REMINDERS
+
+Integrate with the existing notification system if available.
+
+Notify the appropriate users when:
+
+- A subject teacher submits grades.
+- An adviser returns a submission for correction.
+- A teacher resubmits corrected grades.
+- A submission is accepted.
+- A grading period is approaching its deadline, where deadlines are configured.
+- A report card is ready for review.
+- A report card is finalized.
+- An authorized correction is requested.
+
+Notifications must identify the relevant school year, section, subject, grading period, and action required without exposing unauthorized learner information.
+
+Do not introduce duplicate notification infrastructure if the application already has a suitable notification module.
+
+---
+
+## 12\. USER ROLES AND PERMISSION ENFORCEMENT
+
+Integrate with the existing administrator-managed User Rights and Permissions Management module.
+
+Support the existing user roles:
+
+- System Administrator.
+- PSDS.
+- School Head.
+- Teacher.
+- Adviser.
+- Coordinator.
+- Non-Teaching Personnel.
+- Learner.
+
+Use existing role definitions and account records.
+
+Enforce permissions on the backend for all protected operations, including:
+
+- View class records.
+- Create class records.
+- Encode and edit scores.
+- Submit grades.
+- Review submissions.
+- Accept or return grades.
+- Consolidate report cards.
+- Finalize report cards.
+- Reopen finalized records.
+- Print or export records.
+
+Enforce school, section, subject, teacher, learner, and school-year boundaries.
+
+A teacher must not automatically gain access to another teacher's class records.
+
+An adviser must not access unrelated sections.
+
+A learner must not view another learner's grades.
+
+A user without the required permission must not be able to bypass restrictions through a direct URL or manipulated API request.
+
+Hide unauthorized controls in the frontend, but always validate authorization on the backend.
+
+---
+
+## 13\. DATABASE DESIGN AND HISTORICAL RECORDS
+
+Inspect the existing database and reuse existing entities where possible.
+
+Use the project's established schema conventions and database technology.
+
+The design may include relationships among:
+
+- Schools.
+- School years.
+- Curricula and curriculum versions.
+- Grade levels.
+- Sections.
+- Learners.
+- Enrollment history.
+- Subjects or learning areas.
+- Teacher assignments.
+- Class advisers.
+- Class records.
+- Assessments.
+- Raw assessment scores.
+- Computed quarterly grades.
+- Grade submissions.
+- Submission reviews.
+- Accepted grades.
+- Report cards.
+- Report card snapshots or versions.
+- Attendance summaries.
+- Audit logs.
+
+Do not create redundant learner, teacher, subject, or section records if those already exist.
+
+Use stable IDs and enforce valid relationships.
+
+Preserve historical data when a learner transfers sections, a teacher changes assignments, or the school year changes.
+
+A finalized report card must remain reproducible even if the current class roster or grading configuration changes later.
+
+Use database transactions for critical submission, consolidation, and finalization operations.
+
+Implement migrations safely and never reset production data.
+
+---
+
+## 14\. AUDIT TRAIL AND ACCOUNTABILITY
+
+Record important actions throughout the entire workflow.
+
+Capture, where appropriate:
+
+- User who encoded or modified scores.
+- Previous and new score values.
+- User who submitted grades.
+- Submission timestamps.
+- Adviser who accepted or returned grades.
+- Correction requests and reasons.
+- User who finalized a report card.
+- Previous and new report card versions.
+- Authorized reopening and amendment actions.
+- Print or export events where required by school policy.
+
+Restrict access to audit logs.
+
+Never allow ordinary users to modify or delete audit entries.
+
+Do not log passwords, authentication secrets, or unnecessary sensitive information.
+
+---
+
+## 15\. TESTING AND ACCEPTANCE CRITERIA
+
+The system is complete only when the following scenarios work end-to-end.
+
+### Subject teacher tests
+
+- The teacher sees only authorized teaching assignments.
+- The correct learners are loaded for the selected section and school year.
+- The correct official class record template is used.
+- Assessment scores are saved correctly.
+- Calculations match verified official examples.
+- Missing scores are not silently treated as zero.
+- The teacher can submit grades.
+- Unauthorized score edits and submissions are rejected.
+
+### Adviser tests
+
+- The adviser sees only assigned sections and learners.
+- Subject submissions appear under the correct learning areas.
+- Missing submissions are clearly identified.
+- Valid grades can be accepted.
+- Incomplete grades can be returned with comments.
+- Corrected grades can be resubmitted.
+- Accepted grades are consolidated against the correct learner IDs.
+- The adviser cannot silently overwrite raw assessment scores.
+
+### SF9 tests
+
+- The correct official template is selected.
+- All applicable learning areas appear.
+- Quarterly grades are mapped correctly.
+- General averages follow the verified policy.
+- Required attendance and learner information are sourced correctly.
+- Incomplete records are not incorrectly finalized.
+- Promotion or completion remarks follow applicable rules.
+- PDF output matches the finalized report card data.
+- Batch printing works for the assigned section.
+- Historical finalized report cards remain reproducible.
+
+### Security tests
+
+- Teachers cannot modify unrelated subjects or sections.
+- Advisers cannot access unrelated learners or sections.
+- Learners cannot access another learner's report card.
+- Users cannot bypass permissions through direct API requests.
+- Finalized grades cannot be changed without authorized reopening.
+- Unauthorized users cannot accept, submit, or finalize grades.
+- All important corrections and approvals are auditable.
+
+---
+
+## 16\. IMPLEMENTATION SEQUENCE
+
+### Phase 1 — Inspect and research
+
+Inspect the existing application, authentication, database, enrollment, school directory, subject assignments, attendance, permission management, and reporting modules.
+
+Identify the official templates and grading rules applicable to the supported grade levels and curriculum versions.
+
+### Phase 2 — Design the integration
+
+Define the data relationships, template architecture, calculation engine, grade submission workflow, adviser review process, SF9 consolidation, finalization, and printing.
+
+Document any policy questions that require confirmation before implementation.
+
+### Phase 3 — Build subject teacher class records
+
+Implement the official-style class record, score-entry grid, assessment management, calculations, validation, and submission workflow.
+
+### Phase 4 — Build adviser consolidation
+
+Implement grade submission monitoring, acceptance and return workflows, correction tracking, and learner-level grade consolidation.
+
+### Phase 5 — Build SF9 report cards
+
+Implement the applicable official report card templates, grade mapping, average calculations, attendance integration, validation, finalization, and PDF generation.
+
+### Phase 6 — Integrate permissions and dashboards
+
+Enforce backend authorization and add appropriate monitoring to existing teacher, adviser, school head, and district dashboards.
+
+### Phase 7 — Test and deploy safely
+
+Run migrations, test grading accuracy against official references, validate access controls, test printing, and preserve historical records.
+
+Do not remove or overwrite existing system functionality.
+
+---
+
+## 17\. REQUIRED FINAL IMPLEMENTATION REPORT
+
+After implementation, report:
+
+1. Modules and features implemented.
+2. Files created or modified.
+3. Database migrations performed.
+4. Official templates and policy versions supported.
+5. Grade computation methods implemented and validated.
+6. Subject teacher submission workflow.
+7. Class adviser consolidation workflow.
+8. SF9 report card generation and printing.
+9. Access control and audit implementation.
+10. Automated tests and their results.
+11. Any unsupported grade levels or unresolved policy questions.
+12. Remaining deployment or administrator configuration steps.
+
+Do not claim compliance with an official template or policy unless it has been verified.
+
+## FINAL INSTRUCTION
+
+Implement a complete end-to-end DepEd Class Record and Learner Report Card Management System inside the existing School District Monitoring System.
+
+Every subject teacher must maintain a separate class record for every assigned subject and class section. Each teacher must submit verified quarterly grades to the appropriate class adviser. The adviser must review and consolidate accepted grades from all applicable subjects and generate the correct SF9 report card for every learner.
+
+The system must preserve the applicable official DepEd template, grading computations, learner records, attendance requirements, school-year history, access permissions, audit trail, and printable document layout.
+
+**The objective is not merely to generate a report card. The objective is to implement the complete, secure, traceable workflow from subject-level assessment to the learner's finalized SF9 report card.**
+
+## Recommended workflow for your district
+
+1. Subject Teacher
+
+Maintains class records, encodes scores, computes grades, and submits each subject's quarterly grades.
+
+2. Class Adviser
+
+Checks submissions, returns incorrect entries, accepts verified grades, and consolidates results per learner.
+
+3. SF9 Report Card
+
+Generates each learner's report card using accepted grades, required attendance data, and the applicable official template.
+
+4. School Head / District Monitoring
+
+Monitors completion, reviews authorized reports, and tracks outstanding submissions.
+
+### Three critical instructions for Qoder
+
+- Use official templates as the source of truth. The class record and SF9 must match the applicable DepEd forms, not just resemble them.
+- Separate grade submission from grade consolidation. The class adviser must not need to re-encode every subject teacher's grades manually.
+- Preserve finalized report cards. If a teacher corrects a grade after an SF9 has been finalized, the system must use an authorized correction process and retain the previous version.
+
+This design will give your district one connected workflow for subject teachers, class advisers, school heads, and authorized district monitoring personnel.

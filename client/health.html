@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Health &amp; Nutrition · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+  <link rel="stylesheet" href="css/forms.css">
+</head>
+<body class="app-body" data-page="health">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-heart-pulse"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading health and nutrition records…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Restricted records · SF8</p>
+            <h1>Health &amp; Nutrition</h1>
+            <p class="page-subtitle">Record verified height and weight measurements for the school health report. These records are sensitive and visible only to authorized school health and administrative personnel.</p>
+          </div>
+          <div class="page-header__actions">
+            <button type="button" class="btn btn-primary d-none" id="newMeasurementButton">
+              <i class="bi bi-plus-lg" aria-hidden="true"></i>
+              <span>Record measurement</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="info-banner info-banner--private">
+          <i class="bi bi-shield-lock" aria-hidden="true"></i>
+          <div><strong>Restricted personal health information.</strong> Do not share, export, or print individual records outside the authorized SF8 process. Wearable measurements and nutritional classifications must come from trained personnel using child-appropriate growth standards; this system never applies adult BMI cutoffs or invents a classification.</div>
+        </div>
+
+        <div id="healthAlert" class="d-none mb-3" role="alert"></div>
+
+        <div class="mini-stats" aria-label="Aggregate health summary">
+          <div class="mini-stat"><span>Measurements</span><strong id="healthTotal">—</strong></div>
+          <div class="mini-stat"><span>Severely wasted</span><strong id="healthSeverelyWasted">—</strong></div>
+          <div class="mini-stat"><span>Average BMI</span><strong id="healthAverageBmi">—</strong></div>
+          <div class="mini-stat"><span>Assessed normal</span><strong id="healthNormal">—</strong></div>
+        </div>
+        <p class="field-hint" style="margin:-10px 0 16px">Aggregate figures only — no learner names are shown in the summary. Average BMI is descriptive and is not a nutritional diagnosis.</p>
+
+        <section class="surface-card" aria-labelledby="healthHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="healthHeading">Measurement register</h2>
+              <p id="healthScopeLabel">Choose a school and school year to begin.</p>
+            </div>
+          </header>
+
+          <div class="ops-toolbar">
+            <div class="field d-none" id="healthSchoolControl">
+              <label for="healthSchoolFilter">School</label>
+              <select class="custom-select custom-select-sm" id="healthSchoolFilter"></select>
+            </div>
+            <div class="field">
+              <label for="healthYearFilter">School year</label>
+              <select class="custom-select custom-select-sm" id="healthYearFilter"></select>
+            </div>
+            <div class="field">
+              <label for="healthSectionFilter">Section</label>
+              <select class="custom-select custom-select-sm" id="healthSectionFilter">
+                <option value="">All sections</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="healthStatusFilter">Nutritional status</label>
+              <select class="custom-select custom-select-sm" id="healthStatusFilter">
+                <option value="">All statuses</option>
+                <option value="severely_wasted">Severely wasted</option>
+                <option value="wasted">Wasted</option>
+                <option value="normal">Normal</option>
+                <option value="overweight">Overweight</option>
+                <option value="obese">Obese</option>
+                <option value="severely_stunted">Severely stunted</option>
+                <option value="stunted">Stunted</option>
+                <option value="tall">Tall</option>
+                <option value="not_assessed">Not assessed</option>
+              </select>
+            </div>
+            <label class="search-field">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <span class="sr-only">Search learners</span>
+              <input type="search" id="healthSearch" placeholder="Search learner name or LRN…" autocomplete="off">
+            </label>
+          </div>
+
+          <div class="table-responsive">
+            <table class="app-table">
+              <caption class="sr-only">Restricted health and nutrition measurements</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Learner</th>
+                  <th scope="col">LRN</th>
+                  <th scope="col">Grade / Section</th>
+                  <th scope="col">Measured</th>
+                  <th scope="col" class="text-right">Age</th>
+                  <th scope="col" class="text-right">Weight (kg)</th>
+                  <th scope="col" class="text-right">Height (cm)</th>
+                  <th scope="col" class="text-right">BMI</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Assessed by</th>
+                  <th scope="col" class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="healthBody">
+                <tr class="skeleton-row"><td colspan="11"><span class="skeleton skeleton-block"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer"><p class="table-footer__meta" id="healthMeta">Loading measurements…</p></div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/forms-common.js"></script>
+  <script src="js/health.js"></script>
+</body>
+</html>

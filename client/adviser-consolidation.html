@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Adviser Consolidation · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+  <link rel="stylesheet" href="css/forms.css">
+</head>
+<body class="app-body" data-page="adviser-consolidation">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-inboxes"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading adviser workspace…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Class advising</p>
+            <h1>Adviser Consolidation</h1>
+            <p class="page-subtitle">Review subject teacher submissions, return incomplete working for correction, accept verified quarterly grades, and consolidate every learner's report card.</p>
+          </div>
+        </div>
+
+        <div id="acAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="surface-card" aria-labelledby="acScopeHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="acScopeHeading">Review scope</h2>
+              <p id="acScopeHint">Choose a school year and section.</p>
+            </div>
+            <button type="button" class="btn btn-light btn-sm" id="acRefresh">
+              <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh
+            </button>
+          </header>
+          <div class="ops-toolbar">
+            <div class="field">
+              <label for="acYear">School year</label>
+              <select class="custom-select custom-select-sm" id="acYear"></select>
+            </div>
+            <div class="field">
+              <label for="acSection">Section</label>
+              <select class="custom-select custom-select-sm" id="acSection">
+                <option value="">Select a section</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="acSearch">Search sections</label>
+              <input type="search" class="form-control form-control-sm" id="acSearch" placeholder="Section or grade level">
+            </div>
+          </div>
+
+          <div class="module-tabs" role="tablist" aria-label="Adviser workspace">
+            <button type="button" role="tab" data-ac-tab="submissions" aria-selected="true">Submissions</button>
+            <button type="button" role="tab" data-ac-tab="consolidation" aria-selected="false">Learner consolidation</button>
+          </div>
+
+          <div class="tab-panel" id="acSubmissionsPanel" role="tabpanel">
+            <div id="acOverview"></div>
+          </div>
+
+          <div class="tab-panel d-none" id="acConsolidationPanel" role="tabpanel">
+            <div id="acConsolidation"></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/forms-common.js"></script>
+  <script src="js/adviser-consolidation.js"></script>
+</body>
+</html>

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Grades &amp; Promotion · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+  <link rel="stylesheet" href="css/forms.css">
+</head>
+<body class="app-body" data-page="grades">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-journal-check"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading grades and promotion…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Academic records</p>
+            <h1>Grades &amp; Promotion</h1>
+            <p class="page-subtitle">Encode quarter grades by subject, submit them for validation, finalize under the school's approved policy, and prepare promotion decisions and report cards.</p>
+          </div>
+        </div>
+
+        <div id="gradesAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="surface-card" aria-labelledby="gradesHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="gradesHeading">Class academic workspace</h2>
+              <p id="gradesScopeLabel">Choose a section to begin.</p>
+            </div>
+            <span class="status-badge status-badge--warning" id="policyBadge"><span class="status-dot"></span>Check grading policy</span>
+          </header>
+
+          <div class="ops-toolbar">
+            <div class="field d-none" id="gradesSchoolControl">
+              <label for="gradesSchoolFilter">School</label>
+              <select class="custom-select custom-select-sm" id="gradesSchoolFilter"></select>
+            </div>
+            <div class="field">
+              <label for="gradesYearFilter">School year</label>
+              <select class="custom-select custom-select-sm" id="gradesYearFilter"></select>
+            </div>
+            <div class="field">
+              <label for="gradesSectionFilter">Section</label>
+              <select class="custom-select custom-select-sm" id="gradesSectionFilter">
+                <option value="">Select a section</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="module-tabs" role="tablist" aria-label="Grades sections">
+            <button type="button" role="tab" id="tabEntry" aria-selected="true" aria-controls="panelEntry" data-tab="entry">Grade entry</button>
+            <button type="button" role="tab" id="tabPromotion" aria-selected="false" aria-controls="panelPromotion" data-tab="promotion">Promotion</button>
+            <button type="button" role="tab" id="tabReport" aria-selected="false" aria-controls="panelReport" data-tab="report">Report cards</button>
+            <button type="button" role="tab" id="tabPolicy" aria-selected="false" aria-controls="panelPolicy" data-tab="policy">Grading policy</button>
+          </div>
+
+          <div class="tab-panel" id="panelEntry" role="tabpanel" aria-labelledby="tabEntry">
+            <div class="ops-toolbar">
+              <div class="field">
+                <label for="gradeSubject">Subject</label>
+                <select class="custom-select custom-select-sm" id="gradeSubject"></select>
+              </div>
+              <div class="field">
+                <label for="gradePeriod">Grading period</label>
+                <select class="custom-select custom-select-sm" id="gradePeriod">
+                  <option value="q1">First quarter</option>
+                  <option value="q2">Second quarter</option>
+                  <option value="q3">Third quarter</option>
+                  <option value="q4">Fourth quarter</option>
+                </select>
+              </div>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-light btn-sm d-none" id="submitGradesButton">
+                  <i class="bi bi-send-check" aria-hidden="true"></i> Submit quarter
+                </button>
+                <button type="button" class="btn btn-warning btn-sm d-none" id="finalizeGradesButton">
+                  <i class="bi bi-lock" aria-hidden="true"></i> Finalize quarter
+                </button>
+                <button type="button" class="btn btn-primary btn-sm d-none" id="saveGradesButton">
+                  <i class="bi bi-save" aria-hidden="true"></i> Save grades
+                </button>
+              </div>
+            </div>
+            <div class="info-banner" style="margin:0 18px 12px">
+              <i class="bi bi-shield-check" aria-hidden="true"></i>
+              <div id="gradePolicyNote">Final grades are computed from the configured school policy. No grading formula is hardcoded into the browser.</div>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table grade-matrix">
+                <caption class="sr-only">Grade entry for the selected subject and quarter</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Learner</th>
+                    <th scope="col">LRN</th>
+                    <th scope="col">Grade</th>
+                    <th scope="col">Record status</th>
+                    <th scope="col">Remarks</th>
+                    <th scope="col" class="text-right">Finalized correction</th>
+                  </tr>
+                </thead>
+                <tbody id="gradeBody">
+                  <tr class="skeleton-row"><td colspan="7"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="grade-legend" id="gradeMeta">Select a section, subject, and quarter.</p>
+          </div>
+
+          <div class="tab-panel d-none" id="panelPromotion" role="tabpanel" aria-labelledby="tabPromotion">
+            <div class="ops-toolbar">
+              <p class="field-hint m-0" style="flex:1">Recommendations use finalized final grades and the configured passing grade. Approval and finalization require the school head or an administrator.</p>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-primary btn-sm d-none" id="computePromotionButton">
+                  <i class="bi bi-calculator" aria-hidden="true"></i> Compute recommendations
+                </button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Learner</th>
+                    <th scope="col">LRN</th>
+                    <th scope="col" class="text-right">Average</th>
+                    <th scope="col" class="text-right">Finalized subjects</th>
+                    <th scope="col">Missing finals</th>
+                    <th scope="col">Decision</th>
+                    <th scope="col">Workflow</th>
+                    <th scope="col" class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="promotionBody">
+                  <tr class="skeleton-row"><td colspan="8"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="tab-panel d-none" id="panelReport" role="tabpanel" aria-labelledby="tabReport">
+            <div class="ops-toolbar">
+              <p class="field-hint m-0" style="flex:1">Report cards can be prepared only when every subject has a finalized grade.</p>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-primary btn-sm d-none" id="generateCardsButton">
+                  <i class="bi bi-file-earmark-medical" aria-hidden="true"></i> Generate report cards
+                </button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Learner</th>
+                    <th scope="col">LRN</th>
+                    <th scope="col">Grade / Section</th>
+                    <th scope="col" class="text-right">General average</th>
+                    <th scope="col">Promotion</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Version</th>
+                    <th scope="col">Issued</th>
+                    <th scope="col" class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="reportBody">
+                  <tr class="skeleton-row"><td colspan="9"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="tab-panel d-none" id="panelPolicy" role="tabpanel" aria-labelledby="tabPolicy">
+            <div class="info-banner" style="margin:16px 18px 0">
+              <i class="bi bi-sliders" aria-hidden="true"></i>
+              <div>Policies are stored per school, school year, and optionally per grade level. The application never substitutes an unapproved formula; a missing policy uses a clearly labelled default.</div>
+            </div>
+            <form id="policyForm" class="learner-panel" novalidate style="padding:16px 18px">
+              <div id="policyAlert" class="d-none mb-3" role="alert"></div>
+              <div class="form-row">
+                <div class="col-md-4"><div class="form-group"><label for="policyPassing">Passing grade</label>
+                  <input type="number" class="form-control" id="policyPassing" name="passingGrade" min="0" max="100" step="0.01" value="75">
+                  <span class="field-error"></span></div></div>
+                <div class="col-md-4"><div class="form-group"><label for="policyFormula">Final grade formula</label>
+                  <select class="custom-select" id="policyFormula" name="finalFormula">
+                    <option value="average">Average of four quarters</option>
+                    <option value="weighted">Weighted quarters</option>
+                  </select></div></div>
+                <div class="col-md-4"><div class="form-group"><label>Grade level scope</label>
+                  <input class="form-control" id="policyScope" value="Whole school" readonly></div></div>
+                <div class="col-12" id="weightFields">
+                  <div class="form-row">
+                    <div class="col-6 col-md-3"><div class="form-group"><label for="policyW1">Q1 weight</label><input type="number" class="form-control" id="policyW1" name="w1" min="0" max="1" step="0.01" value="0.25"></div></div>
+                    <div class="col-6 col-md-3"><div class="form-group"><label for="policyW2">Q2 weight</label><input type="number" class="form-control" id="policyW2" name="w2" min="0" max="1" step="0.01" value="0.25"></div></div>
+                    <div class="col-6 col-md-3"><div class="form-group"><label for="policyW3">Q3 weight</label><input type="number" class="form-control" id="policyW3" name="w3" min="0" max="1" step="0.01" value="0.25"></div></div>
+                    <div class="col-6 col-md-3"><div class="form-group"><label for="policyW4">Q4 weight</label><input type="number" class="form-control" id="policyW4" name="w4" min="0" max="1" step="0.01" value="0.25"></div></div>
+                  </div>
+                </div>
+                <div class="col-12"><div class="form-group"><label for="policyNotes">Notes and approval reference</label>
+                  <textarea class="form-control" id="policyNotes" name="notes" rows="2" maxlength="2000" placeholder="School memorandum or policy reference"></textarea></div></div>
+              </div>
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <p class="field-hint m-0" id="policyStatus">Loading policy…</p>
+                <button type="button" class="btn btn-primary d-none" id="savePolicyButton">Save policy</button>
+              </div>
+            </form>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/forms-common.js"></script>
+  <script src="js/grades.js"></script>
+</body>
+</html>

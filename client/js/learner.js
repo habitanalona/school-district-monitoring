@@ -46,6 +46,10 @@
   }
 
   function setTab(tab, updateUrl) {
+    var target = document.querySelector('#learnerTabs [data-tab="' + tab + '"]');
+    if (!target || target.classList.contains("d-none")) {
+      tab = "overview";
+    }
     state.activeTab = tab;
     document.querySelectorAll("#learnerTabs [data-tab]").forEach(function (button) {
       var active = button.dataset.tab === tab;
@@ -62,6 +66,9 @@
     }
     if (tab === "subjects") {
       loadSubjects();
+    }
+    if (window.LearnerAcademic) {
+      window.LearnerAcademic.show(tab);
     }
     if (window.innerWidth < 768) {
       var tabs = el("learnerTabs");
@@ -1373,6 +1380,22 @@
 
   /* Data ------------------------------------------------------------------ */
 
+  function mountAcademic(refresh) {
+    if (!window.LearnerAcademic) {
+      return;
+    }
+    window.LearnerAcademic.mount({
+      learnerId: state.learnerId,
+      detail: state.detail,
+      session: state.session,
+      years: state.years
+    });
+    if (refresh && window.LearnerAcademic.isAcademic(state.activeTab)) {
+      window.LearnerAcademic.invalidate();
+      window.LearnerAcademic.show(state.activeTab, true);
+    }
+  }
+
   function loadDetail() {
     L.apiGet("/learners/" + state.learnerId)
       .then(function (detail) {
@@ -1385,6 +1408,7 @@
         renderActivities();
         renderHistory();
         renderOverview();
+        mountAcademic(true);
         if (state.activeTab === "subjects") {
           loadSubjects();
         }
@@ -1463,6 +1487,7 @@
           renderActivities();
           renderHistory();
           renderOverview();
+          mountAcademic(false);
           setTab(state.activeTab, false);
         });
       }).catch(function (error) {

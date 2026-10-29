@@ -33,6 +33,15 @@ const academicRoutes = require("./routes/academicRoutes");
 const activityRoutes = require("./routes/activityRoutes");
 const learnerReportRoutes = require("./routes/learnerReportRoutes");
 const userRightsRoutes = require("./routes/userRightsRoutes");
+const attendanceRoutes = require("./routes/attendanceRoutes");
+const bookRoutes = require("./routes/bookRoutes");
+const movementRoutes = require("./routes/movementRoutes");
+const gradeRoutes = require("./routes/gradeRoutes");
+const healthRoutes = require("./routes/healthRoutes");
+const personnelRoutes = require("./routes/personnelRoutes");
+const schoolFormsRoutes = require("./routes/schoolFormsRoutes");
+const monitoringRoutes = require("./routes/monitoringRoutes");
+const classRecordRoutes = require("./routes/classRecordRoutes");
 
 const CLIENT_DIR = path.join(__dirname, "..", "client");
 // Each protected page maps to the permission module that owns it. Direct URL
@@ -58,7 +67,18 @@ const PAGE_MODULES = {
   subjects: "subjects",
   activities: "activities",
   "learner-reports": "learner_reports",
-  "user-rights": "user_rights"
+  "user-rights": "user_rights",
+  attendance: "attendance",
+  books: "books",
+  movements: "movements",
+  grades: "grades",
+  health: "health",
+  personnel: "personnel",
+  "school-forms": "school_forms",
+  monitoring: "monitoring",
+  "class-records": "class_records",
+  "adviser-consolidation": "grade_submissions",
+  "report-cards": "report_cards"
 };
 const PROTECTED_PAGES = Object.keys(PAGE_MODULES);
 
@@ -178,6 +198,15 @@ app.use("/api/academic", academicRoutes);
 app.use("/api/activities", activityRoutes);
 app.use("/api/learner-reports", learnerReportRoutes);
 app.use("/api/user-rights", userRightsRoutes);
+app.use("/api/attendance", attendanceRoutes);
+app.use("/api/books", bookRoutes);
+app.use("/api/movements", movementRoutes);
+app.use("/api/grades", gradeRoutes);
+app.use("/api/health", healthRoutes);
+app.use("/api/personnel", personnelRoutes);
+app.use("/api/school-forms", schoolFormsRoutes);
+app.use("/api/monitoring", monitoringRoutes);
+app.use("/api/class-records", classRecordRoutes);
 app.use("/api", apiNotFound);
 
 app.use(

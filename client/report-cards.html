@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Report Cards (SF 9) · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+  <link rel="stylesheet" href="css/forms.css">
+</head>
+<body class="app-body" data-page="report-cards">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-file-earmark-person"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading report cards…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Learner progress</p>
+            <h1>Report Cards (SF 9)</h1>
+            <p class="page-subtitle">Validate each learner's consolidated grades, freeze a final snapshot, print individual or batch copies, and reopen a finalized card only with a recorded reason.</p>
+          </div>
+        </div>
+
+        <div id="rcAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="surface-card" aria-labelledby="rcHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="rcHeading">Report card register</h2>
+              <p id="rcHint">Choose a school year and section to load report cards.</p>
+            </div>
+            <div class="d-flex gap-2 flex-wrap" id="rcTotals"></div>
+          </header>
+
+          <div class="ops-toolbar">
+            <div class="field">
+              <label for="rcYear">School year</label>
+              <select class="custom-select custom-select-sm" id="rcYear"></select>
+            </div>
+            <div class="field">
+              <label for="rcSection">Section</label>
+              <select class="custom-select custom-select-sm" id="rcSection">
+                <option value="">All my sections</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="rcStatus">Status</label>
+              <select class="custom-select custom-select-sm" id="rcStatus">
+                <option value="">All statuses</option>
+                <option value="draft">Draft</option>
+                <option value="submitted">Submitted</option>
+                <option value="approved">Approved</option>
+                <option value="issued">Issued</option>
+                <option value="finalized">Finalized</option>
+                <option value="reopened">Reopened</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="rcSearch">Search</label>
+              <input type="search" class="form-control form-control-sm" id="rcSearch" placeholder="Learner or LRN">
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 px-3 pb-3">
+            <p class="field-hint m-0" id="rcActionHint">A card can be finalized only when every offered subject has a finalized final grade.</p>
+            <div class="toolbar-actions">
+              <button type="button" class="btn btn-light btn-sm" id="rcExportCsv">
+                <i class="bi bi-filetype-csv" aria-hidden="true"></i> Export CSV
+              </button>
+              <button type="button" class="btn btn-light btn-sm" id="rcBatchPrint">
+                <i class="bi bi-printer" aria-hidden="true"></i> Batch print
+              </button>
+              <button type="button" class="btn btn-light btn-sm" id="rcBatchPdf">
+                <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Batch PDF
+              </button>
+              <button type="button" class="btn btn-primary btn-sm" id="rcGenerate">
+                <i class="bi bi-file-earmark-plus" aria-hidden="true"></i> Generate cards
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="app-table">
+              <caption class="sr-only">Report cards for the selected scope</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Learner</th>
+                  <th scope="col">LRN</th>
+                  <th scope="col">Section</th>
+                  <th scope="col">Subjects</th>
+                  <th scope="col">General average</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Version</th>
+                  <th scope="col" class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="rcBody">
+                <tr><td colspan="8">Loading report cards…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/forms-common.js"></script>
+  <script src="js/report-cards.js"></script>
+</body>
+</html>

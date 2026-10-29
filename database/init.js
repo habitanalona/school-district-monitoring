@@ -21,6 +21,17 @@ async function main() {
     console.log("Applying database schema...");
     await client.query(schema);
 
+    const formsSchema = fs.readFileSync(path.join(__dirname, "schema-forms.sql"), "utf8");
+    console.log("Applying School Forms 1-10 schema...");
+    await client.query(formsSchema);
+
+    const classRecordSchema = fs.readFileSync(
+      path.join(__dirname, "schema-classrecords.sql"),
+      "utf8"
+    );
+    console.log("Applying Class Record and SF 9 workflow schema...");
+    await client.query(classRecordSchema);
+
     const seed = fs.readFileSync(path.join(__dirname, "seed.sql"), "utf8");
     console.log("Loading demonstration data...");
     await client.query(seed);

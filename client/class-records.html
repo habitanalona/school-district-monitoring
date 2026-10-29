@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Class Records · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+  <link rel="stylesheet" href="css/forms.css">
+</head>
+<body class="app-body" data-page="class-records">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-journal-text"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading class records…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Teaching workspace</p>
+            <h1>Class Records</h1>
+            <p class="page-subtitle">Maintain an independent record for every subject and section you teach. Scores are encoded per assessment, computed from the school's configured weights, and submitted to the class adviser for review.</p>
+          </div>
+        </div>
+
+        <div id="crAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="surface-card" id="crDashboardCard" aria-labelledby="crDashboardHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="crDashboardHeading">My classes</h2>
+              <p id="crDashboardHint">Choose a school year to see your teaching assignments.</p>
+            </div>
+            <span class="status-badge" id="crCountBadge"><span class="status-dot"></span><span id="crCountLabel">0 classes</span></span>
+          </header>
+
+          <div class="ops-toolbar">
+            <div class="field">
+              <label for="crYear">School year</label>
+              <select class="custom-select custom-select-sm" id="crYear"></select>
+            </div>
+            <div class="field">
+              <label for="crSection">Section</label>
+              <select class="custom-select custom-select-sm" id="crSection">
+                <option value="">All my sections</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="crSubject">Subject</label>
+              <select class="custom-select custom-select-sm" id="crSubject">
+                <option value="">All subjects</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="crSearch">Search</label>
+              <input type="search" class="form-control form-control-sm" id="crSearch" placeholder="Section or subject">
+            </div>
+            <div class="toolbar-actions">
+              <button type="button" class="btn btn-light btn-sm" id="crRefresh">
+                <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="app-table">
+              <caption class="sr-only">Teaching assignments and class record status</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Section</th>
+                  <th scope="col">Subject</th>
+                  <th scope="col">Learners</th>
+                  <th scope="col">Q1</th>
+                  <th scope="col">Q2</th>
+                  <th scope="col">Q3</th>
+                  <th scope="col">Q4</th>
+                  <th scope="col">Record</th>
+                  <th scope="col" class="text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="crDashboardBody">
+                <tr><td colspan="9">Loading classes…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="surface-card d-none" id="crDetailCard" aria-labelledby="crDetailHeading">
+          <header class="table-card__head">
+            <div>
+              <p class="page-eyebrow mb-1" id="crDetailEyebrow">Class record</p>
+              <h2 id="crDetailHeading">Loading…</h2>
+              <p id="crDetailScope"></p>
+            </div>
+            <div class="d-flex align-items-center flex-wrap gap-2">
+              <span id="crRecordStatus"></span>
+              <button type="button" class="btn btn-light btn-sm" id="crBackToClasses">
+                <i class="bi bi-arrow-left" aria-hidden="true"></i> My classes
+              </button>
+            </div>
+          </header>
+
+          <div class="info-banner" id="crTemplateNote" style="margin:0 18px 12px"></div>
+
+          <div class="module-tabs" role="tablist" aria-label="Grading periods" id="crQuarterTabs">
+            <button type="button" role="tab" data-quarter="q1" aria-selected="true">First quarter</button>
+            <button type="button" role="tab" data-quarter="q2" aria-selected="false">Second quarter</button>
+            <button type="button" role="tab" data-quarter="q3" aria-selected="false">Third quarter</button>
+            <button type="button" role="tab" data-quarter="q4" aria-selected="false">Fourth quarter</button>
+          </div>
+
+          <div class="tab-panel" id="crQuarterPanel" role="tabpanel">
+            <div class="ops-toolbar" id="crQuarterToolbar">
+              <div class="field" style="min-width:220px">
+                <label for="crAssessmentComponent">Add assessment</label>
+                <select class="custom-select custom-select-sm" id="crAssessmentComponent"></select>
+              </div>
+              <div class="field" style="min-width:220px">
+                <label for="crAssessmentTitle">Title</label>
+                <input type="text" class="form-control form-control-sm" id="crAssessmentTitle" maxlength="160" placeholder="e.g. Written Work 1">
+              </div>
+              <div class="field">
+                <label for="crAssessmentMax">Highest possible score</label>
+                <input type="number" class="form-control form-control-sm" id="crAssessmentMax" min="0.01" step="0.01" value="20">
+              </div>
+              <div class="field">
+                <label for="crAssessmentDate">Date</label>
+                <input type="date" class="form-control form-control-sm" id="crAssessmentDate">
+              </div>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-light btn-sm" id="crAddAssessment">
+                  <i class="bi bi-plus-lg" aria-hidden="true"></i> Add assessment
+                </button>
+              </div>
+            </div>
+
+            <div id="crQuarterStatus" class="info-banner mx-3 mb-3"></div>
+
+            <div class="table-responsive">
+              <table class="app-table grade-matrix" id="crMatrix">
+                <caption class="sr-only">Scores by learner and assessment for the selected quarter</caption>
+                <thead id="crMatrixHead"></thead>
+                <tbody id="crMatrixBody"></tbody>
+              </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 px-3 pb-3">
+              <p class="field-hint m-0" id="crMatrixHint">Blank means the score has not been encoded. Blank is never treated as zero.</p>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-warning btn-sm" id="crSubmitQuarter">
+                  <i class="bi bi-send-check" aria-hidden="true"></i> Submit quarter to adviser
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="crSaveScores">
+                  <i class="bi bi-save" aria-hidden="true"></i> Save scores
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/forms-common.js"></script>
+  <script src="js/class-records.js"></script>
+</body>
+</html>

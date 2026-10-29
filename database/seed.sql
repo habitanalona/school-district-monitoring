@@ -393,4 +393,22 @@ CROSS JOIN (VALUES
 WHERE a.name = v.activity_name AND l.lrn = v.lrn
 ON CONFLICT (activity_id, learner_id) DO NOTHING;
 
+-- ---------------------------------------------------------------------------
+-- Demonstration class record configuration. These weights are fictional sample
+-- values for the seeded school only. They are not presented as an official
+-- DepEd grading configuration; a real school must verify and replace them.
+-- ---------------------------------------------------------------------------
+UPDATE class_record_templates
+SET config = '{"components":[{"key":"ww","label":"Written Work","weight":0.30},{"key":"pt","label":"Performance Tasks","weight":0.50},{"key":"qa","label":"Quarterly Assessment","weight":0.20}],"rounding":"nearest_whole","transmutation":{"mode":"none"},"note":"Demonstration weights for the fictional seed data only. Not an official DepEd configuration."}'::jsonb,
+    source_note = 'Demonstration configuration for fictional seed data. Replace the weights with the school''s verified policy before real use.'
+WHERE version = 'system-1' AND is_official = FALSE;
+
+UPDATE sections
+SET curriculum_version_id = (
+  SELECT cv.id FROM curriculum_versions cv
+  JOIN curricula c ON c.id = cv.curriculum_id
+  WHERE c.code = 'SYS' AND cv.version_code = 'system-1'
+)
+WHERE curriculum_version_id IS NULL;
+
 COMMIT;

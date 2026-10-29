@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Books &amp; Materials · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+  <link rel="stylesheet" href="css/forms.css">
+</head>
+<body class="app-body" data-page="books">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-book"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading books and materials…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Learning resources</p>
+            <h1>Books &amp; Materials</h1>
+            <p class="page-subtitle">Maintain the textbook inventory, issue copies to learners, and record returns with their condition for the SF3 books report.</p>
+          </div>
+        </div>
+
+        <div id="booksAlert" class="d-none mb-3" role="alert"></div>
+
+        <div class="mini-stats" id="bookSummary" aria-label="Inventory summary">
+          <div class="mini-stat"><span>Titles</span><strong id="summaryTitles">—</strong></div>
+          <div class="mini-stat"><span>Copies</span><strong id="summaryCopies">—</strong></div>
+          <div class="mini-stat"><span>Issued</span><strong id="summaryIssued">—</strong></div>
+          <div class="mini-stat"><span>Outstanding</span><strong id="summaryOutstanding">—</strong></div>
+          <div class="mini-stat"><span>Available</span><strong id="summaryAvailable">—</strong></div>
+        </div>
+
+        <section class="surface-card" aria-labelledby="booksHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="booksHeading">Inventory and issuances</h2>
+              <p id="booksScopeLabel">Choose a school and school year to begin.</p>
+            </div>
+          </header>
+
+          <div class="ops-toolbar">
+            <div class="field d-none" id="booksSchoolControl">
+              <label for="booksSchoolFilter">School</label>
+              <select class="custom-select custom-select-sm" id="booksSchoolFilter"></select>
+            </div>
+            <div class="field">
+              <label for="booksYearFilter">School year</label>
+              <select class="custom-select custom-select-sm" id="booksYearFilter"></select>
+            </div>
+            <label class="search-field">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <span class="sr-only">Search titles, authors, or learners</span>
+              <input type="search" id="bookSearch" placeholder="Search title, author, ISBN, or learner…" autocomplete="off">
+            </label>
+            <button type="button" class="btn btn-ghost btn-sm" id="resetBookFilters">
+              <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset
+            </button>
+          </div>
+
+          <div class="module-tabs" role="tablist" aria-label="Books sections">
+            <button type="button" role="tab" id="tabCatalog" aria-selected="true" aria-controls="panelCatalog" data-tab="catalog" class="is-active">Catalog</button>
+            <button type="button" role="tab" id="tabIssuances" aria-selected="false" aria-controls="panelIssuances" data-tab="issuances">Issuances</button>
+          </div>
+
+          <div class="tab-panel" id="panelCatalog" role="tabpanel" aria-labelledby="tabCatalog">
+            <div class="ops-toolbar">
+              <p class="field-hint m-0" style="flex:1">Inventory counts come from issued copies minus recorded returns. Archived titles are hidden but their history is preserved.</p>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-light btn-sm d-none" id="issueBookButton">
+                  <i class="bi bi-person-up" aria-hidden="true"></i> Issue copies
+                </button>
+                <button type="button" class="btn btn-primary btn-sm d-none" id="newCatalogButton">
+                  <i class="bi bi-plus-lg" aria-hidden="true"></i> Add title
+                </button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <caption class="sr-only">Book and material inventory for the selected school year</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Title</th>
+                    <th scope="col">Subject / Grade</th>
+                    <th scope="col">School year</th>
+                    <th scope="col" class="text-right">Copies</th>
+                    <th scope="col" class="text-right">Issued</th>
+                    <th scope="col" class="text-right">Available</th>
+                    <th scope="col">Condition</th>
+                    <th scope="col" class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="catalogBody">
+                  <tr class="skeleton-row"><td colspan="8"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer"><p class="table-footer__meta" id="catalogMeta">Loading inventory…</p></div>
+          </div>
+
+          <div class="tab-panel d-none" id="panelIssuances" role="tabpanel" aria-labelledby="tabIssuances">
+            <div class="ops-toolbar">
+              <div class="field">
+                <label for="issuanceStatusFilter">Status</label>
+                <select class="custom-select custom-select-sm" id="issuanceStatusFilter">
+                  <option value="">All statuses</option>
+                  <option value="issued">Issued</option>
+                  <option value="partially_returned">Partially returned</option>
+                  <option value="returned">Returned</option>
+                  <option value="damaged">Damaged</option>
+                  <option value="lost">Lost</option>
+                </select>
+              </div>
+              <label class="field-check">
+                <input type="checkbox" id="outstandingOnly"> <span>Outstanding only</span>
+              </label>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <caption class="sr-only">Book issuances to learners</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Learner</th>
+                    <th scope="col">LRN</th>
+                    <th scope="col">Title</th>
+                    <th scope="col" class="text-right">Issued</th>
+                    <th scope="col" class="text-right">Returned</th>
+                    <th scope="col" class="text-right">Outstanding</th>
+                    <th scope="col">Issued on</th>
+                    <th scope="col">Expected return</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="issuanceBody">
+                  <tr class="skeleton-row"><td colspan="10"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer"><p class="table-footer__meta" id="issuanceMeta">Loading issuances…</p></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/forms-common.js"></script>
+  <script src="js/books.js"></script>
+</body>
+</html>

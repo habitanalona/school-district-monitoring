@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Learner Movements · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+  <link rel="stylesheet" href="css/forms.css">
+</head>
+<body class="app-body" data-page="movements">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-arrow-left-right"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading learner movements…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Enrollment movement · SF4</p>
+            <h1>Learner Movements</h1>
+            <p class="page-subtitle">Record transfers in and out, drop-outs, reinstatements, and completions. Approved movements update the enrollment status and feed the monthly SF4 report.</p>
+          </div>
+          <div class="page-header__actions">
+            <button type="button" class="btn btn-primary d-none" id="newMovementButton">
+              <i class="bi bi-plus-lg" aria-hidden="true"></i>
+              <span>Record movement</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="movementsAlert" class="d-none mb-3" role="alert"></div>
+
+        <div class="mini-stats" aria-label="Approved movement summary">
+          <div class="mini-stat"><span>Transferred in</span><strong id="movementIn">—</strong></div>
+          <div class="mini-stat"><span>Transferred out</span><strong id="movementOut">—</strong></div>
+          <div class="mini-stat"><span>Dropped out</span><strong id="movementDrop">—</strong></div>
+          <div class="mini-stat"><span>Reinstated</span><strong id="movementReinstate">—</strong></div>
+          <div class="mini-stat"><span>Awaiting decision</span><strong id="movementPending">—</strong></div>
+        </div>
+
+        <section class="surface-card" aria-labelledby="movementsHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="movementsHeading">Movement register</h2>
+              <p id="movementsScopeLabel">Choose a school year to begin.</p>
+            </div>
+          </header>
+
+          <div class="ops-toolbar">
+            <div class="field d-none" id="movementsSchoolControl">
+              <label for="movementsSchoolFilter">School</label>
+              <select class="custom-select custom-select-sm" id="movementsSchoolFilter"></select>
+            </div>
+            <div class="field">
+              <label for="movementsYearFilter">School year</label>
+              <select class="custom-select custom-select-sm" id="movementsYearFilter"></select>
+            </div>
+            <div class="field">
+              <label for="movementsMonthFilter">Month</label>
+              <select class="custom-select custom-select-sm" id="movementsMonthFilter"></select>
+            </div>
+            <div class="field">
+              <label for="movementsTypeFilter">Movement type</label>
+              <select class="custom-select custom-select-sm" id="movementsTypeFilter">
+                <option value="">All types</option>
+                <option value="transferred_in">Transferred in</option>
+                <option value="transferred_out">Transferred out</option>
+                <option value="dropped_out">Dropped out</option>
+                <option value="reinstated">Reinstated</option>
+                <option value="completed">Completed</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="movementsStatusFilter">Status</label>
+              <select class="custom-select custom-select-sm" id="movementsStatusFilter">
+                <option value="">All statuses</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+            <label class="search-field">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <span class="sr-only">Search learners</span>
+              <input type="search" id="movementsSearch" placeholder="Search learner or LRN…" autocomplete="off">
+            </label>
+          </div>
+
+          <div class="table-responsive">
+            <table class="app-table">
+              <caption class="sr-only">Learner movement records</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Learner</th>
+                  <th scope="col">LRN</th>
+                  <th scope="col">Grade / Section</th>
+                  <th scope="col">Movement</th>
+                  <th scope="col">Effective</th>
+                  <th scope="col">Other school / reference</th>
+                  <th scope="col">Reason</th>
+                  <th scope="col">Status</th>
+                  <th scope="col" class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="movementsBody">
+                <tr class="skeleton-row"><td colspan="9"><span class="skeleton skeleton-block"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer"><p class="table-footer__meta" id="movementsMeta">Loading movements…</p></div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/forms-common.js"></script>
+  <script src="js/movements.js"></script>
+</body>
+</html>

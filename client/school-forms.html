@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>School Forms Center · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+  <link rel="stylesheet" href="css/forms.css">
+</head>
+<body class="app-body" data-page="school-forms">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-file-earmark-text"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Preparing the School Forms Center…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">DepEd School Forms 1–10</p>
+            <h1>School Forms Center</h1>
+            <p class="page-subtitle">Generate every school form from verified source records, run cross-form validation, and move each submission through review, approval, and finalization.</p>
+          </div>
+          <div class="page-header__actions">
+            <button type="button" class="btn btn-light" id="refreshFormsButton">
+              <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="formsPageAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="surface-card" aria-labelledby="formsCentreHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="formsCentreHeading">Forms workspace</h2>
+              <p id="formsScopeLabel">Select a school year to begin.</p>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="status-badge status-badge--neutral" id="formsSourceBadge"><span class="status-dot"></span>Source records only</span>
+            </div>
+          </header>
+
+          <div class="ops-toolbar">
+            <div class="field d-none" id="formsSchoolControl">
+              <label for="formsSchoolFilter">School</label>
+              <select class="custom-select custom-select-sm" id="formsSchoolFilter"></select>
+            </div>
+            <div class="field">
+              <label for="formsYearFilter">School year</label>
+              <select class="custom-select custom-select-sm" id="formsYearFilter"></select>
+            </div>
+            <div class="field">
+              <label for="formsGradeFilter">Grade level</label>
+              <select class="custom-select custom-select-sm" id="formsGradeFilter">
+                <option value="">All grade levels</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="formsSectionFilter">Section</label>
+              <select class="custom-select custom-select-sm" id="formsSectionFilter">
+                <option value="">All sections</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="formsMonthFilter">Reporting month</label>
+              <select class="custom-select custom-select-sm" id="formsMonthFilter"></select>
+            </div>
+            <div class="toolbar-actions">
+              <button type="button" class="btn btn-ghost btn-sm" id="formsResetFilters">
+                <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset
+              </button>
+            </div>
+          </div>
+
+          <div class="module-tabs" role="tablist" aria-label="School forms sections">
+            <button type="button" role="tab" id="tabForms" aria-selected="true" aria-controls="panelForms" data-tab="forms">Forms 1–10</button>
+            <button type="button" role="tab" id="tabSubmissions" aria-selected="false" aria-controls="panelSubmissions" data-tab="submissions">Submissions</button>
+            <button type="button" role="tab" id="tabDeadlines" aria-selected="false" aria-controls="panelDeadlines" data-tab="deadlines">Deadlines</button>
+            <button type="button" role="tab" id="tabTemplates" aria-selected="false" aria-controls="panelTemplates" data-tab="templates">Templates</button>
+          </div>
+
+          <div class="tab-panel" id="panelForms" role="tabpanel" aria-labelledby="tabForms">
+            <div class="info-banner" style="margin:16px 18px 0">
+              <i class="bi bi-info-circle" aria-hidden="true"></i>
+              <div>
+                <strong>Source-verified generation only.</strong>
+                Every form is assembled from permanent learner profiles, enrollments, attendance, books, movements, finalized grades, verified health data, and personnel assignments. Missing or unapproved records are flagged, never invented.
+                Layouts are marked as system layouts unless an official template and source have been configured.
+              </div>
+            </div>
+            <div class="forms-grid" id="formsGrid">
+              <div class="skeleton skeleton-block" style="height:190px"></div>
+              <div class="skeleton skeleton-block" style="height:190px"></div>
+              <div class="skeleton skeleton-block" style="height:190px"></div>
+            </div>
+          </div>
+
+          <div class="tab-panel d-none" id="panelSubmissions" role="tabpanel" aria-labelledby="tabSubmissions">
+            <div class="ops-toolbar">
+              <div class="field">
+                <label for="submissionFormFilter">Form</label>
+                <select class="custom-select custom-select-sm" id="submissionFormFilter">
+                  <option value="">All forms</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="submissionStatusFilter">Status</label>
+                <select class="custom-select custom-select-sm" id="submissionStatusFilter">
+                  <option value="">Any status</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="ready_for_validation">Ready for Validation</option>
+                  <option value="validation_failed">Validation Failed</option>
+                  <option value="submitted">Submitted</option>
+                  <option value="returned">Returned for Correction</option>
+                  <option value="approved">Approved</option>
+                  <option value="finalized">Finalized</option>
+                </select>
+              </div>
+              <div class="toolbar-actions">
+                <span class="field-hint" id="submissionsMeta">Loading submissions…</span>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <caption class="sr-only">Saved form submissions with status and validation results</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Form</th>
+                    <th scope="col">School / class</th>
+                    <th scope="col">Period</th>
+                    <th scope="col">Version</th>
+                    <th scope="col">Completeness</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Updated</th>
+                    <th scope="col" class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="submissionsBody">
+                  <tr class="skeleton-row"><td colspan="8"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="tab-panel d-none" id="panelDeadlines" role="tabpanel" aria-labelledby="tabDeadlines">
+            <div class="ops-toolbar">
+              <p class="field-hint m-0" style="flex:1">Deadlines are set by district or school administrators and appear on the forms overview.</p>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-primary btn-sm d-none" id="newDeadlineButton">
+                  <i class="bi bi-plus-lg" aria-hidden="true"></i> Set deadline
+                </button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Form</th>
+                    <th scope="col">Deadline</th>
+                    <th scope="col">Due date</th>
+                    <th scope="col">Scope</th>
+                    <th scope="col">Period</th>
+                    <th scope="col" class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="deadlinesBody">
+                  <tr class="skeleton-row"><td colspan="6"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="tab-panel d-none" id="panelTemplates" role="tabpanel" aria-labelledby="tabTemplates">
+            <div class="info-banner info-banner--warning" style="margin:16px 18px 0">
+              <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+              <div>
+                <strong>Official templates require a recorded source.</strong>
+                This system ships with system-generated layouts. Before marking a layout official, upload or configure the DepEd-issued template and record its source note. A system layout must never be presented as an official DepEd form.
+              </div>
+            </div>
+            <div class="ops-toolbar">
+              <p class="field-hint m-0" style="flex:1">Templates control paper size, orientation, and the active layout for each form code.</p>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-primary btn-sm d-none" id="newTemplateButton">
+                  <i class="bi bi-plus-lg" aria-hidden="true"></i> Add template
+                </button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Form</th>
+                    <th scope="col">Template</th>
+                    <th scope="col">Version</th>
+                    <th scope="col">Paper</th>
+                    <th scope="col">Layout source</th>
+                    <th scope="col">Active</th>
+                    <th scope="col" class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="templatesBody">
+                  <tr class="skeleton-row"><td colspan="7"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/forms-common.js"></script>
+  <script src="js/school-forms.js"></script>
+</body>
+</html>

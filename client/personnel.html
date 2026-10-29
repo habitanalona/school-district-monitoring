@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Personnel · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+  <link rel="stylesheet" href="css/forms.css">
+</head>
+<body class="app-body" data-page="personnel">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-person-badge"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading personnel records…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">School personnel</p>
+            <h1>Personnel</h1>
+            <p class="page-subtitle">Maintain personnel profiles, teaching loads, and class schedules. These records feed the SF7 school personnel report and assignment monitoring.</p>
+          </div>
+          <div class="page-header__actions">
+            <button type="button" class="btn btn-primary d-none" id="newPersonnelButton">
+              <i class="bi bi-person-plus" aria-hidden="true"></i>
+              <span>Add personnel</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="personnelAlert" class="d-none mb-3" role="alert"></div>
+
+        <div class="mini-stats" aria-label="Personnel summary">
+          <div class="mini-stat"><span>Active accounts</span><strong id="summaryTotal">—</strong></div>
+          <div class="mini-stat"><span>Teaching</span><strong id="summaryTeaching">—</strong></div>
+          <div class="mini-stat"><span>Non-teaching</span><strong id="summaryNonTeaching">—</strong></div>
+          <div class="mini-stat"><span>Profiled</span><strong id="summaryProfiled">—</strong></div>
+          <div class="mini-stat"><span>Without profile</span><strong id="summaryUnprofiled">—</strong></div>
+        </div>
+
+        <section class="surface-card" aria-labelledby="personnelHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="personnelHeading">Personnel register</h2>
+              <p id="personnelScopeLabel">Choose a school to review assignments and schedules.</p>
+            </div>
+          </header>
+
+          <div class="ops-toolbar">
+            <div class="field d-none" id="personnelSchoolControl">
+              <label for="personnelSchoolFilter">School</label>
+              <select class="custom-select custom-select-sm" id="personnelSchoolFilter"></select>
+            </div>
+            <div class="field">
+              <label for="personnelYearFilter">School year</label>
+              <select class="custom-select custom-select-sm" id="personnelYearFilter"></select>
+            </div>
+            <div class="field">
+              <label for="personnelTeachingFilter">Teaching</label>
+              <select class="custom-select custom-select-sm" id="personnelTeachingFilter">
+                <option value="">All personnel</option>
+                <option value="true">Teaching only</option>
+                <option value="false">Non-teaching only</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="personnelStatusFilter">Employment</label>
+              <select class="custom-select custom-select-sm" id="personnelStatusFilter">
+                <option value="">All statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+            <label class="search-field">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <span class="sr-only">Search personnel</span>
+              <input type="search" id="personnelSearch" placeholder="Search name, employee number, or position…" autocomplete="off">
+            </label>
+          </div>
+
+          <div class="module-tabs" role="tablist" aria-label="Personnel sections">
+            <button type="button" role="tab" id="tabRegister" aria-selected="true" aria-controls="panelRegister" data-tab="register" class="is-active">Personnel register</button>
+            <button type="button" role="tab" id="tabLoads" aria-selected="false" aria-controls="panelLoads" data-tab="loads">Teaching loads</button>
+          </div>
+
+          <div class="tab-panel" id="panelRegister" role="tabpanel" aria-labelledby="tabRegister">
+            <div class="table-responsive">
+              <table class="app-table">
+                <caption class="sr-only">Personnel profiles and account status</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Personnel</th>
+                    <th scope="col">Employee no.</th>
+                    <th scope="col">Position</th>
+                    <th scope="col">Teaching</th>
+                    <th scope="col">Employment</th>
+                    <th scope="col">Designation</th>
+                    <th scope="col">Profile</th>
+                    <th scope="col" class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="personnelBody">
+                  <tr class="skeleton-row"><td colspan="8"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer"><p class="table-footer__meta" id="personnelMeta">Loading personnel…</p></div>
+          </div>
+
+          <div class="tab-panel d-none" id="panelLoads" role="tabpanel" aria-labelledby="tabLoads">
+            <div class="info-banner" style="margin:14px 18px 0">
+              <i class="bi bi-calendar3" aria-hidden="true"></i>
+              <div id="loadsNote">Assignments and schedules come from the teaching assignment register. Conflicting schedules are flagged; the system never resolves them automatically.</div>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <caption class="sr-only">Teaching assignments, schedules, and load</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Personnel</th>
+                    <th scope="col">Assignments</th>
+                    <th scope="col" class="text-right">Schedules</th>
+                    <th scope="col" class="text-right">Load (hours)</th>
+                    <th scope="col">Completeness</th>
+                    <th scope="col">Conflicts</th>
+                    <th scope="col" class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="loadsBody">
+                  <tr class="skeleton-row"><td colspan="7"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer"><p class="table-footer__meta" id="loadsMeta">Choose a school to load assignments.</p></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/forms-common.js"></script>
+  <script src="js/personnel.js"></script>
+</body>
+</html>

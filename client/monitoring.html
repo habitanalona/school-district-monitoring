@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>District Monitoring · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+  <link rel="stylesheet" href="css/forms.css">
+</head>
+<body class="app-body" data-page="monitoring">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-clipboard2-data"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading district monitoring…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Submission oversight</p>
+            <h1>District Monitoring</h1>
+            <p class="page-subtitle">Track school form submissions, overdue requirements, validation failures, and reviewer actions. Incomplete or unapproved records are never counted as complete.</p>
+          </div>
+          <div class="page-header__actions">
+            <button type="button" class="btn btn-light" id="refreshMonitoring">
+              <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh
+            </button>
+          </div>
+        </div>
+
+        <div id="monitoringAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="surface-card" aria-labelledby="monitoringHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="monitoringHeading">School submission status</h2>
+              <p id="monitoringScopeLabel">Loading scope…</p>
+            </div>
+            <span class="status-badge status-badge--neutral" id="monitoringYearBadge"><span class="status-dot"></span>School year</span>
+          </header>
+
+          <div class="ops-toolbar">
+            <div class="field d-none" id="monitorDistrictControl">
+              <label for="monitorDistrictFilter">District</label>
+              <select class="custom-select custom-select-sm" id="monitorDistrictFilter"></select>
+            </div>
+            <div class="field d-none" id="monitorSchoolControl">
+              <label for="monitorSchoolFilter">School</label>
+              <select class="custom-select custom-select-sm" id="monitorSchoolFilter"></select>
+            </div>
+            <div class="field">
+              <label for="monitorYearFilter">School year</label>
+              <select class="custom-select custom-select-sm" id="monitorYearFilter"></select>
+            </div>
+          </div>
+
+          <div class="module-tabs" role="tablist" aria-label="Monitoring sections">
+            <button type="button" role="tab" id="tabOverview" aria-selected="true" aria-controls="panelOverview" data-tab="overview">Overview</button>
+            <button type="button" role="tab" id="tabDiscrepancies" aria-selected="false" aria-controls="panelDiscrepancies" data-tab="discrepancies">Discrepancies</button>
+            <button type="button" role="tab" id="tabAudit" aria-selected="false" aria-controls="panelAudit" data-tab="audit">Review audit trail</button>
+          </div>
+
+          <div class="tab-panel" id="panelOverview" role="tabpanel" aria-labelledby="tabOverview">
+            <div style="padding:16px 18px 0">
+              <div class="monitor-grid" id="monitorStats">
+                <div class="skeleton skeleton-block" style="height:74px"></div>
+                <div class="skeleton skeleton-block" style="height:74px"></div>
+                <div class="skeleton skeleton-block" style="height:74px"></div>
+                <div class="skeleton skeleton-block" style="height:74px"></div>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <caption class="sr-only">School-level form submission completion</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">School</th>
+                    <th scope="col">District</th>
+                    <th scope="col" class="text-right">Generated</th>
+                    <th scope="col" class="text-right">Approved</th>
+                    <th scope="col" class="text-right">Submitted</th>
+                    <th scope="col" class="text-right">Returned</th>
+                    <th scope="col" class="text-right">Failed</th>
+                    <th scope="col" class="text-right">Missing</th>
+                    <th scope="col" class="text-right">Overdue</th>
+                    <th scope="col" style="min-width:150px">Completion</th>
+                    <th scope="col" class="text-right">Open</th>
+                  </tr>
+                </thead>
+                <tbody id="monitorSchoolsBody">
+                  <tr class="skeleton-row"><td colspan="11"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer">
+              <p class="table-footer__meta" id="monitorFooter">Loading school status…</p>
+            </div>
+
+            <div class="table-card__head" style="border-top:1px solid var(--line)">
+              <div>
+                <h2>Reporting deadlines</h2>
+                <p>Forms past their due date remain open until approved or finalized.</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Form</th>
+                    <th scope="col">Deadline</th>
+                    <th scope="col">Due date</th>
+                    <th scope="col">Scope</th>
+                    <th scope="col">Period</th>
+                  </tr>
+                </thead>
+                <tbody id="monitorDeadlinesBody">
+                  <tr class="skeleton-row"><td colspan="5"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="tab-panel d-none" id="panelDiscrepancies" role="tabpanel" aria-labelledby="tabDiscrepancies">
+            <div class="info-banner" style="margin:16px 18px 0">
+              <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+              <div>These submissions are incomplete, failed validation, or were returned for correction. Expand a row to see the exact issues and open the source module that needs correction.</div>
+            </div>
+            <div id="discrepancyList">
+              <div class="skeleton skeleton-block" style="height:120px;margin:16px"></div>
+            </div>
+          </div>
+
+          <div class="tab-panel d-none" id="panelAudit" role="tabpanel" aria-labelledby="tabAudit">
+            <div class="table-responsive">
+              <table class="app-table">
+                <caption class="sr-only">Form submission review audit trail</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">When</th>
+                    <th scope="col">Form</th>
+                    <th scope="col">School</th>
+                    <th scope="col">Action</th>
+                    <th scope="col">Actor</th>
+                    <th scope="col">Comments</th>
+                  </tr>
+                </thead>
+                <tbody id="auditBody">
+                  <tr class="skeleton-row"><td colspan="6"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/forms-common.js"></script>
+  <script src="js/monitoring.js"></script>
+</body>
+</html>

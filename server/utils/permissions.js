@@ -39,6 +39,14 @@ function permissionsFor(user) {
     allows(matrix, "school_reports", "add") || allows(matrix, "school_reports", "edit");
   const userWrite =
     allows(matrix, "users", "add") || allows(matrix, "users", "edit");
+  const moduleWrite = function (key) {
+    return (
+      allows(matrix, key, "add") ||
+      allows(matrix, key, "edit") ||
+      allows(matrix, key, "delete")
+    );
+  };
+  const reviewerRoles = ["system_admin", "district_admin", "psds", "school_head"];
 
   return {
     canManageSchools: allows(matrix, "schools", "access") && schoolsWrite,
@@ -74,6 +82,30 @@ function permissionsFor(user) {
     canViewReports: allows(matrix, "district_reports", "access"),
     canViewSubjects: allows(matrix, "subjects", "access"),
     canViewActivities: allows(matrix, "activities", "access"),
+    canViewAttendance: allows(matrix, "attendance", "access"),
+    canManageAttendance: allows(matrix, "attendance", "access") && moduleWrite("attendance"),
+    canViewGrades: allows(matrix, "grades", "access"),
+    canManageGrades: allows(matrix, "grades", "access") && moduleWrite("grades"),
+    canViewBooks: allows(matrix, "books", "access"),
+    canManageBooks: allows(matrix, "books", "access") && moduleWrite("books"),
+    canViewMovements: allows(matrix, "movements", "access"),
+    canManageMovements: allows(matrix, "movements", "access") && moduleWrite("movements"),
+    canViewHealth: allows(matrix, "health", "access"),
+    canManageHealth: allows(matrix, "health", "access") && moduleWrite("health"),
+    canViewPersonnel: allows(matrix, "personnel", "access"),
+    canManagePersonnel: allows(matrix, "personnel", "access") && moduleWrite("personnel"),
+    canViewSchoolForms: allows(matrix, "school_forms", "access"),
+    canManageSchoolForms: allows(matrix, "school_forms", "access") && moduleWrite("school_forms"),
+    canReviewSchoolForms:
+      allows(matrix, "school_forms", "access") &&
+      allows(matrix, "school_forms", "edit") &&
+      reviewerRoles.indexOf(user.role) !== -1,
+    canFinalizeSchoolForms:
+      allows(matrix, "school_forms", "access") &&
+      allows(matrix, "school_forms", "edit") &&
+      ["system_admin", "district_admin"].indexOf(user.role) !== -1,
+    canViewMonitoring: allows(matrix, "monitoring", "access"),
+    canViewPermanentRecords: allows(matrix, "permanent_records", "access"),
     modules: matrix || {}
   };
 }

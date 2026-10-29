@@ -143,6 +143,42 @@
       learnerLinks = '<p class="sidebar-heading">Learner records</p>' + learnerItems;
     }
 
+    var operationsItems =
+      (allows("attendance") ? navItem("attendance", "attendance.html", "bi-calendar2-check", "Attendance") : "") +
+      (allows("grades") ? navItem("grades", "grades.html", "bi-journal-check", "Grades & Promotion") : "") +
+      (allows("books") ? navItem("books", "books.html", "bi-book", "Books & Materials") : "") +
+      (allows("movements") ? navItem("movements", "movements.html", "bi-arrow-left-right", "Learner Movements") : "") +
+      (allows("health") ? navItem("health", "health.html", "bi-heart-pulse", "Health & Nutrition") : "") +
+      (allows("personnel") ? navItem("personnel", "personnel.html", "bi-person-badge", "Personnel") : "");
+    var operationsLinks = operationsItems
+      ? '<p class="sidebar-heading">School operations</p>' + operationsItems
+      : "";
+
+    var formsItems =
+      (allows("class_records")
+        ? navItem("class-records", "class-records.html", "bi-journal-text", "Class Records")
+        : "") +
+      (allows("grade_submissions")
+        ? navItem(
+            "adviser-consolidation",
+            "adviser-consolidation.html",
+            "bi-inboxes",
+            "Adviser Consolidation"
+          )
+        : "") +
+      (allows("report_cards")
+        ? navItem("report-cards", "report-cards.html", "bi-file-earmark-person", "Report Cards (SF 9)")
+        : "") +
+      (allows("school_forms")
+        ? navItem("school-forms", "school-forms.html", "bi-file-earmark-text", "School Forms Center")
+        : "") +
+      (allows("monitoring")
+        ? navItem("monitoring", "monitoring.html", "bi-clipboard2-data", "District Monitoring")
+        : "");
+    var formsLinks = formsItems
+      ? '<p class="sidebar-heading">Grading & school forms</p>' + formsItems
+      : "";
+
     var dashboardLink = allows("dashboard")
       ? navItem("dashboard", "dashboard.html", "bi-grid-1x2", "Dashboard")
       : "";
@@ -201,6 +237,8 @@
       (dashboardLink || learnerLinks ? '<p class="sidebar-heading">Overview</p>' : "") +
       dashboardLink +
       learnerLinks +
+      operationsLinks +
+      formsLinks +
       divisionSection +
       schoolLinks +
       (reportLink || announcementLink ? '<p class="sidebar-heading">District</p>' : "") +

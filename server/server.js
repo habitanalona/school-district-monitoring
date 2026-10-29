@@ -3,15 +3,19 @@
 const app = require("./app");
 const config = require("./config/env");
 const { pool } = require("./config/database");
+const { ensurePermissionCatalog } = require("./services/permissionService");
 
 let server;
 
 async function start() {
   try {
     await pool.query("SELECT 1");
+    // Keeps the permission catalog and role defaults in sync without touching
+    // administrator-made overrides (ON CONFLICT DO NOTHING for role defaults).
+    await ensurePermissionCatalog();
   } catch (error) {
-    console.error("Unable to connect to PostgreSQL:", error.message);
-    console.error("Check DATABASE_URL in .env and confirm the database has been initialized.");
+    console.error("Unable to prepare PostgreSQL:", error.message);
+    console.error("Check DATABASE_URL in .env and run `npm run db:init` to apply the schema.");
     process.exit(1);
   }
 

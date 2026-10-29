@@ -8,6 +8,7 @@
     "start": "node server/server.js",
     "dev": "nodemon server/server.js",
     "db:init": "node database/init.js",
+    "db:migrate": "node scripts/migrate.js",
     "db:hash": "node scripts/hash-password.js",
     "test": "node --test --test-concurrency=1"
   },

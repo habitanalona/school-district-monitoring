@@ -91,26 +91,36 @@
   function renderSidebar() {
     var session = state.session;
     var permissions = session.permissions;
+    var modules = permissions.modules || {};
     var mount = document.getElementById("appSidebar");
     if (!mount) {
       return;
     }
+    function allows(key) {
+      return Boolean(modules[key] && modules[key].access);
+    }
+
     var adminLinks = "";
+    var showDistricts = permissions.canManageDistricts;
     if (
-      permissions.canManageDistricts ||
-      permissions.canManageUsers ||
+      allows("approvals") ||
+      showDistricts ||
+      allows("users") ||
       permissions.canViewAuditLogs ||
-      permissions.canApproveAccounts
+      permissions.canManageUserRights
     ) {
       adminLinks = '<p class="sidebar-heading">Administration</p>';
-      if (permissions.canApproveAccounts) {
+      if (allows("approvals")) {
         adminLinks += navItem("approvals", "approvals.html", "bi-person-check", "Account Approvals");
       }
-      if (permissions.canManageDistricts) {
+      if (showDistricts) {
         adminLinks += navItem("districts", "districts.html", "bi-diagram-3", "Districts");
       }
-      if (permissions.canManageUsers) {
+      if (allows("users")) {
         adminLinks += navItem("users", "users.html", "bi-people", "User Management");
+      }
+      if (permissions.canManageUserRights) {
+        adminLinks += navItem("user-rights", "user-rights.html", "bi-shield-lock", "User Rights");
       }
       if (permissions.canViewAuditLogs) {
         adminLinks += navItem("audit", "audit-logs.html", "bi-shield-check", "Audit Logs");
@@ -118,18 +128,54 @@
     }
 
     var learnerLinks = "";
-    if (permissions.canViewLearners) {
-      learnerLinks =
-        '<p class="sidebar-heading">Learner records</p>' +
-        navItem("learners", "learners.html", "bi-person-vcard", "Learners") +
-        navItem("school-years", "school-years.html", "bi-calendar3", "School Years") +
-        navItem("grade-levels", "grade-levels.html", "bi-layers", "Grade Levels") +
-        navItem("sections", "sections.html", "bi-diagram-3", "Sections") +
-        navItem("teachers", "teachers.html", "bi-person-video3", "Teachers") +
-        navItem("subjects", "subjects.html", "bi-easel2", "Subjects") +
-        navItem("activities", "activities.html", "bi-trophy", "Activities") +
-        navItem("learner-reports", "learner-reports.html", "bi-clipboard-data", "Learner Reports");
+    var learnerItems =
+      (allows("learners") ? navItem("learners", "learners.html", "bi-person-vcard", "Learners") : "") +
+      (allows("school_years") ? navItem("school-years", "school-years.html", "bi-calendar3", "School Years") : "") +
+      (allows("grade_levels") ? navItem("grade-levels", "grade-levels.html", "bi-layers", "Grade Levels") : "") +
+      (allows("sections") ? navItem("sections", "sections.html", "bi-diagram-3", "Sections") : "") +
+      (allows("teachers") ? navItem("teachers", "teachers.html", "bi-person-video3", "Teachers") : "") +
+      (allows("subjects") ? navItem("subjects", "subjects.html", "bi-easel2", "Subjects") : "") +
+      (allows("activities") ? navItem("activities", "activities.html", "bi-trophy", "Activities") : "") +
+      (allows("learner_reports")
+        ? navItem("learner-reports", "learner-reports.html", "bi-clipboard-data", "Learner Reports")
+        : "");
+    if (learnerItems) {
+      learnerLinks = '<p class="sidebar-heading">Learner records</p>' + learnerItems;
     }
+
+    var dashboardLink = allows("dashboard")
+      ? navItem("dashboard", "dashboard.html", "bi-grid-1x2", "Dashboard")
+      : "";
+    var divisionSection =
+      allows("schools") && allows("districts")
+        ? '<section class="sidebar-division" aria-labelledby="sidebarDivisionHeading">' +
+          '<div class="sidebar-division__head">' +
+          '<p class="sidebar-heading" id="sidebarDivisionHeading"><i class="bi bi-diagram-3" aria-hidden="true"></i> School Division Office</p>' +
+          '<span class="sidebar-count" id="sidebarSchoolCount">Loading…</span>' +
+          "</div>" +
+          '<label class="sidebar-search">' +
+          '<i class="bi bi-search" aria-hidden="true"></i>' +
+          '<input type="search" id="sidebarSchoolSearch" placeholder="Find district or school" aria-label="Search districts and schools" autocomplete="off" value="' +
+          window.UI.escapeHtml(state.divisionSearch) +
+          '">' +
+          "</label>" +
+          '<div class="division-tree" id="sidebarDivisionTree" role="list"></div>' +
+          "</section>"
+        : "";
+    var schoolLinks = allows("schools")
+      ? navItem("schools", "schools.html", "bi-buildings", "Schools") +
+        navItemView("schools", "enrollment", "schools.html?view=enrollment", "bi-people", "School Enrollment") +
+        navItemView("schools", "performance", "schools.html?view=performance", "bi-graph-up-arrow", "School Performance")
+      : "";
+    var reportLink = allows("district_reports")
+      ? navItem("reports", "reports.html", "bi-graph-up", "District Reports")
+      : "";
+    var announcementLink = allows("announcements")
+      ? navItem("announcements", "announcements.html", "bi-megaphone", "Announcements")
+      : "";
+    var settingsLink = allows("settings")
+      ? navItem("settings", "settings.html", "bi-sliders", "Settings")
+      : "";
 
     mount.innerHTML =
       '<div class="sidebar-brand">' +
@@ -152,30 +198,16 @@
       "</div>" +
       '<div class="sidebar-scroll" id="sidebarScroll">' +
       '<nav class="sidebar-nav" aria-label="Main navigation">' +
-      '<p class="sidebar-heading">Overview</p>' +
-      navItem("dashboard", "dashboard.html", "bi-grid-1x2", "Dashboard") +
+      (dashboardLink || learnerLinks ? '<p class="sidebar-heading">Overview</p>' : "") +
+      dashboardLink +
       learnerLinks +
-      '<section class="sidebar-division" aria-labelledby="sidebarDivisionHeading">' +
-      '<div class="sidebar-division__head">' +
-      '<p class="sidebar-heading" id="sidebarDivisionHeading"><i class="bi bi-diagram-3" aria-hidden="true"></i> School Division Office</p>' +
-      '<span class="sidebar-count" id="sidebarSchoolCount">Loading…</span>' +
-      "</div>" +
-      '<label class="sidebar-search">' +
-      '<i class="bi bi-search" aria-hidden="true"></i>' +
-      '<input type="search" id="sidebarSchoolSearch" placeholder="Find district or school" aria-label="Search districts and schools" autocomplete="off" value="' +
-      window.UI.escapeHtml(state.divisionSearch) +
-      '">' +
-      "</label>" +
-      '<div class="division-tree" id="sidebarDivisionTree" role="list"></div>' +
-      "</section>" +
-      navItem("schools", "schools.html", "bi-buildings", "Schools") +
-      navItemView("schools", "enrollment", "schools.html?view=enrollment", "bi-people", "School Enrollment") +
-      navItemView("schools", "performance", "schools.html?view=performance", "bi-graph-up-arrow", "School Performance") +
-      navItem("reports", "reports.html", "bi-graph-up", "District Reports") +
-      navItem("announcements", "announcements.html", "bi-megaphone", "Announcements") +
+      divisionSection +
+      schoolLinks +
+      (reportLink || announcementLink ? '<p class="sidebar-heading">District</p>' : "") +
+      reportLink +
+      announcementLink +
       adminLinks +
-      '<p class="sidebar-heading">System</p>' +
-      navItem("settings", "settings.html", "bi-sliders", "Settings") +
+      (settingsLink ? '<p class="sidebar-heading">System</p>' + settingsLink : "") +
       "</nav>" +
       "</div>" +
       '<div class="sidebar-footer">' +
@@ -380,6 +412,11 @@
   function loadHierarchy() {
     var mount = document.getElementById("sidebarDivisionTree");
     var count = document.getElementById("sidebarSchoolCount");
+    if (!mount && !count) {
+      // The division tree is only rendered for roles that can open schools and
+      // districts; skip the request instead of provoking a denied call.
+      return;
+    }
     if (mount && !state.hierarchyLoaded) {
       mount.innerHTML = divisionSkeleton();
     }

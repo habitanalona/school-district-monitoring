@@ -8,6 +8,7 @@ const auditService = require("../services/auditService");
 const { ensureCsrfToken } = require("../middleware/csrfMiddleware");
 const { HttpError } = require("../utils/httpError");
 const { permissionsFor } = require("../utils/permissions");
+const { effectivePermissions } = require("../services/permissionService");
 const { createCsrfToken } = require("../utils/tokens");
 const {
   requireString,
@@ -84,6 +85,8 @@ async function login(req, res) {
     });
     throw new HttpError(401, "Invalid email/username or password.", "INVALID_CREDENTIALS");
   }
+
+  user.permissionMatrix = await effectivePermissions(user);
 
   await regenerateSession(req, user, remember);
   await auditService.record({

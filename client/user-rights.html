@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>User Rights and Permissions · School District Monitoring System</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/user-rights.css">
+</head>
+<body class="app-body" data-page="user-rights">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-shield-lock"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading permission controls…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Access control</p>
+            <h1>User rights and permissions</h1>
+            <p class="page-subtitle">Review role defaults, grant module-by-module exceptions, and revoke access without changing anyone's account or role.</p>
+          </div>
+          <div class="page-header__actions">
+            <button type="button" class="btn btn-light" id="rightsRefresh">
+              <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="rightsPageAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="rights-summary" aria-label="Permission summary">
+          <article class="rights-summary__item">
+            <span class="rights-summary__icon"><i class="bi bi-people" aria-hidden="true"></i></span>
+            <div>
+              <p class="rights-summary__value" id="rightsKpiTotal">—</p>
+              <p class="rights-summary__label">Accounts in the directory</p>
+            </div>
+          </article>
+          <article class="rights-summary__item">
+            <span class="rights-summary__icon"><i class="bi bi-person-check" aria-hidden="true"></i></span>
+            <div>
+              <p class="rights-summary__value" id="rightsKpiActive">—</p>
+              <p class="rights-summary__label">Active accounts</p>
+            </div>
+          </article>
+          <article class="rights-summary__item">
+            <span class="rights-summary__icon"><i class="bi bi-sliders2" aria-hidden="true"></i></span>
+            <div>
+              <p class="rights-summary__value" id="rightsKpiCustom">—</p>
+              <p class="rights-summary__label">Individual permission profiles</p>
+            </div>
+          </article>
+        </section>
+
+        <div class="rights-layout">
+          <section class="surface-card rights-directory" aria-labelledby="rightsDirectoryHeading">
+            <header class="rights-directory__head">
+              <div>
+                <h2 id="rightsDirectoryHeading">Choose an account</h2>
+                <p>Search by name, username, email, or school.</p>
+              </div>
+              <span class="role-policy"><i class="bi bi-shield-lock" aria-hidden="true"></i> Admin only</span>
+            </header>
+
+            <div class="rights-filters">
+              <label class="search-field">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <span class="sr-only">Search accounts</span>
+                <input type="search" id="rightsSearch" placeholder="Search accounts…" autocomplete="off">
+              </label>
+              <div class="rights-filters__row">
+                <select class="custom-select custom-select-sm" id="rightsRoleFilter" aria-label="Filter by role">
+                  <option value="">All roles</option>
+                </select>
+                <select class="custom-select custom-select-sm" id="rightsSchoolFilter" aria-label="Filter by school">
+                  <option value="">All schools</option>
+                </select>
+              </div>
+              <div class="rights-filters__row">
+                <select class="custom-select custom-select-sm" id="rightsStatusFilter" aria-label="Filter by account status">
+                  <option value="">All statuses</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+                <button type="button" class="btn btn-ghost btn-sm" id="rightsResetFilters">
+                  <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset
+                </button>
+              </div>
+            </div>
+
+            <div class="rights-user-list" id="rightsUserList" role="list" aria-live="polite">
+              <div class="rights-user-skeleton"><span class="skeleton skeleton-block"></span></div>
+              <div class="rights-user-skeleton"><span class="skeleton skeleton-block"></span></div>
+              <div class="rights-user-skeleton"><span class="skeleton skeleton-block"></span></div>
+            </div>
+
+            <div class="rights-directory__foot">
+              <p class="table-footer__meta" id="rightsListMeta">Loading accounts…</p>
+              <div id="rightsPagination" class="pagination-wrap"></div>
+            </div>
+          </section>
+
+          <section class="surface-card rights-editor" id="rightsEditor" aria-live="polite">
+            <div class="rights-editor__empty" id="rightsEmptyState">
+              <span class="rights-editor__empty-icon"><i class="bi bi-person-gear" aria-hidden="true"></i></span>
+              <h2>Select an account to review its rights</h2>
+              <p>Choose a person from the directory. Their inherited role permissions and any individual exceptions will appear here.</p>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 North Valley Unified School District</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+        <span class="app-footer__right" id="footerUpdated"></span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/user-rights.js"></script>
+</body>
+</html>

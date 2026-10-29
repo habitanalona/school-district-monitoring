@@ -1482,6 +1482,149 @@
       ]
     },
     {
+      "name": "User rights",
+      "item": [
+        {
+          "name": "Permission catalog",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/user-rights/catalog",
+            "description": "Installed modules, their supported actions, assignable roles, and schools. System administrators only."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Modules include supported actions', () => {",
+                  "  pm.expect(body.data.modules.length).to.be.above(10);",
+                  "  body.data.modules.forEach((module) => pm.expect(module.actions).to.be.an('array'));",
+                  "});",
+                  "pm.test('Roles and schools returned', () => {",
+                  "  pm.expect(body.data.roles).to.be.an('array');",
+                  "  pm.expect(body.data.schools).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List accounts for rights",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/user-rights/users?page=1&pageSize=12",
+            "description": "Directory used by the rights page. Selects the first non-system account as the sample target for the next requests."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Directory rows returned', () => pm.expect(body.data).to.be.an('array'));",
+                  "pm.test('Summary counts returned', () => pm.expect(body.summary).to.have.property('total'));",
+                  "const target = body.data.find((user) => user.role !== 'system_admin');",
+                  "if (target) {",
+                  "  pm.collectionVariables.set('rightsUserId', String(target.id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read account rights",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/user-rights/users/{{rightsUserId}}",
+            "description": "Effective permissions, inherited role defaults, stored overrides, and the last change for one account."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Effective matrix returned', () => pm.expect(body.data.permissions).to.be.an('object'));",
+                  "pm.test('Role defaults returned', () => pm.expect(body.data.roleDefaults).to.be.an('object'));",
+                  "pm.collectionVariables.set('rightsPermissions', JSON.stringify(body.data.permissions));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Save unchanged rights",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/user-rights/users/{{rightsUserId}}",
+            "description": "Re-saves the current matrix, so the demonstration data is not altered. A real change is a full replacement of the named modules; omitting a module falls back to its role default.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissions\": {{rightsPermissions}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Rights accepted', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Matrix returned unchanged', () => pm.expect(body.data.permissions).to.be.an('object'));",
+                  "pm.test('Change actor recorded', () => pm.expect(body.data).to.have.property('overrides'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Permission history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/user-rights/users/{{rightsUserId}}/history",
+            "description": "Audited permission changes for one account, newest first. System administrators only."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('History rows returned', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Session",
       "item": [
         {

@@ -13,6 +13,7 @@ const config = require("./config/env");
 const { pool } = require("./config/database");
 const { loadUser, requirePageAuth } = require("./middleware/authMiddleware");
 const { csrfProtection } = require("./middleware/csrfMiddleware");
+const { requirePageModule } = require("./middleware/permissionMiddleware");
 const { apiLimiter } = require("./middleware/rateLimiters");
 const { apiNotFound, errorHandler } = require("./middleware/errorHandler");
 
@@ -31,29 +32,35 @@ const learnerRoutes = require("./routes/learnerRoutes");
 const academicRoutes = require("./routes/academicRoutes");
 const activityRoutes = require("./routes/activityRoutes");
 const learnerReportRoutes = require("./routes/learnerReportRoutes");
+const userRightsRoutes = require("./routes/userRightsRoutes");
 
 const CLIENT_DIR = path.join(__dirname, "..", "client");
-const PROTECTED_PAGES = [
-  "dashboard",
-  "schools",
-  "districts",
-  "reports",
-  "users",
-  "announcements",
-  "audit-logs",
-  "approvals",
-  "settings",
-  "profile",
-  "learners",
-  "learner",
-  "school-years",
-  "grade-levels",
-  "sections",
-  "teachers",
-  "subjects",
-  "activities",
-  "learner-reports"
-];
+// Each protected page maps to the permission module that owns it. Direct URL
+// visits are checked on the server so hiding a navigation link is never the
+// only line of defence.
+const PAGE_MODULES = {
+  dashboard: "dashboard",
+  schools: "schools",
+  districts: "districts",
+  reports: "district_reports",
+  users: "users",
+  announcements: "announcements",
+  "audit-logs": "audit_logs",
+  approvals: "approvals",
+  settings: "settings",
+  profile: "settings",
+  learners: "learners",
+  learner: "learners",
+  "school-years": "school_years",
+  "grade-levels": "grade_levels",
+  sections: "sections",
+  teachers: "teachers",
+  subjects: "subjects",
+  activities: "activities",
+  "learner-reports": "learner_reports",
+  "user-rights": "user_rights"
+};
+const PROTECTED_PAGES = Object.keys(PAGE_MODULES);
 
 const app = express();
 app.disable("x-powered-by");
@@ -134,10 +141,11 @@ app.use(
   })
 );
 
-const protectedPaths = PROTECTED_PAGES.flatMap((page) => [`/${page}`, `/${page}.html`]);
-app.get(protectedPaths, loadUser, requirePageAuth, (req, res) => {
-  res.set("Cache-Control", "no-store");
-  res.sendFile(path.join(CLIENT_DIR, `${req.path.replace(/^\/|\.html$/g, "")}.html`));
+PROTECTED_PAGES.forEach((page) => {
+  app.get([`/${page}`, `/${page}.html`], loadUser, requirePageAuth, requirePageModule(PAGE_MODULES[page]), (req, res) => {
+    res.set("Cache-Control", "no-store");
+    res.sendFile(path.join(CLIENT_DIR, `${page}.html`));
+  });
 });
 
 app.get(["/", "/index.html"], loadUser, (req, res) => {
@@ -169,6 +177,7 @@ app.use("/api/learners", learnerRoutes);
 app.use("/api/academic", academicRoutes);
 app.use("/api/activities", activityRoutes);
 app.use("/api/learner-reports", learnerReportRoutes);
+app.use("/api/user-rights", userRightsRoutes);
 app.use("/api", apiNotFound);
 
 app.use(

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Access Restricted · School District Monitoring System</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="auth-body notfound-body">
+  <main class="notfound-shell">
+    <a class="brand brand--light" href="dashboard.html">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 40 40" role="img" focusable="false">
+          <path d="M20 3.5 34.5 9v10.2c0 8.1-5.6 14.5-14.5 17.3C11.1 33.7 5.5 27.3 5.5 19.2V9L20 3.5Z" fill="rgba(124,194,232,.16)" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M20 9.5 28.8 13v6.3c0 5.2-3.5 9.4-8.8 11.3-5.3-1.9-8.8-6.1-8.8-11.3V13L20 9.5Z" fill="currentColor" opacity=".92"/>
+          <path d="m20 14.3 5.1 2v3.1c0 2.9-2 5.3-5.1 6.4-3.1-1.1-5.1-3.5-5.1-6.4v-3.1l5.1-2Z" fill="#0b2340"/>
+        </svg>
+      </span>
+      <span class="brand-copy"><strong>SDMS</strong><small>District Monitoring</small></span>
+    </a>
+
+    <div class="notfound-card">
+      <span class="notfound-code">403</span>
+      <div class="notfound-icon"><i class="bi bi-shield-lock" aria-hidden="true"></i></div>
+      <h1>You do not have access to this page</h1>
+      <p>Your account is signed in, but the module you requested is not enabled for your role or your individual rights. Ask a system administrator to review your permissions if you believe this is a mistake.</p>
+      <div class="notfound-actions">
+        <button type="button" class="btn btn-primary" id="accessBackButton">
+          <i class="bi bi-arrow-left" aria-hidden="true"></i> Go back
+        </button>
+        <button type="button" class="btn btn-light" id="accessSignOut">
+          <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Sign out
+        </button>
+      </div>
+      <p class="notfound-help" id="accessStatus"><i class="bi bi-lock" aria-hidden="true"></i> Authorization is enforced on the server for every page and API request.</p>
+    </div>
+
+    <footer class="reset-footer">
+      <span>&copy; 2026 North Valley Unified School District</span>
+      <span class="meta-dot" aria-hidden="true"></span>
+      <span>SDMS v1.0.0</span>
+    </footer>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/403.js"></script>
+</body>
+</html>

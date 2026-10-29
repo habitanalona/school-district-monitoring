@@ -49,6 +49,15 @@ const ROLE_DEFINITIONS = [
     selfRegister: true
   },
   {
+    value: "coordinator",
+    label: "Coordinator",
+    short: "Coordinator",
+    tone: "primary",
+    approverRole: "school_head",
+    needsSchool: true,
+    selfRegister: true
+  },
+  {
     value: "nt",
     label: "NT",
     fullLabel: "Non-Teaching Personnel",
@@ -96,12 +105,20 @@ const ROLES = ROLE_DEFINITIONS.map((definition) => definition.value);
 const SELF_REGISTER_ROLES = ROLE_DEFINITIONS.filter((definition) => definition.selfRegister).map(
   (definition) => definition.value
 );
-const SCHOOL_ROLES = ["school_head", "teacher", "nt", "adviser", "learner"];
+const SCHOOL_ROLES = ["school_head", "teacher", "coordinator", "nt", "adviser", "learner"];
 // Roles a district administrator may provision or maintain within their district.
-const DISTRICT_MANAGED_ROLES = ["staff", "psds", "school_head", "teacher", "nt", "adviser", "learner"];
+const DISTRICT_MANAGED_ROLES = [
+  "staff",
+  "psds",
+  "school_head",
+  "teacher",
+  "coordinator",
+  "nt",
+  "adviser",
+  "learner"
+];
 // Roles that review self-registrations from the next level down.
 const APPROVER_ROLES = ["system_admin", "district_admin", "psds", "school_head", "adviser"];
-
 function roleMeta(role) {
   return ROLE_MAP[role] || null;
 }

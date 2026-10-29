@@ -3,6 +3,7 @@
 const config = require("../config/env");
 const { query } = require("../config/database");
 const { serializeUser } = require("../utils/serializers");
+const { effectivePermissions } = require("../services/permissionService");
 
 async function loadUser(req, res, next) {
   if (!req.session || !req.session.userId) {
@@ -32,6 +33,7 @@ async function loadUser(req, res, next) {
     }
 
     req.user = serializeUser(row);
+    req.user.permissionMatrix = await effectivePermissions(req.user);
     return next();
   } catch (error) {
     return next(error);

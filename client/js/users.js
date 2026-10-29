@@ -20,13 +20,14 @@
     pagination: null
   };
 
-  var SCHOOL_ROLES = ["school_head", "teacher", "nt", "adviser", "learner"];
-  var DISTRICT_MANAGED_ROLES = ["staff", "psds", "school_head", "teacher", "nt", "adviser", "learner"];
+  var SCHOOL_ROLES = ["school_head", "teacher", "coordinator", "nt", "adviser", "learner"];
+  var DISTRICT_MANAGED_ROLES = ["staff", "psds", "school_head", "teacher", "coordinator", "nt", "adviser", "learner"];
   var ROLE_OPTIONS = [
     { value: "district_admin", label: "District Administrator" },
     { value: "psds", label: "PSDS" },
     { value: "school_head", label: "School Head" },
     { value: "teacher", label: "Teacher" },
+    { value: "coordinator", label: "Coordinator" },
     { value: "nt", label: "NT (Non-Teaching)" },
     { value: "adviser", label: "Class Adviser" },
     { value: "learner", label: "Learner" },

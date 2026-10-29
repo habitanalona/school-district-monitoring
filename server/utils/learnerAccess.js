@@ -1,10 +1,14 @@
 "use strict";
 
 const { HttpError } = require("./httpError");
+const { can } = require("../services/permissionService");
 
 const DISTRICT_WIDE_ROLES = new Set(["district_admin", "psds", "staff"]);
-const SCHOOL_ROLES = new Set(["school_head", "teacher", "adviser", "nt", "learner"]);
+const SCHOOL_ROLES = new Set(["school_head", "teacher", "coordinator", "adviser", "nt", "learner"]);
 
+// Legacy role sets are retained only for documentation and registration
+// defaults. Authorization decisions now come from the permission matrix so a
+// per-user override can grant or revoke a right without changing roles.
 const MANAGE_LEARNER_ROLES = new Set(["system_admin", "district_admin", "school_head", "staff"]);
 const MANAGE_ACADEMIC_ROLES = new Set([
   "system_admin",
@@ -30,6 +34,15 @@ const REPORT_ROLES = new Set([
   "adviser",
   "nt"
 ]);
+
+function hasAnyWrite(actor, moduleKeys) {
+  return moduleKeys.some(
+    (key) =>
+      can(actor.permissionMatrix, key, "add") ||
+      can(actor.permissionMatrix, key, "edit") ||
+      can(actor.permissionMatrix, key, "delete")
+  );
+}
 
 function isSystemAdmin(actor) {
   return actor.role === "system_admin";
@@ -72,38 +85,42 @@ function learnerScopeSql(actor, alias, params) {
 }
 
 function assertCanManageLearners(actor) {
-  if (!MANAGE_LEARNER_ROLES.has(actor.role)) {
+  if (!hasAnyWrite(actor, ["learners"])) {
     throw new HttpError(
       403,
-      "Your role can view learner records but cannot change them.",
+      "You have view-only access to learner records.",
       "LEARNER_FORBIDDEN"
     );
   }
 }
 
 function assertCanManageAcademics(actor) {
-  if (!MANAGE_ACADEMIC_ROLES.has(actor.role)) {
+  if (!hasAnyWrite(actor, ["school_years", "grade_levels", "sections", "subjects"])) {
     throw new HttpError(
       403,
-      "Only administrators, registrars, and school heads can change school years, sections, and schedules.",
+      "You do not have permission to change academic setup records.",
       "ACADEMIC_FORBIDDEN"
     );
   }
 }
 
 function assertCanManageActivities(actor) {
-  if (!MANAGE_ACTIVITY_ROLES.has(actor.role)) {
+  if (!hasAnyWrite(actor, ["activities"])) {
     throw new HttpError(
       403,
-      "Your role cannot change activity records.",
+      "You do not have permission to change activity records.",
       "ACTIVITY_FORBIDDEN"
     );
   }
 }
 
 function assertCanViewReports(actor) {
-  if (!REPORT_ROLES.has(actor.role)) {
-    throw new HttpError(403, "Your role cannot export learner reports.", "REPORT_FORBIDDEN");
+  if (!can(actor.permissionMatrix, "learner_reports", "access")) {
+    throw new HttpError(
+      403,
+      "You do not have permission to export learner reports.",
+      "REPORT_FORBIDDEN"
+    );
   }
 }
 

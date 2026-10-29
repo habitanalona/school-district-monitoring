@@ -5,6 +5,7 @@ require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
 const { Client } = require("pg");
+const { ensurePermissionCatalog } = require("../server/services/permissionService");
 
 async function main() {
   if (!process.env.DATABASE_URL) {
@@ -23,6 +24,9 @@ async function main() {
     const seed = fs.readFileSync(path.join(__dirname, "seed.sql"), "utf8");
     console.log("Loading demonstration data...");
     await client.query(seed);
+
+    console.log("Synchronising permission catalog and role defaults...");
+    await ensurePermissionCatalog(client);
 
     const counts = await client.query(`
       SELECT

@@ -275,7 +275,22 @@
 
   /* Report dialog ---------------------------------------------------------- */
 
+  var reportDialogId = 0;
+  var lastReportOpen = 0;
+
   function openReport(definition) {
+    // Ignore a double click on the report card, but do not depend on Bootstrap
+    // transition events: the editor's field ids are unique per dialog, so a
+    // closing copy can never collide with the next one or hijack its footer.
+    var now = Date.now();
+    if (now - lastReportOpen < 350) {
+      return;
+    }
+    lastReportOpen = now;
+    var uid = "r" + ++reportDialogId;
+    function fid(name) {
+      return name + "-" + uid;
+    }
     var meta = reportMeta(definition.type);
     var needsLearner = definition.scope === "learner";
     var needsSection = definition.scope === "section";
@@ -289,63 +304,63 @@
       eyebrow: "Learner report",
       size: "modal-xl",
       body:
-        '<form id="reportForm" novalidate>' +
+        '<form id="' + fid("reportForm") + '" novalidate>' +
         '<p class="report-dialog-note"><i class="bi ' +
         meta.icon +
         '" aria-hidden="true"></i> ' +
         L.esc(meta.description) +
         "</p>" +
-        '<div id="reportAlert" class="d-none mb-3" role="alert"></div>' +
+        '<div id="' + fid("reportAlert") + '" class="d-none mb-3" role="alert"></div>' +
         '<div class="form-row">' +
         (fixed
           ? ""
-          : '<div class="col-md-4"><div class="form-group"><label for="reportSchool">School</label>' +
-            '<select class="custom-select" id="reportSchool" name="schoolId"><option value="">All schools in scope</option></select>' +
+          : '<div class="col-md-4"><div class="form-group"><label for="' + fid("reportSchool") + '">School</label>' +
+            '<select class="custom-select" id="' + fid("reportSchool") + '" name="schoolId"><option value="">All schools in scope</option></select>' +
             (needsSchool ? '<span class="field-hint">Required for this report.</span>' : "") +
             "</div></div>") +
-        '<div class="col-md-4"><div class="form-group"><label for="reportYear">School year</label>' +
-        '<select class="custom-select" id="reportYear" name="schoolYearId"></select></div></div>' +
-        '<div class="col-md-4"><div class="form-group"><label for="reportGrade">Grade level</label>' +
-        '<select class="custom-select" id="reportGrade" name="gradeLevelId"><option value="">All grade levels</option></select></div></div>' +
-        '<div class="col-md-4"><div class="form-group"><label for="reportSection">Section</label>' +
-        '<select class="custom-select" id="reportSection" name="sectionId"><option value="">' +
+        '<div class="col-md-4"><div class="form-group"><label for="' + fid("reportYear") + '">School year</label>' +
+        '<select class="custom-select" id="' + fid("reportYear") + '" name="schoolYearId"></select></div></div>' +
+        '<div class="col-md-4"><div class="form-group"><label for="' + fid("reportGrade") + '">Grade level</label>' +
+        '<select class="custom-select" id="' + fid("reportGrade") + '" name="gradeLevelId"><option value="">All grade levels</option></select></div></div>' +
+        '<div class="col-md-4"><div class="form-group"><label for="' + fid("reportSection") + '">Section</label>' +
+        '<select class="custom-select" id="' + fid("reportSection") + '" name="sectionId"><option value="">' +
         (needsSection ? "Select section" : "All sections") +
         "</option></select>" +
         (needsSection ? '<span class="field-hint">Required for this report.</span>' : "") +
         "</div></div>" +
         (needsLearner || definition.type === "enrollment-history" || definition.type === "activity-report"
-          ? '<div class="col-md-4"><div class="form-group"><label for="reportLearner">Learner</label>' +
-            '<select class="custom-select" id="reportLearner" name="learnerId"><option value="">All learners</option></select>' +
+          ? '<div class="col-md-4"><div class="form-group"><label for="' + fid("reportLearner") + '">Learner</label>' +
+            '<select class="custom-select" id="' + fid("reportLearner") + '" name="learnerId"><option value="">All learners</option></select>' +
             (needsLearner ? '<span class="field-hint">Required for this report.</span>' : "") +
             "</div></div>" +
-            '<div class="col-md-4"><div class="form-group"><label for="reportLearnerSearch">Find learner</label>' +
-            '<input class="form-control" id="reportLearnerSearch" placeholder="Search LRN or name…" autocomplete="off"></div></div>'
+            '<div class="col-md-4"><div class="form-group"><label for="' + fid("reportLearnerSearch") + '">Find learner</label>' +
+            '<input class="form-control" id="' + fid("reportLearnerSearch") + '" placeholder="Search LRN or name…" autocomplete="off"></div></div>'
           : "") +
-        '<div class="col-md-4"><div class="form-group"><label for="reportSearchTerm">Search filter</label>' +
-        '<input class="form-control" id="reportSearchTerm" name="search" maxlength="100" placeholder="Optional name or LRN filter">' +
+        '<div class="col-md-4"><div class="form-group"><label for="' + fid("reportSearchTerm") + '">Search filter</label>' +
+        '<input class="form-control" id="' + fid("reportSearchTerm") + '" name="search" maxlength="100" placeholder="Optional name or LRN filter">' +
         "</div></div>" +
         "</div>" +
-        '<div id="reportPreviewArea" class="mt-3"></div>' +
+        '<div id="' + fid("reportPreviewArea") + '" class="mt-3"></div>' +
         "</form>",
       footer:
         '<button type="button" class="btn btn-light" data-dismiss="modal">Close</button>' +
-        '<button type="button" class="btn btn-outline-primary" id="downloadReportButton" disabled><i class="bi bi-download" aria-hidden="true"></i> Download CSV</button>' +
-        '<button type="button" class="btn btn-outline-primary" id="printReportButton" disabled><i class="bi bi-printer" aria-hidden="true"></i> Print</button>' +
-        '<button type="submit" form="reportForm" class="btn btn-primary" id="previewReportButton"><i class="bi bi-eye" aria-hidden="true"></i> Preview</button>'
+        '<button type="button" class="btn btn-outline-primary" id="' + fid("downloadReportButton") + '" disabled><i class="bi bi-download" aria-hidden="true"></i> Download CSV</button>' +
+        '<button type="button" class="btn btn-outline-primary" id="' + fid("printReportButton") + '" disabled><i class="bi bi-printer" aria-hidden="true"></i> Print</button>' +
+        '<button type="submit" form="' + fid("reportForm") + '" class="btn btn-primary" id="' + fid("previewReportButton") + '"><i class="bi bi-eye" aria-hidden="true"></i> Preview</button>'
     });
 
-    var form = dialog.element.querySelector("#reportForm");
-    var alertBox = dialog.element.querySelector("#reportAlert");
-    var previewArea = dialog.element.querySelector("#reportPreviewArea");
-    var previewButton = dialog.element.querySelector("#previewReportButton");
-    var downloadButton = dialog.element.querySelector("#downloadReportButton");
-    var printButton = dialog.element.querySelector("#printReportButton");
-    var schoolSelect = form.querySelector("#reportSchool");
-    var yearSelect = form.querySelector("#reportYear");
-    var gradeSelect = form.querySelector("#reportGrade");
-    var sectionSelect = form.querySelector("#reportSection");
-    var learnerSelect = form.querySelector("#reportLearner");
-    var learnerSearch = form.querySelector("#reportLearnerSearch");
+    var form = dialog.element.querySelector("#" + fid("reportForm"));
+    var alertBox = dialog.element.querySelector("#" + fid("reportAlert"));
+    var previewArea = dialog.element.querySelector("#" + fid("reportPreviewArea"));
+    var previewButton = dialog.element.querySelector("#" + fid("previewReportButton"));
+    var downloadButton = dialog.element.querySelector("#" + fid("downloadReportButton"));
+    var printButton = dialog.element.querySelector("#" + fid("printReportButton"));
+    var schoolSelect = form.querySelector("#" + fid("reportSchool"));
+    var yearSelect = form.querySelector("#" + fid("reportYear"));
+    var gradeSelect = form.querySelector("#" + fid("reportGrade"));
+    var sectionSelect = form.querySelector("#" + fid("reportSection"));
+    var learnerSelect = form.querySelector("#" + fid("reportLearner"));
+    var learnerSearch = form.querySelector("#" + fid("reportLearnerSearch"));
     var schoolValue = function () {
       return fixed ? String(fixed) : schoolSelect ? schoolSelect.value : "";
     };
@@ -489,7 +504,7 @@
         gradeLevelId: gradeSelect.value || undefined,
         sectionId: sectionSelect.value || undefined,
         learnerId: learnerSelect ? learnerSelect.value || undefined : undefined,
-        search: form.querySelector("#reportSearchTerm").value.trim() || undefined
+        search: form.querySelector("#" + fid("reportSearchTerm")).value.trim() || undefined
       };
     }
 

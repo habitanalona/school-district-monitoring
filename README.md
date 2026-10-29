@@ -9,7 +9,8 @@ A full-stack web application for district administrators to manage enrolled scho
 - Landing page with a secure sign-in panel, show/hide password, Remember Me, forgot-password flow, validation, loading states, and generic error messages.
 - Session authentication with bcrypt-hashed passwords and a PostgreSQL-backed session store.
 - Self-service account creation from the sign-in page: applicants choose their role, district, and school, then wait for confirmation by their immediate superior before they can sign in.
-- Role-based access control for **system administrators**, **district administrators**, **PSDS**, **school heads**, **teachers**, **non-teaching personnel**, **class advisers**, **learners**, and **authorized staff**, enforced on every API route and page.
+- Role-based access control for **system administrators**, **district administrators**, **PSDS**, **school heads**, **teachers**, **coordinators**, **non-teaching personnel**, **class advisers**, **learners**, and **authorized staff**, enforced on every API route and page.
+- User rights and permissions console for system administrators: search accounts, compare inherited role defaults with per-user overrides, grant or revoke **Access / Add / Edit / Delete** per installed module, reset to role defaults, and review who changed what and when. The matrix is enforced by the API and page guards, not only by hidden buttons.
 - District scoping: district administrators and staff only see schools, reports, announcements, and users inside their own district.
 - Account approvals queue: PSDS registrations are confirmed by the district administrator, school heads by the PSDS, teachers/NT/advisers by the school head, and learners by the class adviser. System administrators can confirm any registration.
 - School Division Office hierarchy in the sidebar: expandable districts, their two PSDS (Public Schools District Supervisors), nested schools, live search, and deep links into the school registry.
@@ -39,6 +40,7 @@ A full-stack web application for district administrators to manage enrolled scho
 school-district-monitoring/
 ├── client/                 Static frontend (served by Express)
 │   ├── css/style.css
+│   ├── css/user-rights.css
 │   ├── js/                 API helper, UI helpers, page controllers
 │   ├── index.html          Landing page and sign-in
 │   ├── dashboard.html
@@ -46,11 +48,13 @@ school-district-monitoring/
 │   ├── schools.html
 │   ├── reports.html
 │   ├── users.html
+│   ├── user-rights.html    Permission matrix console (system admin)
 │   ├── announcements.html
 │   ├── audit-logs.html
 │   ├── settings.html
 │   ├── profile.html
 │   ├── reset-password.html
+│   ├── 403.html            Access-denied page used by page guards
 │   └── 404.html
 ├── database/
 │   ├── schema.sql          Tables, constraints, indexes
@@ -59,7 +63,9 @@ school-district-monitoring/
 ├── postman/
 │   ├── SDMS.postman_collection.json
 │   └── SDMS.local.postman_environment.json
-├── scripts/hash-password.js
+├── scripts/
+│   ├── hash-password.js
+│   └── migrate.js          Additive upgrade for existing databases
 ├── server/
 │   ├── app.js              Middleware, security, static pages, routes
 │   ├── server.js           Startup and graceful shutdown
@@ -69,7 +75,9 @@ school-district-monitoring/
 │   ├── routes/             API route definitions
 │   ├── services/           SQL and business logic
 │   └── utils/              Validation, scope, permissions, serializers
-├── tests/api.test.js       Automated API tests
+├── tests/
+│   ├── api.test.js         Automated API tests
+│   └── permissions.test.js Rights matrix and enforcement tests
 ├── .env.example
 ├── .gitignore
 └── package.json
@@ -129,7 +137,17 @@ npm run db:init
 
 The script is idempotent: tables use `CREATE TABLE IF NOT EXISTS`, columns use `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, seed inserts use uniqueness guards, and audit seed rows only load when the table is empty. Existing databases are upgraded in place, including the PSDS columns added to `districts`, which the seed backfills with `COALESCE`. To reset completely, drop and recreate the database before rerunning.
 
-Expected seed volume: 3 districts (each with two PSDS assignments), 16 schools, 32 monthly reports, 5 users, 4 announcements, and 9 notifications.
+Expected seed volume: 3 districts (each with two PSDS assignments), 16 schools, 32 monthly reports, 22 users (including pending applicants), 4 announcements, and 8 learner profiles.
+
+### Upgrading an existing database
+
+`npm run db:init` also reloads the demonstration rows, so do not run it against live records. To add the rights schema to a database that already holds real data, run the additive migration:
+
+```bash
+npm run db:migrate
+```
+
+It creates `permission_modules`, `role_permissions`, and `user_permissions`, adds the coordinator role and school-scope constraints, creates the missing indexes, and synchronises the module catalogue and role defaults inside one transaction. It never deletes users, schools, learners, reports, or audit rows, and it is safe to run repeatedly. Per-user overrides are preserved. Back up the database first, as with any schema change, and roll back by restoring that backup if needed.
 
 ## Run the application
 
@@ -172,7 +190,9 @@ Change or remove these accounts before any real deployment. They are not hardcod
 
 ## Roles and permissions
 
-| Capability | System admin | District admin | PSDS | School head / adviser | Teacher / NT / learner |
+The table below lists the **default** policy shipped in the seed. Administrators can change a single account without changing the role default for everyone.
+
+| Capability | System admin | District admin | PSDS | School head / adviser / coordinator | Teacher / NT / learner |
 | --- | --- | --- | --- | --- | --- |
 | View dashboard and scoped schools | All districts | Own district | Own district | Own district | Own district |
 | View district hierarchy and PSDS assignments | All districts | Own district | Own district | Own district | Own district |
@@ -180,22 +200,35 @@ Change or remove these accounts before any real deployment. They are not hardcod
 | Create, edit, archive, restore schools | Yes | Yes | No | No | No |
 | Submit and update reports | Yes | Yes | Yes | Yes | Yes |
 | Manage users | Yes | Yes (own district, no system/district admins) | No | No | No |
-| Confirm self-registered accounts | Any registration | PSDS in own district | School heads in own district | Teachers, NT, advisers in own school; learners (adviser only) | No |
+| Confirm self-registered accounts | Any registration | PSDS in own district | School heads in own district | Teachers, NT, advisers, coordinators in own school; learners (adviser only) | No |
 | Publish announcements | Yes | Yes | No | No | No |
 | View audit logs | Yes | No | No | No | No |
 | Select another district | Yes | No | No | No | No |
 
 Read-only staff still see only published announcements for their district or system-wide notices.
 
+### User rights and permissions
+
+`user-rights.html` is the **User rights and permissions** console. It is limited to system administrators; district administrators, PSDS, school heads, and staff receive `403` from both the page and the API.
+
+- **Directory.** Search by name, username, or email; filter by role, school, and account status; open any account. School- and role-based scoping on learners and records is unchanged by this module.
+- **Matrix.** Modules come from `permission_modules`, which is synchronised from `server/utils/permissionModules.js` at startup and during migration, so the screen always reflects the installed system rather than a hardcoded list. Each module has independent **Access**, **Add**, **Edit**, and **Delete** checkboxes for the actions it supports. Clearing **Access** clears and disables the write actions.
+- **Role defaults and overrides.** Each role has a default row in `role_permissions`. Saving a matrix stores only the modules that differ from the role default in `user_permissions`; restoring the default deletes the override row. **Role defaults** in the toolbar returns the editor to the inherited policy, and **Cancel** discards unsaved edits.
+- **Guarded accounts.** A system administrator always has the full matrix and cannot be edited. Nobody can change their own permissions, including a system administrator, and a user cannot be granted a module/action outside the grant policy for their role (for example, `user_rights` itself or system-administration powers). Attempts return `SELF_PERMISSION_CHANGE`, `SYSTEM_ADMIN_IMMUTABLE`, or `PERMISSION_NOT_GRANTABLE`.
+- **Enforcement.** Every API route that belongs to a module checks the effective matrix server-side with `requireModule(moduleKey, action)`, and every protected page confirms module access before it is served. Effective permissions are recomputed from PostgreSQL on each authenticated request, so a revoked right applies to an already signed-in session on its next call rather than after a re-login. Navigation links are hidden as a convenience, not as the security boundary.
+- **Audit trail.** A save writes `user.permissions_updated` to `audit_logs` with the administrator, target account, module, action, previous value, new value, and timestamp. The editor shows the most recent change and a per-account history; the audit log remains system-administrator only and never records passwords or secrets.
+
+Existing accounts inherit role defaults when the module is first installed. Nothing is granted **Add**, **Edit**, or **Delete** merely because a module exists.
+
 ### Self-registration and confirmation
 
-The sign-in page links to **Create an account** (`register.html`). An applicant chooses a self-registrable role (`psds`, `school_head`, `teacher`, `nt`, `adviser`, or `learner`), a district, and — for school-based roles — an active school. The API stores the account with `approval_status = 'pending'` and `is_active = FALSE`, notifies the approver, and returns the confirming role.
+The sign-in page links to **Create an account** (`register.html`). An applicant chooses a self-registrable role (`psds`, `school_head`, `teacher`, `coordinator`, `nt`, `adviser`, or `learner`), a district, and — for school-based roles — an active school. The API stores the account with `approval_status = 'pending'` and `is_active = FALSE`, notifies the approver, and returns the confirming role.
 
 | Applicant role | Confirmed by |
 | --- | --- |
 | `psds` | District administrator |
 | `school_head` | PSDS in the same district |
-| `teacher`, `nt`, `adviser` | School head at the same school |
+| `teacher`, `coordinator`, `nt`, `adviser` | School head at the same school |
 | `learner` | Class adviser at the same school |
 
 If no active account exists for the immediate superior role, the district administrator can act as the fallback approver. System administrators can confirm any pending registration. Confirmation activates the account, signs in are allowed, and the user can update their own profile through **My Profile**. Rejection keeps the account blocked and records an optional reason. Confirmations and rejections are recorded in the audit trail and notify the applicant.
@@ -274,6 +307,11 @@ Single resources use `{ "data": { ... } }`. Errors use:
 | POST | `/districts` | Create a district with two PSDS (system admin only) |
 | PUT | `/districts/:id` | Update a district and both PSDS (system admin only) |
 | DELETE | `/districts/:id` | Delete an unused district (system admin only) |
+| GET | `/user-rights/catalog` | Modules, supported actions, roles, and schools (system admin only) |
+| GET | `/user-rights/users` | Paginated rights directory with summary counts (system admin only) |
+| GET | `/user-rights/users/:id` | Effective matrix, role defaults, overrides, and last change (system admin only) |
+| GET | `/user-rights/users/:id/history` | Audited permission changes for one account (system admin only) |
+| PUT | `/user-rights/users/:id` | Replace the account's matrix; stores only differences from role defaults (system admin only) |
 
 ### CSRF and cookies
 
@@ -324,7 +362,9 @@ Import both files from `postman/`:
 
 Set `username` and `password` in the environment to one of the demonstration accounts. The environment ships with blank credentials on purpose. `baseUrl` defaults to `http://localhost:3000/api`.
 
-The collection enables Postman's cookie jar automatically, fetches a fresh CSRF token before login, and rotates the saved token after login. It runs 49 requests across Authentication, Dashboard, Districts, Schools, Reports, Users, Registration and approvals, Announcements, System and account, and Session. Logout is deliberately the final request. To exercise approvals, sign in as the approver (for example `northhead`) before running **List pending approvals** and **Approve registration**; change the sample registration username if you run it more than once.
+The collection enables Postman's cookie jar automatically, fetches a fresh CSRF token before login, and rotates the saved token after login. It runs 53 requests across Authentication, Dashboard, Districts, Schools, Reports, Users, Registration and approvals, Announcements, System and account, User rights, and Session. Logout is deliberately the final request. To exercise approvals, sign in as the approver (for example `northhead`) before running **List pending approvals** and **Approve registration**; change the sample registration username if you run it more than once.
+
+The User rights folder reads the catalogue and directory, picks the first non-system account, and re-saves that account's current matrix unchanged, so the sample data is not altered. Run it with `sysadmin`; every request in the folder is restricted to the system administrator.
 
 The Districts folder lists districts, loads the hierarchy, creates a district with two PSDS, reads and updates it, then deletes it. Created rows use an `API-` timestamp code.
 
@@ -360,6 +400,7 @@ The suite uses `node:test` and `supertest`, starts the Express app in test mode,
 - Announcement visibility and updates
 - District PSDS validation, CRUD, hierarchy scoping, and the delete guard
 - Profile photo upload, normalisation to 512 × 512 WebP, MIME spoofing and oversize rejection, ETag revalidation, district-scoped viewing, administrator upload, removal, and audit entries
+- User rights: administrator-only page/API, directory search and filters, role-default inspection, override normalisation, persistence, audit entries, immediate enforcement for an existing session, page guards, self-change and escalation rejection, immutable system administrators, and module-level isolation
 - Notifications, malformed JSON, and no stack-trace leakage
 
 Tests create data prefixed `TST-` and remove it in `after()`. Run them against a disposable development database, not production. The suite requires the seed accounts to exist.
@@ -375,16 +416,17 @@ Tests create data prefixed `TST-` and remove it in `after()`. Run them against a
 - Input is validated and trimmed at API boundaries; output is serialized through explicit field lists.
 - Helmet restricts scripts to same-origin and disables framing. Inline styles are allowed because Bootstrap utilities and chart sizing rely on them.
 - In production, `NODE_ENV=production` enables HSTS and secure cookies, and error responses omit stack traces and database details.
-- Sensitive administrative actions (login, logout, self-registration, account approval/rejection, district/school/user/announcement changes, reports, password reset requests, profile and photo changes) are written to `audit_logs`.
+- Sensitive administrative actions (login, logout, self-registration, account approval/rejection, district/school/user/announcement changes, reports, password reset requests, profile and photo changes, and permission updates) are written to `audit_logs`.
+- Module permissions are enforced by middleware on every protected API route and by page guards before a protected HTML file is served. Effective rights are reloaded from PostgreSQL on each authenticated request, so revocation does not wait for a new login or a cache expiry. System administrators are immutable, and no one can change their own rights.
 - Profile photos are validated by decoding, not by filename or declared MIME type; they are re-encoded with `sharp` to strip metadata and scripts, capped at a 10 MB input and 48 megapixels, stored in PostgreSQL, and served with `nosniff`, a private cache policy, and district-scoped authorisation. Upload endpoints are rate limited and CSRF protected.
-- User management and audit logs are restricted server-side; hiding a navigation link is not the security boundary.
+- User management, user rights, and audit logs are restricted server-side; hiding a navigation link is not the security boundary.
 
 ## Production deployment
 
 1. Set `NODE_ENV=production`, `TRUST_PROXY=1` behind an HTTPS terminator, and a strong `SESSION_SECRET`.
 2. Set `DATABASE_SSL=true` if your PostgreSQL provider requires TLS.
 3. Serve the app over HTTPS only. Cookies are marked `Secure` in production, so plain HTTP will not keep a session.
-4. Run `npm run db:init` against the production database, then replace or remove the demonstration accounts. Rerun it after every release that changes `database/schema.sql`; the script is idempotent and only adds tables, columns, constraints, and indexes.
+4. For a database that already holds real data, run `npm run db:migrate` to add the rights tables and synchronise the catalogue without touching existing records. For a fresh installation, run `npm run db:init`, then replace or remove the demonstration accounts. Rerun the appropriate script after every release that changes `database/schema.sql`; both are idempotent and only add tables, columns, constraints, and indexes.
 5. Use a process manager (systemd, PM2, or a container orchestrator) and run the app as an unprivileged user.
 6. Back up PostgreSQL and monitor the `audit_logs` and `session` tables for growth.
 
@@ -400,7 +442,7 @@ Tests create data prefixed `TST-` and remove it in `after()`. Run them against a
 | Login returns 403 `CSRF_INVALID` | Fetch `/api/auth/csrf` first and send the token in `X-CSRF-Token`. In Postman, clear cookies and rerun the Authentication folder. |
 | Sign-in fails with `CSRF_INVALID` on HTTPS hosting but works locally | `NODE_ENV=production` marks session cookies `Secure`, and Express only sends them when it knows the request arrived over HTTPS. Behind Render, Railway, Heroku, or nginx set `TRUST_PROXY=1`. Without it no session cookie is sent, so the CSRF token cannot be stored and every sign-in fails. Check that `/api/auth/csrf` returns a `Set-Cookie` header. |
 | Login returns 429 | The failed-login limiter is active for 15 minutes. Successful logins do not count. Restart the app to clear the in-memory counter during development. |
-| `{"error":"An unexpected server error occurred.","code":"42703"}` | PostgreSQL `undefined_column`: the database predates the deployed release. Run `npm run db:init` with `DATABASE_URL` pointing at that database, then retry. |
+| `{"error":"An unexpected server error occurred.","code":"42703"}` | PostgreSQL `undefined_column`: the database predates the deployed release. Run `npm run db:migrate` (existing data) or `npm run db:init` (fresh/demo database) with `DATABASE_URL` pointing at that database, then retry. |
 | Charts are empty | Confirm `npm run db:init` loaded the seed data and that the selected period has reports. |
 | Password reset link is missing | In development the API returns `devResetUrl`; production never exposes it. Check your email delivery integration. |
 
@@ -410,7 +452,8 @@ Tests create data prefixed `TST-` and remove it in `after()`. Run them against a
 | --- | --- |
 | `npm start` | Start the production-style server |
 | `npm run dev` | Start with nodemon |
-| `npm run db:init` | Apply schema and seed data |
+| `npm run db:init` | Apply schema and demonstration data (fresh databases) |
+| `npm run db:migrate` | Add the rights schema to an existing database without reseeding |
 | `npm run db:hash` | Generate a bcrypt hash for a new password |
 | `npm test` | Run the automated API suite |
 

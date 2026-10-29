@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Grade Levels · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+</head>
+<body class="app-body" data-page="grade-levels">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-layers"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading grade levels…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Academic structure</p>
+            <h1>Grade levels</h1>
+            <p class="page-subtitle">Grade levels are configured per school so each campus can follow its own offered levels and ordering.</p>
+          </div>
+          <div class="page-header__actions">
+            <button type="button" class="btn btn-primary d-none" id="newGradeButton">
+              <i class="bi bi-plus-lg" aria-hidden="true"></i>
+              <span>New grade level</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="gradePageAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="surface-card table-card" aria-labelledby="gradeTableHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="gradeTableHeading">Configured grade levels</h2>
+              <p>Sections and learner counts help you spot grades that still need class offerings.</p>
+            </div>
+          </header>
+
+          <div class="school-filters learner-filters">
+            <div class="select-control d-none" id="gradeSchoolControl">
+              <label for="gradeSchoolFilter">School</label>
+              <select class="custom-select custom-select-sm" id="gradeSchoolFilter"></select>
+            </div>
+            <label class="search-field">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <span class="sr-only">Search grade levels</span>
+              <input type="search" id="gradeSearch" placeholder="Search grade level or school…" autocomplete="off">
+            </label>
+            <button type="button" class="btn btn-ghost btn-sm" id="resetGradeSearch">
+              <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="app-table" id="gradeTable">
+              <caption class="sr-only">Grade levels per school with section and learner counts</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Grade level</th>
+                  <th scope="col">School</th>
+                  <th scope="col" class="text-right">Sort order</th>
+                  <th scope="col" class="text-right">Sections</th>
+                  <th scope="col" class="text-right">Learners</th>
+                  <th scope="col" class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="gradeTableBody">
+                <tr class="skeleton-row"><td colspan="6"><span class="skeleton skeleton-block"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <p class="table-footer__meta" id="gradeTableMeta">Loading grade levels…</p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/grade-levels.js"></script>
+</body>
+</html>

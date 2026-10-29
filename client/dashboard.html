@@ -118,6 +118,107 @@
           </article>
         </section>
 
+        <div class="section-heading section-heading--learner">
+          <div>
+            <h2>Learner records</h2>
+            <p id="learnerSnapshotNote">Permanent learner profiles and current school-year enrollment.</p>
+          </div>
+          <a class="text-button" href="learner-reports.html">
+            <i class="bi bi-clipboard-data" aria-hidden="true"></i> Learner reports
+          </a>
+        </div>
+
+        <section class="kpi-grid" aria-label="Learner records summary">
+          <article class="stat-card kpi-card stat-card--blue">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-person-vcard" aria-hidden="true"></i></span>
+              <span class="stat-tag" id="learnerKpiYear">—</span>
+            </div>
+            <p class="stat-label">Total learners</p>
+            <p class="stat-value" id="learnerKpiTotal">—</p>
+            <p class="stat-description">Active permanent learner profiles</p>
+          </article>
+          <article class="stat-card kpi-card stat-card--teal">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-journal-check" aria-hidden="true"></i></span>
+              <span class="stat-tag">Current SY</span>
+            </div>
+            <p class="stat-label">Enrolled this school year</p>
+            <p class="stat-value" id="learnerKpiEnrolled">—</p>
+            <p class="stat-description" id="learnerKpiEnrolledNote">Learners with a current-year record</p>
+          </article>
+          <article class="stat-card kpi-card stat-card--amber">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-exclamation-diamond" aria-hidden="true"></i></span>
+              <span class="stat-tag">Follow-up</span>
+            </div>
+            <p class="stat-label">Incomplete profiles</p>
+            <p class="stat-value" id="learnerKpiIncomplete">—</p>
+            <p class="stat-description" id="learnerKpiIncompleteNote">Missing address, contact, or guardian details</p>
+          </article>
+          <article class="stat-card kpi-card stat-card--indigo">
+            <div class="stat-card__top">
+              <span class="stat-icon"><i class="bi bi-diagram-3" aria-hidden="true"></i></span>
+              <span class="stat-tag">Sections</span>
+            </div>
+            <p class="stat-label">Sections and advisers</p>
+            <p class="stat-value" id="learnerKpiSections">—</p>
+            <p class="stat-description" id="learnerKpiSectionsNote">Advisers and teachers in scope</p>
+          </article>
+        </section>
+
+        <div class="row chart-row">
+          <div class="col-xl-7">
+            <section class="surface-card chart-card" aria-labelledby="learnerGradeTitle">
+              <header class="card-heading">
+                <div>
+                  <h3 id="learnerGradeTitle">Learners per grade level</h3>
+                  <p id="learnerGradeSubtitle">Current school-year enrollment by grade</p>
+                </div>
+                <a class="chart-chip" href="learners.html"><i class="bi bi-people" aria-hidden="true"></i> Register</a>
+              </header>
+              <div class="grade-bars" id="learnerGradeList">
+                <div class="skeleton skeleton-text" style="width:70%"></div>
+                <div class="skeleton skeleton-text" style="width:54%"></div>
+                <div class="skeleton skeleton-text" style="width:62%"></div>
+              </div>
+              <p class="chart-summary" id="learnerGradeSummary"></p>
+            </section>
+          </div>
+          <div class="col-xl-5">
+            <section class="surface-card learner-quick-card" aria-labelledby="learnerQuickTitle">
+              <header class="card-heading">
+                <div>
+                  <h3 id="learnerQuickTitle">Find a learner</h3>
+                  <p>Search by LRN or name, then narrow by grade and section.</p>
+                </div>
+              </header>
+              <form id="dashboardLearnerSearch" class="dashboard-learner-search" role="search">
+                <label class="search-field">
+                  <i class="bi bi-search" aria-hidden="true"></i>
+                  <span class="sr-only">Search learners</span>
+                  <input type="search" id="dashboardLearnerSearchInput" placeholder="LRN or learner name…" autocomplete="off">
+                </label>
+                <select class="custom-select custom-select-sm" id="dashboardLearnerGrade" aria-label="Grade level">
+                  <option value="">All grades</option>
+                </select>
+                <select class="custom-select custom-select-sm" id="dashboardLearnerSection" aria-label="Section">
+                  <option value="">All sections</option>
+                </select>
+                <button type="submit" class="btn btn-primary btn-sm">Search</button>
+              </form>
+              <p class="form-section-label">Quick actions</p>
+              <div class="quick-actions" id="dashboardQuickActions">
+                <a class="quick-action" href="learners.html"><i class="bi bi-person-plus" aria-hidden="true"></i> Learner register</a>
+                <a class="quick-action" href="school-years.html"><i class="bi bi-calendar3" aria-hidden="true"></i> School years</a>
+                <a class="quick-action" href="sections.html"><i class="bi bi-diagram-3" aria-hidden="true"></i> Sections</a>
+                <a class="quick-action" href="activities.html"><i class="bi bi-trophy" aria-hidden="true"></i> Activities</a>
+                <a class="quick-action" href="learner-reports.html"><i class="bi bi-printer" aria-hidden="true"></i> Printable reports</a>
+              </div>
+            </section>
+          </div>
+        </div>
+
         <div class="section-heading">
           <div>
             <h2>District analytics</h2>

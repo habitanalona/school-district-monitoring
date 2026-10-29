@@ -197,6 +197,219 @@ CREATE INDEX IF NOT EXISTS audit_logs_district_idx ON audit_logs (district_id);
 CREATE INDEX IF NOT EXISTS reset_tokens_user_idx ON password_reset_tokens (user_id);
 CREATE INDEX IF NOT EXISTS reset_tokens_expiry_idx ON password_reset_tokens (expires_at);
 
+-- ---------------------------------------------------------------------------
+-- Learner records: permanent learner profiles, parents/guardians, and
+-- per-school-year enrollment folders with subjects, schedules, and activities.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS school_years (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(9) NOT NULL UNIQUE CHECK (name ~ '^[0-9]{4}-[0-9]{4}$'),
+  starts_on DATE NOT NULL,
+  ends_on DATE NOT NULL,
+  is_current BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT school_years_dates_check CHECK (ends_on > starts_on)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS school_years_current_idx
+  ON school_years (is_current) WHERE is_current;
+
+CREATE TABLE IF NOT EXISTS grade_levels (
+  id BIGSERIAL PRIMARY KEY,
+  school_id BIGINT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  name VARCHAR(32) NOT NULL,
+  sort_order SMALLINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT grade_levels_unique UNIQUE (school_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS sections (
+  id BIGSERIAL PRIMARY KEY,
+  school_id BIGINT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  school_year_id BIGINT NOT NULL REFERENCES school_years(id) ON DELETE CASCADE,
+  grade_level_id BIGINT NOT NULL REFERENCES grade_levels(id) ON DELETE RESTRICT,
+  name VARCHAR(64) NOT NULL,
+  adviser_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  room VARCHAR(64),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT sections_unique UNIQUE (school_id, school_year_id, grade_level_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS learners (
+  id BIGSERIAL PRIMARY KEY,
+  lrn VARCHAR(12) NOT NULL UNIQUE CHECK (lrn ~ '^[0-9]{12}$'),
+  last_name VARCHAR(80) NOT NULL,
+  first_name VARCHAR(80) NOT NULL,
+  middle_name VARCHAR(80),
+  extension_name VARCHAR(16),
+  birth_date DATE NOT NULL,
+  sex VARCHAR(6) NOT NULL CHECK (sex IN ('male', 'female')),
+  weight_kg NUMERIC(5,2) CHECK (weight_kg > 0 AND weight_kg <= 500),
+  height_cm NUMERIC(5,2) CHECK (height_cm > 0 AND height_cm <= 300),
+  house_number VARCHAR(120),
+  barangay VARCHAR(120),
+  municipality VARCHAR(120),
+  province VARCHAR(120),
+  region VARCHAR(120),
+  zip_code VARCHAR(10),
+  contact_number VARCHAR(32),
+  email VARCHAR(160),
+  school_id BIGINT NOT NULL REFERENCES schools(id) ON DELETE RESTRICT,
+  district_id BIGINT NOT NULL REFERENCES districts(id) ON DELETE RESTRICT,
+  user_id BIGINT UNIQUE REFERENCES users(id) ON DELETE SET NULL,
+  archived_at TIMESTAMPTZ,
+  created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS learners_school_idx ON learners (school_id);
+CREATE INDEX IF NOT EXISTS learners_district_idx ON learners (district_id);
+CREATE INDEX IF NOT EXISTS learners_name_idx ON learners (lower(last_name), lower(first_name));
+CREATE INDEX IF NOT EXISTS learners_archived_idx ON learners (archived_at);
+
+CREATE TABLE IF NOT EXISTS guardians (
+  id BIGSERIAL PRIMARY KEY,
+  learner_id BIGINT NOT NULL REFERENCES learners(id) ON DELETE CASCADE,
+  full_name VARCHAR(160) NOT NULL,
+  relationship VARCHAR(48) NOT NULL,
+  contact_number VARCHAR(32),
+  email VARCHAR(160),
+  address TEXT,
+  occupation VARCHAR(120),
+  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+  is_emergency BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS guardians_learner_idx ON guardians (learner_id);
+CREATE UNIQUE INDEX IF NOT EXISTS guardians_primary_unique
+  ON guardians (learner_id) WHERE is_primary;
+
+CREATE TABLE IF NOT EXISTS enrollments (
+  id BIGSERIAL PRIMARY KEY,
+  learner_id BIGINT NOT NULL REFERENCES learners(id) ON DELETE CASCADE,
+  school_id BIGINT NOT NULL REFERENCES schools(id) ON DELETE RESTRICT,
+  school_year_id BIGINT NOT NULL REFERENCES school_years(id) ON DELETE RESTRICT,
+  grade_level_id BIGINT NOT NULL REFERENCES grade_levels(id) ON DELETE RESTRICT,
+  section_id BIGINT REFERENCES sections(id) ON DELETE SET NULL,
+  adviser_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  enrollment_date DATE NOT NULL DEFAULT current_date,
+  status VARCHAR(24) NOT NULL DEFAULT 'enrolled' CHECK (
+    status IN ('enrolled', 'transferred_in', 'transferred_out', 'promoted', 'retained', 'completed', 'archived')
+  ),
+  remarks TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT enrollments_unique UNIQUE (learner_id, school_year_id)
+);
+
+CREATE INDEX IF NOT EXISTS enrollments_school_idx ON enrollments (school_id, school_year_id);
+CREATE INDEX IF NOT EXISTS enrollments_section_idx ON enrollments (section_id);
+CREATE INDEX IF NOT EXISTS enrollments_learner_idx ON enrollments (learner_id);
+
+CREATE TABLE IF NOT EXISTS subjects (
+  id BIGSERIAL PRIMARY KEY,
+  school_id BIGINT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  code VARCHAR(32) NOT NULL,
+  name VARCHAR(160) NOT NULL,
+  grade_level_id BIGINT REFERENCES grade_levels(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT subjects_unique UNIQUE (school_id, code)
+);
+
+CREATE TABLE IF NOT EXISTS teacher_assignments (
+  id BIGSERIAL PRIMARY KEY,
+  school_id BIGINT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  school_year_id BIGINT NOT NULL REFERENCES school_years(id) ON DELETE CASCADE,
+  section_id BIGINT NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
+  subject_id BIGINT NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+  teacher_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  employee_number VARCHAR(32),
+  remarks TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT teacher_assignments_unique UNIQUE (section_id, subject_id, teacher_id)
+);
+
+CREATE INDEX IF NOT EXISTS teacher_assignments_year_idx ON teacher_assignments (school_year_id, section_id);
+CREATE INDEX IF NOT EXISTS teacher_assignments_teacher_idx ON teacher_assignments (teacher_id);
+
+CREATE TABLE IF NOT EXISTS class_schedules (
+  id BIGSERIAL PRIMARY KEY,
+  assignment_id BIGINT NOT NULL REFERENCES teacher_assignments(id) ON DELETE CASCADE,
+  day_of_week SMALLINT NOT NULL CHECK (day_of_week BETWEEN 1 AND 7),
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  room VARCHAR(64),
+  remarks TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT class_schedules_time_check CHECK (end_time > start_time)
+);
+
+CREATE INDEX IF NOT EXISTS class_schedules_assignment_idx ON class_schedules (assignment_id);
+CREATE INDEX IF NOT EXISTS class_schedules_day_idx ON class_schedules (day_of_week, start_time);
+
+CREATE TABLE IF NOT EXISTS activities (
+  id BIGSERIAL PRIMARY KEY,
+  school_id BIGINT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+  school_year_id BIGINT NOT NULL REFERENCES school_years(id) ON DELETE RESTRICT,
+  name VARCHAR(160) NOT NULL,
+  category VARCHAR(64) NOT NULL,
+  organization VARCHAR(160),
+  adviser_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  participation_level VARCHAR(16) NOT NULL DEFAULT 'school' CHECK (
+    participation_level IN ('classroom', 'school', 'district', 'division', 'regional', 'national', 'international')
+  ),
+  start_date DATE,
+  end_date DATE,
+  achievement VARCHAR(200),
+  remarks TEXT,
+  created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT activities_dates_check CHECK (end_date IS NULL OR start_date IS NULL OR end_date >= start_date)
+);
+
+CREATE INDEX IF NOT EXISTS activities_school_year_idx ON activities (school_id, school_year_id);
+
+CREATE TABLE IF NOT EXISTS learner_activities (
+  id BIGSERIAL PRIMARY KEY,
+  activity_id BIGINT NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  learner_id BIGINT NOT NULL REFERENCES learners(id) ON DELETE CASCADE,
+  role VARCHAR(80),
+  achievement VARCHAR(200),
+  remarks TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT learner_activities_unique UNIQUE (activity_id, learner_id)
+);
+
+CREATE INDEX IF NOT EXISTS learner_activities_learner_idx ON learner_activities (learner_id);
+
+CREATE TABLE IF NOT EXISTS learner_documents (
+  id BIGSERIAL PRIMARY KEY,
+  learner_id BIGINT NOT NULL REFERENCES learners(id) ON DELETE CASCADE,
+  school_year_id BIGINT REFERENCES school_years(id) ON DELETE SET NULL,
+  title VARCHAR(160) NOT NULL,
+  document_type VARCHAR(64) NOT NULL,
+  file_name VARCHAR(200) NOT NULL,
+  mime_type VARCHAR(64) NOT NULL,
+  byte_size INTEGER NOT NULL CHECK (byte_size > 0 AND byte_size <= 5242880),
+  document_data BYTEA NOT NULL,
+  uploaded_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS learner_documents_learner_idx ON learner_documents (learner_id);
+
+
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -209,7 +422,11 @@ DO $$
 DECLARE
   table_name TEXT;
 BEGIN
-  FOREACH table_name IN ARRAY ARRAY['districts', 'users', 'schools', 'school_reports', 'school_enrollment', 'announcements']
+  FOREACH table_name IN ARRAY ARRAY[
+    'districts', 'users', 'schools', 'school_reports', 'school_enrollment', 'announcements',
+    'school_years', 'grade_levels', 'sections', 'learners', 'guardians', 'enrollments',
+    'subjects', 'teacher_assignments', 'class_schedules', 'activities'
+  ]
   LOOP
     IF NOT EXISTS (
       SELECT 1 FROM pg_trigger

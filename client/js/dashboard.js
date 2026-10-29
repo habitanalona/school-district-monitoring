@@ -9,6 +9,7 @@
     focusSchool: "",
     refreshing: false
   };
+  var learnerFilters = { grades: [], sections: [], yearId: null };
   var charts = {};
   var schoolTable = null;
   var refreshSequence = 0;
@@ -60,7 +61,23 @@
       "classificationCenter",
       "recentActivity",
       "activityAuditLink",
-      "footerUpdated"
+      "footerUpdated",
+      "learnerSnapshotNote",
+      "learnerKpiYear",
+      "learnerKpiTotal",
+      "learnerKpiEnrolled",
+      "learnerKpiEnrolledNote",
+      "learnerKpiIncomplete",
+      "learnerKpiIncompleteNote",
+      "learnerKpiSections",
+      "learnerKpiSectionsNote",
+      "learnerGradeList",
+      "learnerGradeSubtitle",
+      "learnerGradeSummary",
+      "dashboardLearnerSearch",
+      "dashboardLearnerSearchInput",
+      "dashboardLearnerGrade",
+      "dashboardLearnerSection"
     ].forEach(function (id) {
       elements[id] = document.getElementById(id);
     });
@@ -803,6 +820,246 @@
     button.setAttribute("aria-busy", String(refreshing));
   }
 
+  function renderLearnerSummary(data) {
+    var totals = (data && data.totals) || {};
+    var year = data && data.schoolYear;
+    var total = Number(totals.learners || 0);
+    var incomplete = Number(totals.incomplete || 0);
+    if (elements.learnerKpiTotal) {
+      elements.learnerKpiTotal.textContent = window.UI.number(total);
+    }
+    if (elements.learnerKpiEnrolled) {
+      elements.learnerKpiEnrolled.textContent = window.UI.number(totals.enrolled);
+    }
+    if (elements.learnerKpiIncomplete) {
+      elements.learnerKpiIncomplete.textContent = window.UI.number(incomplete);
+    }
+    if (elements.learnerKpiSections) {
+      elements.learnerKpiSections.textContent = window.UI.number(totals.sections);
+    }
+    if (elements.learnerKpiYear) {
+      elements.learnerKpiYear.textContent = year ? year.name : "No SY";
+    }
+    if (elements.learnerSnapshotNote) {
+      elements.learnerSnapshotNote.textContent = year
+        ? year.name +
+          " · " +
+          window.UI.number(total) +
+          " active learner profile" +
+          (total === 1 ? "" : "s") +
+          " · " +
+          window.UI.number(totals.enrolled) +
+          " enrolled"
+        : "Create a school year to begin tracking learner enrollment.";
+    }
+    if (elements.learnerKpiEnrolledNote) {
+      elements.learnerKpiEnrolledNote.textContent = year
+        ? window.UI.number(totals.notEnrolled) +
+          " active learner" +
+          (Number(totals.notEnrolled) === 1 ? "" : "s") +
+          " not yet enrolled"
+        : "No current school year configured";
+    }
+    if (elements.learnerKpiIncompleteNote) {
+      elements.learnerKpiIncompleteNote.textContent = total
+        ? Math.round((incomplete / total) * 100) +
+          "% of profiles missing address, contact, or a guardian"
+        : "No learner profiles yet";
+    }
+    if (elements.learnerKpiSectionsNote) {
+      elements.learnerKpiSectionsNote.textContent =
+        window.UI.number(totals.advisers) +
+        " adviser" +
+        (Number(totals.advisers) === 1 ? "" : "s") +
+        " · " +
+        window.UI.number(totals.teachers) +
+        " teacher" +
+        (Number(totals.teachers) === 1 ? "" : "s");
+    }
+
+    var byGrade = (data && data.byGrade) || [];
+    if (elements.learnerGradeList) {
+      if (!byGrade.length) {
+        elements.learnerGradeList.innerHTML =
+          '<p class="empty-cell">' +
+          (year
+            ? "No learners are enrolled for " + window.UI.escapeHtml(year.name) + " yet."
+            : "Create a school year to see grade-level enrollment.") +
+          "</p>";
+      } else {
+        var max = byGrade.reduce(function (highest, grade) {
+          return Math.max(highest, Number(grade.count) || 0);
+        }, 1);
+        elements.learnerGradeList.innerHTML = byGrade
+          .map(function (grade) {
+            var width = Math.max(3, Math.round((Number(grade.count) / max) * 100));
+            return (
+              '<div class="grade-bar">' +
+              "<strong>" +
+              window.UI.escapeHtml(grade.name) +
+              "</strong>" +
+              '<span class="grade-bar__track"><span class="grade-bar__fill" style="width:' +
+              width +
+              '%"></span></span>' +
+              "<span class=\"grade-bar__value\">" +
+              window.UI.number(grade.count) +
+              "</span>" +
+              "</div>"
+            );
+          })
+          .join("");
+      }
+    }
+    if (elements.learnerGradeSummary) {
+      elements.learnerGradeSummary.textContent = byGrade.length
+        ? byGrade.length +
+          " grade level" +
+          (byGrade.length === 1 ? "" : "s") +
+          " · " +
+          window.UI.number(totals.enrolled) +
+          " enrolled learners" +
+          (Number(totals.unassigned)
+            ? " · " + window.UI.number(totals.unassigned) + " without a section"
+            : "")
+        : "";
+    }
+    if (elements.learnerGradeSubtitle && year) {
+      elements.learnerGradeSubtitle.textContent = "Enrollment for " + year.name + " by grade level";
+    }
+
+    learnerFilters.yearId = year ? year.id : null;
+    if (learnerFilters.yearId && !learnerFilters.sections.length) {
+      loadLearnerFilterOptions();
+    }
+  }
+
+  function populateLearnerGradeFilter() {
+    if (!elements.dashboardLearnerGrade) {
+      return;
+    }
+    var selected = elements.dashboardLearnerGrade.value;
+    elements.dashboardLearnerGrade.innerHTML =
+      '<option value="">All grades</option>' +
+      learnerFilters.grades
+        .map(function (grade) {
+          return (
+            '<option value="' +
+            grade.id +
+            '"' +
+            (String(grade.id) === String(selected) ? " selected" : "") +
+            ">" +
+            window.UI.escapeHtml(grade.name) +
+            "</option>"
+          );
+        })
+        .join("");
+  }
+
+  function populateLearnerSectionFilter() {
+    if (!elements.dashboardLearnerSection) {
+      return;
+    }
+    var gradeId = elements.dashboardLearnerGrade ? elements.dashboardLearnerGrade.value : "";
+    var selected = elements.dashboardLearnerSection.value;
+    var list = learnerFilters.sections.filter(function (section) {
+      return !gradeId || String(section.gradeLevelId) === String(gradeId);
+    });
+    elements.dashboardLearnerSection.innerHTML =
+      '<option value="">All sections</option>' +
+      list
+        .map(function (section) {
+          return (
+            '<option value="' +
+            section.id +
+            '"' +
+            (String(section.id) === String(selected) ? " selected" : "") +
+            ">" +
+            window.UI.escapeHtml(
+              (section.gradeLevel ? section.gradeLevel + " · " : "") + section.name
+            ) +
+            "</option>"
+          );
+        })
+        .join("");
+  }
+
+  function loadLearnerFilterOptions() {
+    Promise.all([
+      API.get("/academic/grade-levels"),
+      API.get("/academic/sections", { schoolYearId: learnerFilters.yearId || undefined })
+    ])
+      .then(function (results) {
+        learnerFilters.grades = results[0].data || [];
+        learnerFilters.sections = results[1].data || [];
+        populateLearnerGradeFilter();
+        populateLearnerSectionFilter();
+      })
+      .catch(function (error) {
+        if (error.status === 401) {
+          return;
+        }
+        if (elements.dashboardLearnerGrade) {
+          elements.dashboardLearnerGrade.innerHTML = '<option value="">Grades unavailable</option>';
+        }
+        if (elements.dashboardLearnerSection) {
+          elements.dashboardLearnerSection.innerHTML = '<option value="">Sections unavailable</option>';
+        }
+      });
+  }
+
+  function loadLearnerSummary() {
+    if (!elements.learnerKpiTotal) {
+      return;
+    }
+    API.get("/learners/summary")
+      .then(function (payload) {
+        renderLearnerSummary(payload.data || {});
+      })
+      .catch(function (error) {
+        if (error.status === 401) {
+          return;
+        }
+        ["learnerKpiTotal", "learnerKpiEnrolled", "learnerKpiIncomplete", "learnerKpiSections"].forEach(function (id) {
+          if (elements[id]) {
+            elements[id].textContent = "—";
+          }
+        });
+        if (elements.learnerGradeList) {
+          elements.learnerGradeList.innerHTML =
+            '<p class="empty-cell">Learner statistics are unavailable for your account.</p>';
+        }
+      });
+  }
+
+  function wireLearnerSearch() {
+    var form = elements.dashboardLearnerSearch;
+    if (!form) {
+      return;
+    }
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var params = new URLSearchParams();
+      var search = elements.dashboardLearnerSearchInput
+        ? elements.dashboardLearnerSearchInput.value.trim()
+        : "";
+      var grade = elements.dashboardLearnerGrade ? elements.dashboardLearnerGrade.value : "";
+      var section = elements.dashboardLearnerSection ? elements.dashboardLearnerSection.value : "";
+      if (search) {
+        params.set("search", search);
+      }
+      if (grade) {
+        params.set("gradeLevelId", grade);
+      }
+      if (section) {
+        params.set("sectionId", section);
+      }
+      window.location.href = "learners.html" + (params.toString() ? "?" + params.toString() : "");
+    });
+    if (elements.dashboardLearnerGrade) {
+      elements.dashboardLearnerGrade.addEventListener("change", populateLearnerSectionFilter);
+    }
+  }
+
   function refreshAll(options) {
     var settings = Object.assign({ includeTable: true }, options || {});
     if (state.refreshing) {
@@ -850,6 +1107,7 @@
           }
         }
         loadActivity();
+        loadLearnerSummary();
       })
       .catch(function (error) {
         if (error.status === 401 || sequence !== refreshSequence) {
@@ -963,6 +1221,7 @@
         }
         initialiseTable(session);
         bindControls();
+        wireLearnerSearch();
         refreshAll();
       })
       .catch(function (error) {

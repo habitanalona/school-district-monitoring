@@ -27,6 +27,10 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const profileRoutes = require("./routes/profileRoutes");
 const districtRoutes = require("./routes/districtRoutes");
 const approvalRoutes = require("./routes/approvalRoutes");
+const learnerRoutes = require("./routes/learnerRoutes");
+const academicRoutes = require("./routes/academicRoutes");
+const activityRoutes = require("./routes/activityRoutes");
+const learnerReportRoutes = require("./routes/learnerReportRoutes");
 
 const CLIENT_DIR = path.join(__dirname, "..", "client");
 const PROTECTED_PAGES = [
@@ -39,7 +43,16 @@ const PROTECTED_PAGES = [
   "audit-logs",
   "approvals",
   "settings",
-  "profile"
+  "profile",
+  "learners",
+  "learner",
+  "school-years",
+  "grade-levels",
+  "sections",
+  "teachers",
+  "subjects",
+  "activities",
+  "learner-reports"
 ];
 
 const app = express();
@@ -152,6 +165,10 @@ app.use("/api/approvals", approvalRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/districts", districtRoutes);
+app.use("/api/learners", learnerRoutes);
+app.use("/api/academic", academicRoutes);
+app.use("/api/activities", activityRoutes);
+app.use("/api/learner-reports", learnerReportRoutes);
 app.use("/api", apiNotFound);
 
 app.use(

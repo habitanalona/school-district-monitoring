@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Sections · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+</head>
+<body class="app-body" data-page="sections">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-diagram-3"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading sections…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Academic structure</p>
+            <h1>Sections and advisers</h1>
+            <p class="page-subtitle">Organize learners into sections per school year and grade level, assign advisers, and open class rosters.</p>
+          </div>
+          <div class="page-header__actions">
+            <a class="btn btn-light" href="school-years.html">
+              <i class="bi bi-calendar3" aria-hidden="true"></i>
+              <span>School years</span>
+            </a>
+            <button type="button" class="btn btn-primary d-none" id="newSectionButton">
+              <i class="bi bi-plus-lg" aria-hidden="true"></i>
+              <span>New section</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="sectionPageAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="surface-card table-card" aria-labelledby="sectionTableHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="sectionTableHeading">Section directory</h2>
+              <p id="sectionTableSubtitle">Filter by school year and grade level to review class offerings and advisers.</p>
+            </div>
+            <a class="text-button" href="school-years.html"><i class="bi bi-copy" aria-hidden="true"></i> Copy prior-year structure</a>
+          </header>
+
+          <div class="school-filters learner-filters">
+            <div class="select-control d-none" id="sectionSchoolControl">
+              <label for="sectionSchoolFilter">School</label>
+              <select class="custom-select custom-select-sm" id="sectionSchoolFilter"></select>
+            </div>
+            <select class="custom-select custom-select-sm" id="sectionYearFilter" aria-label="Filter by school year"></select>
+            <select class="custom-select custom-select-sm" id="sectionGradeFilter" aria-label="Filter by grade level">
+              <option value="">All grade levels</option>
+            </select>
+            <label class="search-field">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <span class="sr-only">Search sections</span>
+              <input type="search" id="sectionSearch" placeholder="Search section, adviser, or room…" autocomplete="off">
+            </label>
+            <button type="button" class="btn btn-ghost btn-sm" id="resetSectionFilters">
+              <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="app-table" id="sectionTable">
+              <caption class="sr-only">Sections with grade level, adviser, room, and learner counts</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Section</th>
+                  <th scope="col">Grade level</th>
+                  <th scope="col" id="sectionSchoolColumn">School</th>
+                  <th scope="col">Adviser</th>
+                  <th scope="col">Room</th>
+                  <th scope="col" class="text-right">Learners</th>
+                  <th scope="col" class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="sectionTableBody">
+                <tr class="skeleton-row"><td colspan="7"><span class="skeleton skeleton-block"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <p class="table-footer__meta" id="sectionTableMeta">Loading sections…</p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/sections.js"></script>
+</body>
+</html>

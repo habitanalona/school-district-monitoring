@@ -117,6 +117,20 @@
       }
     }
 
+    var learnerLinks = "";
+    if (permissions.canViewLearners) {
+      learnerLinks =
+        '<p class="sidebar-heading">Learner records</p>' +
+        navItem("learners", "learners.html", "bi-person-vcard", "Learners") +
+        navItem("school-years", "school-years.html", "bi-calendar3", "School Years") +
+        navItem("grade-levels", "grade-levels.html", "bi-layers", "Grade Levels") +
+        navItem("sections", "sections.html", "bi-diagram-3", "Sections") +
+        navItem("teachers", "teachers.html", "bi-person-video3", "Teachers") +
+        navItem("subjects", "subjects.html", "bi-easel2", "Subjects") +
+        navItem("activities", "activities.html", "bi-trophy", "Activities") +
+        navItem("learner-reports", "learner-reports.html", "bi-clipboard-data", "Learner Reports");
+    }
+
     mount.innerHTML =
       '<div class="sidebar-brand">' +
       '<a class="brand brand--sidebar" href="dashboard.html">' +
@@ -140,6 +154,7 @@
       '<nav class="sidebar-nav" aria-label="Main navigation">' +
       '<p class="sidebar-heading">Overview</p>' +
       navItem("dashboard", "dashboard.html", "bi-grid-1x2", "Dashboard") +
+      learnerLinks +
       '<section class="sidebar-division" aria-labelledby="sidebarDivisionHeading">' +
       '<div class="sidebar-division__head">' +
       '<p class="sidebar-heading" id="sidebarDivisionHeading"><i class="bi bi-diagram-3" aria-hidden="true"></i> School Division Office</p>' +
@@ -156,7 +171,7 @@
       navItem("schools", "schools.html", "bi-buildings", "Schools") +
       navItemView("schools", "enrollment", "schools.html?view=enrollment", "bi-people", "School Enrollment") +
       navItemView("schools", "performance", "schools.html?view=performance", "bi-graph-up-arrow", "School Performance") +
-      navItem("reports", "reports.html", "bi-clipboard-data", "Reports and Analytics") +
+      navItem("reports", "reports.html", "bi-graph-up", "District Reports") +
       navItem("announcements", "announcements.html", "bi-megaphone", "Announcements") +
       adminLinks +
       '<p class="sidebar-heading">System</p>' +

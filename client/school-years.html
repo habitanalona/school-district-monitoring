@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>School Years · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+</head>
+<body class="app-body" data-page="school-years">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-calendar3"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading school years…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Academic structure</p>
+            <h1>School years</h1>
+            <p class="page-subtitle">Maintain the school-year calendar. Exactly one year is current and used as the default for dashboards and reports.</p>
+          </div>
+          <div class="page-header__actions">
+            <button type="button" class="btn btn-light d-none" id="copyStructureButton">
+              <i class="bi bi-copy" aria-hidden="true"></i>
+              <span>Copy structure</span>
+            </button>
+            <button type="button" class="btn btn-primary d-none" id="newYearButton">
+              <i class="bi bi-calendar-plus" aria-hidden="true"></i>
+              <span>New school year</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="yearPageAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="surface-card table-card">
+          <header class="table-card__head">
+            <div>
+              <h2>School-year calendar</h2>
+              <p>Section and learner counts are scoped to your authorized schools.</p>
+            </div>
+          </header>
+          <div class="table-responsive">
+            <table class="app-table">
+              <thead>
+                <tr>
+                  <th scope="col">School year</th>
+                  <th scope="col">Start date</th>
+                  <th scope="col">End date</th>
+                  <th scope="col">Status</th>
+                  <th scope="col" class="text-right">Sections</th>
+                  <th scope="col" class="text-right">Learners</th>
+                  <th scope="col" class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="yearTableBody">
+                <tr class="skeleton-row"><td colspan="7"><span class="skeleton skeleton-block"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <p class="table-footer__meta" id="yearTableMeta">Loading school years…</p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/school-years.js"></script>
+</body>
+</html>

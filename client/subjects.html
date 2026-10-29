@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Subjects and Timetable · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+</head>
+<body class="app-body" data-page="subjects">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-easel2"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading subjects and schedules…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Teaching and learning</p>
+            <h1>Subjects and teachers</h1>
+            <p class="page-subtitle">Maintain the subject catalog, assign teachers to sections, and build conflict-free weekly timetables.</p>
+          </div>
+          <div class="page-header__actions">
+            <button type="button" class="btn btn-light d-none" id="newSubjectButton">
+              <i class="bi bi-journal-plus" aria-hidden="true"></i>
+              <span>New subject</span>
+            </button>
+            <button type="button" class="btn btn-primary d-none" id="newAssignmentButton">
+              <i class="bi bi-person-workspace" aria-hidden="true"></i>
+              <span>New assignment</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="subjectPageAlert" class="d-none mb-3" role="alert"></div>
+
+        <div class="profile-tabs" role="tablist" aria-label="Subjects views">
+          <button type="button" role="tab" id="tab-subjects" aria-controls="panel-subjects" aria-selected="true" class="is-active" data-tab="subjects">
+            <i class="bi bi-journal-text" aria-hidden="true"></i> Subject catalog
+          </button>
+          <button type="button" role="tab" id="tab-assignments" aria-controls="panel-assignments" aria-selected="false" data-tab="assignments">
+            <i class="bi bi-person-workspace" aria-hidden="true"></i> Teaching assignments <span class="count-chip" id="assignmentCount">0</span>
+          </button>
+          <button type="button" role="tab" id="tab-timetable" aria-controls="panel-timetable" aria-selected="false" data-tab="timetable">
+            <i class="bi bi-calendar-week" aria-hidden="true"></i> Weekly timetable
+          </button>
+        </div>
+
+        <section class="profile-panel surface-card" id="panel-subjects" role="tabpanel" aria-labelledby="tab-subjects">
+          <header class="panel-heading">
+            <div>
+              <h2>Subject catalog</h2>
+              <p>Subject codes are unique per school and are reused across sections and school years.</p>
+            </div>
+          </header>
+          <div class="school-filters learner-filters">
+            <div class="select-control d-none" id="subjectSchoolControl">
+              <label for="subjectSchoolFilter">School</label>
+              <select class="custom-select custom-select-sm" id="subjectSchoolFilter"></select>
+            </div>
+            <select class="custom-select custom-select-sm" id="subjectGradeFilter" aria-label="Filter by grade level">
+              <option value="">All grade levels</option>
+            </select>
+            <label class="search-field">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <span class="sr-only">Search subjects</span>
+              <input type="search" id="subjectSearch" placeholder="Search subject code or name…" autocomplete="off">
+            </label>
+            <button type="button" class="btn btn-ghost btn-sm" id="resetSubjectFilters">
+              <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset
+            </button>
+          </div>
+          <div class="table-responsive">
+            <table class="app-table" id="subjectTable">
+              <caption class="sr-only">Subject catalog with grade level and assignment counts</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Code</th>
+                  <th scope="col">Subject</th>
+                  <th scope="col">Grade level</th>
+                  <th scope="col" class="text-right">Assignments</th>
+                  <th scope="col" class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="subjectTableBody">
+                <tr class="skeleton-row"><td colspan="5"><span class="skeleton skeleton-block"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <p class="table-footer__meta" id="subjectTableMeta">Loading subjects…</p>
+          </div>
+        </section>
+
+        <section class="profile-panel surface-card" id="panel-assignments" role="tabpanel" aria-labelledby="tab-assignments" hidden>
+          <header class="panel-heading">
+            <div>
+              <h2>Teaching assignments</h2>
+              <p>Assign a subject and teacher to a section. Add class schedules to build the weekly timetable.</p>
+            </div>
+          </header>
+          <div class="school-filters learner-filters">
+            <select class="custom-select custom-select-sm" id="assignmentYearFilter" aria-label="Filter by school year"></select>
+            <select class="custom-select custom-select-sm" id="assignmentSectionFilter" aria-label="Filter by section">
+              <option value="">All sections</option>
+            </select>
+            <select class="custom-select custom-select-sm" id="assignmentTeacherFilter" aria-label="Filter by teacher">
+              <option value="">All teachers</option>
+            </select>
+            <label class="search-field">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <span class="sr-only">Search assignments</span>
+              <input type="search" id="assignmentSearch" placeholder="Search subject, section, or teacher…" autocomplete="off">
+            </label>
+            <button type="button" class="btn btn-ghost btn-sm" id="resetAssignmentFilters">
+              <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset
+            </button>
+          </div>
+          <div class="table-responsive">
+            <table class="app-table" id="assignmentTable">
+              <caption class="sr-only">Teaching assignments with teacher, section, and schedule counts</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Subject</th>
+                  <th scope="col">Grade &amp; Section</th>
+                  <th scope="col">Teacher</th>
+                  <th scope="col">Employee no.</th>
+                  <th scope="col" class="text-right">Class periods</th>
+                  <th scope="col" class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="assignmentTableBody">
+                <tr class="skeleton-row"><td colspan="6"><span class="skeleton skeleton-block"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <p class="table-footer__meta" id="assignmentTableMeta">Loading assignments…</p>
+          </div>
+        </section>
+
+        <section class="profile-panel surface-card" id="panel-timetable" role="tabpanel" aria-labelledby="tab-timetable" hidden>
+          <header class="panel-heading">
+            <div>
+              <h2>Weekly class timetable</h2>
+              <p id="timetableSubtitle">Choose a section to view its Monday-to-Sunday class schedule.</p>
+            </div>
+            <button type="button" class="btn btn-light btn-sm" id="printTimetableButton">
+              <i class="bi bi-printer" aria-hidden="true"></i> Print timetable
+            </button>
+          </header>
+          <div class="school-filters learner-filters">
+            <div class="select-control d-none" id="timetableSchoolControl">
+              <label for="timetableSchoolFilter">School</label>
+              <select class="custom-select custom-select-sm" id="timetableSchoolFilter"></select>
+            </div>
+            <select class="custom-select custom-select-sm" id="timetableYearFilter" aria-label="Filter by school year"></select>
+            <select class="custom-select custom-select-sm" id="timetableSectionFilter" aria-label="Select section">
+              <option value="">Select a section</option>
+            </select>
+          </div>
+          <div id="timetableContent" class="table-responsive">
+            <p class="empty-cell">Select a section to view its weekly schedule.</p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/subjects.js"></script>
+</body>
+</html>

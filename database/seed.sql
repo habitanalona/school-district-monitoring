@@ -214,4 +214,183 @@ JOIN users u ON u.username = v.username
 LEFT JOIN districts d ON d.district_code = v.district_code
 WHERE NOT EXISTS (SELECT 1 FROM audit_logs);
 
+-- ---------------------------------------------------------------------------
+-- Learner records demo data (fictional learners at Central Elementary School)
+-- ---------------------------------------------------------------------------
+
+INSERT INTO school_years (name, starts_on, ends_on, is_current)
+VALUES
+  ('2025-2026', DATE '2025-06-02', DATE '2026-03-31', FALSE),
+  ('2026-2027', DATE '2026-06-01', DATE '2027-03-31', TRUE)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO grade_levels (school_id, name, sort_order)
+SELECT s.id, v.name, v.sort_order
+FROM schools s
+CROSS JOIN (VALUES ('Grade 5', 5), ('Grade 6', 6)) AS v(name, sort_order)
+WHERE s.school_code = 'NES-001'
+ON CONFLICT (school_id, name) DO NOTHING;
+
+INSERT INTO sections (school_id, school_year_id, grade_level_id, name, adviser_id, room)
+SELECT s.id, y.id, g.id, v.name,
+       (SELECT id FROM users WHERE username = 'northadviser'),
+       v.room
+FROM (VALUES
+  ('2025-2026', 'Grade 5', 'Mabini', 'Room 105'),
+  ('2026-2027', 'Grade 6', 'Rizal', 'Room 204')
+) AS v(school_year, grade_level, name, room)
+JOIN schools s ON s.school_code = 'NES-001'
+JOIN school_years y ON y.name = v.school_year
+JOIN grade_levels g ON g.school_id = s.id AND g.name = v.grade_level
+ON CONFLICT (school_id, school_year_id, grade_level_id, name) DO NOTHING;
+
+INSERT INTO learners (
+  lrn, last_name, first_name, middle_name, extension_name, birth_date, sex,
+  weight_kg, height_cm, house_number, barangay, municipality, province, region, zip_code,
+  contact_number, email, school_id, district_id, user_id
+)
+SELECT v.lrn, v.last_name, v.first_name, v.middle_name, v.extension_name,
+       v.birth_date, v.sex, v.weight_kg, v.height_cm,
+       v.house_number, v.barangay, v.municipality, v.province, v.region, v.zip_code,
+       v.contact_number, v.email, s.id, s.district_id,
+       (SELECT id FROM users WHERE username = v.username)
+FROM (VALUES
+  ('136001230001', 'Lim', 'Joshua', 'Ang', NULL, DATE '2014-05-18', 'male', 38.50, 142.00, '24 Rizal Street', 'Poblacion', 'San Isidro', 'Nueva Ecija', 'Region III (Central Luzon)', '3100', '+63 917 555 0101', 'joshua.lim@example.com', 'northlearner'),
+  ('136001230002', 'Reyes', 'Maria Sofia', 'Bautista', NULL, DATE '2014-08-02', 'female', 36.00, 140.50, '8 Mabini Street', 'Poblacion', 'San Isidro', 'Nueva Ecija', 'Region III (Central Luzon)', '3100', '+63 917 555 0102', 'sofia.reyes@example.com', NULL),
+  ('136001230003', 'Cruz', 'Nathaniel', 'Santos', NULL, DATE '2014-01-27', 'male', 41.00, 145.00, '15 Bonifacio Avenue', 'San Roque', 'San Isidro', 'Nueva Ecija', 'Region III (Central Luzon)', '3100', '+63 917 555 0103', 'nathaniel.cruz@example.com', NULL),
+  ('136001230004', 'Gonzales', 'Althea', 'Mendoza', NULL, DATE '2014-11-09', 'female', 34.50, 138.00, '3 Luna Street', 'Poblacion', 'San Isidro', 'Nueva Ecija', 'Region III (Central Luzon)', '3100', NULL, NULL, NULL),
+  ('136001230005', 'Mendoza', 'Gabriel', 'Torres', NULL, DATE '2013-12-15', 'male', 44.00, 150.00, '61 Del Pilar Street', 'Malinis', 'San Isidro', 'Nueva Ecija', 'Region III (Central Luzon)', '3100', '+63 917 555 0105', 'gabriel.mendoza@example.com', NULL),
+  ('136001230006', 'Ramos', 'Isabella', 'Cruz', NULL, DATE '2014-04-03', 'female', 35.20, 139.00, '12 Sampaguita Lane', 'San Roque', 'San Isidro', 'Nueva Ecija', 'Region III (Central Luzon)', '3100', '+63 917 555 0106', NULL, NULL),
+  ('136001230007', 'Santos', 'Elijah', 'Garcia', NULL, DATE '2014-07-21', 'male', 39.80, 143.00, '45 Acacia Street', 'Malinis', 'San Isidro', 'Nueva Ecija', 'Region III (Central Luzon)', '3100', NULL, NULL, NULL),
+  ('136001230008', 'Villanueva', 'Chloe', 'Domingo', NULL, DATE '2014-02-14', 'female', 33.00, 137.50, '7 Narra Street', 'Poblacion', 'San Isidro', 'Nueva Ecija', 'Region III (Central Luzon)', '3100', '+63 917 555 0108', 'chloe.villanueva@example.com', NULL)
+) AS v(lrn, last_name, first_name, middle_name, extension_name, birth_date, sex, weight_kg, height_cm,
+       house_number, barangay, municipality, province, region, zip_code, contact_number, email, username)
+JOIN schools s ON s.school_code = 'NES-001'
+ON CONFLICT (lrn) DO NOTHING;
+
+INSERT INTO guardians (learner_id, full_name, relationship, contact_number, email, address, occupation, is_primary, is_emergency)
+SELECT l.id, v.full_name, v.relationship, v.contact_number, v.email, v.address, v.occupation,
+       v.is_primary, v.is_emergency
+FROM (VALUES
+  ('136001230001', 'Ramon D. Lim', 'Father', '+63 917 555 0201', 'ramon.lim@example.com', '24 Rizal Street, Poblacion, San Isidro, Nueva Ecija', 'School Teacher', TRUE, TRUE),
+  ('136001230001', 'Cristina A. Lim', 'Mother', '+63 917 555 0202', 'cristina.lim@example.com', '24 Rizal Street, Poblacion, San Isidro, Nueva Ecija', 'Nurse', FALSE, FALSE),
+  ('136001230002', 'Eduardo S. Reyes', 'Father', '+63 917 555 0203', 'eduardo.reyes@example.com', '8 Mabini Street, Poblacion, San Isidro, Nueva Ecija', 'Driver', TRUE, TRUE),
+  ('136001230003', 'Lourdes P. Cruz', 'Mother', '+63 917 555 0204', 'lourdes.cruz@example.com', '15 Bonifacio Avenue, San Roque, San Isidro, Nueva Ecija', 'Vendor', TRUE, TRUE),
+  ('136001230004', 'Rogelio M. Gonzales', 'Father', '+63 917 555 0205', NULL, '3 Luna Street, Poblacion, San Isidro, Nueva Ecija', 'Farmer', TRUE, FALSE),
+  ('136001230005', 'Teresita T. Mendoza', 'Mother', '+63 917 555 0206', 'teresita.mendoza@example.com', '61 Del Pilar Street, Malinis, San Isidro, Nueva Ecija', 'Barangay Health Worker', TRUE, TRUE),
+  ('136001230006', 'Antonio C. Ramos', 'Father', '+63 917 555 0207', NULL, '12 Sampaguita Lane, San Roque, San Isidro, Nueva Ecija', 'Carpenter', TRUE, FALSE),
+  ('136001230007', 'Jocelyn G. Santos', 'Mother', '+63 917 555 0208', 'jocelyn.santos@example.com', '45 Acacia Street, Malinis, San Isidro, Nueva Ecija', 'Store Owner', TRUE, TRUE),
+  ('136001230008', 'Ferdinand D. Villanueva', 'Father', '+63 917 555 0209', 'ferdinand.villanueva@example.com', '7 Narra Street, Poblacion, San Isidro, Nueva Ecija', 'Electrician', TRUE, FALSE)
+) AS v(lrn, full_name, relationship, contact_number, email, address, occupation, is_primary, is_emergency)
+JOIN learners l ON l.lrn = v.lrn
+WHERE NOT EXISTS (
+  SELECT 1 FROM guardians g WHERE g.learner_id = l.id AND g.full_name = v.full_name
+);
+
+INSERT INTO enrollments (learner_id, school_id, school_year_id, grade_level_id, section_id, adviser_id, enrollment_date, status, remarks)
+SELECT l.id, sec.school_id, sec.school_year_id, sec.grade_level_id, sec.id, sec.adviser_id,
+       COALESCE(y.starts_on, DATE '2026-06-01'), 'enrolled', NULL
+FROM learners l
+JOIN schools s ON s.id = l.school_id AND s.school_code = 'NES-001'
+JOIN school_years y ON y.name IN ('2025-2026', '2026-2027')
+JOIN sections sec ON sec.school_id = s.id AND sec.school_year_id = y.id
+JOIN grade_levels g ON g.id = sec.grade_level_id
+WHERE sec.name = CASE y.name WHEN '2025-2026' THEN 'Mabini' ELSE 'Rizal' END
+ON CONFLICT (learner_id, school_year_id) DO NOTHING;
+
+INSERT INTO subjects (school_id, code, name, grade_level_id)
+SELECT s.id, v.code, v.name,
+       (SELECT g.id FROM grade_levels g WHERE g.school_id = s.id AND g.name = v.grade_level)
+FROM schools s
+CROSS JOIN (VALUES
+  ('ENG6', 'English 6', 'Grade 6'),
+  ('FIL6', 'Filipino 6', 'Grade 6'),
+  ('MATH6', 'Mathematics 6', 'Grade 6'),
+  ('SCI6', 'Science 6', 'Grade 6'),
+  ('AP6', 'Araling Panlipunan 6', 'Grade 6'),
+  ('MAPEH6', 'MAPEH 6', 'Grade 6'),
+  ('ESP6', 'Edukasyon sa Pagpapakatao 6', 'Grade 6'),
+  ('TLE6', 'Technology and Livelihood Education 6', 'Grade 6')
+) AS v(code, name, grade_level)
+WHERE s.school_code = 'NES-001'
+ON CONFLICT (school_id, code) DO NOTHING;
+
+INSERT INTO teacher_assignments (school_id, school_year_id, section_id, subject_id, teacher_id, employee_number)
+SELECT sec.school_id, sec.school_year_id, sec.id, sub.id,
+       (SELECT id FROM users WHERE username = v.teacher_username),
+       v.employee_number
+FROM sections sec
+JOIN schools s ON s.id = sec.school_id AND s.school_code = 'NES-001'
+JOIN school_years y ON y.id = sec.school_year_id AND y.name = '2026-2027'
+JOIN subjects sub ON sub.school_id = sec.school_id
+CROSS JOIN (VALUES
+  ('ENG6', 'northteacher', 'EMP-1001'),
+  ('MATH6', 'northteacher', 'EMP-1001'),
+  ('SCI6', 'northadviser', 'EMP-1002'),
+  ('FIL6', 'northadviser', 'EMP-1002'),
+  ('MAPEH6', 'northteacher', 'EMP-1001')
+) AS v(subject_code, teacher_username, employee_number)
+WHERE sec.name = 'Rizal' AND sub.code = v.subject_code
+ON CONFLICT (section_id, subject_id, teacher_id) DO NOTHING;
+
+INSERT INTO class_schedules (assignment_id, day_of_week, start_time, end_time, room)
+SELECT a.id, v.day_of_week, v.start_time::time, v.end_time::time, v.room
+FROM teacher_assignments a
+JOIN sections sec ON sec.id = a.section_id
+JOIN subjects sub ON sub.id = a.subject_id
+JOIN school_years y ON y.id = a.school_year_id AND y.name = '2026-2027'
+CROSS JOIN (VALUES
+  ('ENG6', 1, '07:30', '08:20', 'Room 204'),
+  ('MATH6', 1, '08:20', '09:10', 'Room 204'),
+  ('SCI6', 1, '09:30', '10:20', 'Room 204'),
+  ('FIL6', 1, '10:20', '11:10', 'Room 204'),
+  ('MAPEH6', 1, '13:00', '13:50', 'Quadrangle'),
+  ('ENG6', 2, '07:30', '08:20', 'Room 204'),
+  ('MATH6', 2, '08:20', '09:10', 'Room 204'),
+  ('SCI6', 2, '09:30', '10:20', 'Room 204'),
+  ('FIL6', 2, '10:20', '11:10', 'Room 204'),
+  ('MAPEH6', 3, '07:30', '08:20', 'Quadrangle'),
+  ('ENG6', 3, '08:20', '09:10', 'Room 204'),
+  ('MATH6', 3, '09:30', '10:20', 'Room 204'),
+  ('SCI6', 4, '07:30', '08:20', 'Room 204'),
+  ('FIL6', 4, '08:20', '09:10', 'Room 204'),
+  ('MAPEH6', 5, '07:30', '08:20', 'Quadrangle')
+) AS v(subject_code, day_of_week, start_time, end_time, room)
+WHERE sec.name = 'Rizal' AND sub.code = v.subject_code
+  AND NOT EXISTS (
+    SELECT 1 FROM class_schedules c
+    WHERE c.assignment_id = a.id AND c.day_of_week = v.day_of_week AND c.start_time = v.start_time::time
+  );
+
+INSERT INTO activities (school_id, school_year_id, name, category, organization, adviser_id, participation_level, start_date, end_date, achievement, remarks, created_by)
+SELECT s.id, y.id, v.name, v.category, v.organization,
+       (SELECT id FROM users WHERE username = 'northadviser'),
+       v.participation_level, v.start_date, v.end_date, v.achievement, v.remarks,
+       (SELECT id FROM users WHERE username = 'sysadmin')
+FROM schools s
+JOIN school_years y ON y.name = '2026-2027'
+CROSS JOIN (VALUES
+  ('Division Science and Technology Fair', 'Academic Competition', 'Science Club', 'division', DATE '2026-09-18', DATE '2026-09-18', 'Second Place - Robotics Exhibition', 'Division-level science fair held at the division office.'),
+  ('Campus Journalism Workshop', 'Campus Journalism', 'The Central Pen', 'school', DATE '2026-08-05', DATE '2026-08-07', 'Certificate of Participation', 'Three-day workshop for student writers.'),
+  ('District Basketball Tournament', 'Sports and Athletics', 'Central Elementary Basketball Team', 'district', DATE '2026-10-12', DATE '2026-10-16', 'Champion', 'District meet held at the municipal sports complex.')
+) AS v(name, category, organization, participation_level, start_date, end_date, achievement, remarks)
+WHERE s.school_code = 'NES-001'
+  AND NOT EXISTS (
+    SELECT 1 FROM activities a WHERE a.school_id = s.id AND a.school_year_id = y.id AND a.name = v.name
+  );
+
+INSERT INTO learner_activities (activity_id, learner_id, role, achievement, remarks)
+SELECT a.id, l.id, v.role, v.achievement, v.remarks
+FROM activities a
+JOIN schools s ON s.id = a.school_id AND s.school_code = 'NES-001'
+JOIN learners l ON l.school_id = s.id
+CROSS JOIN (VALUES
+  ('Division Science and Technology Fair', '136001230001', 'Team Captain', 'Second Place', 'Led the robotics team.'),
+  ('Division Science and Technology Fair', '136001230003', 'Member', 'Second Place', NULL),
+  ('Campus Journalism Workshop', '136001230002', 'Editorial Writer', 'Certificate of Participation', NULL),
+  ('District Basketball Tournament', '136001230005', 'Point Guard', 'Champion', 'Named to the mythical five.')
+) AS v(activity_name, lrn, role, achievement, remarks)
+WHERE a.name = v.activity_name AND l.lrn = v.lrn
+ON CONFLICT (activity_id, learner_id) DO NOTHING;
+
 COMMIT;

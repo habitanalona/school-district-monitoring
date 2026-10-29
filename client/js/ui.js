@@ -15,6 +15,18 @@
     hour: "numeric",
     minute: "2-digit"
   });
+  var phDateFormatter = new Intl.DateTimeFormat("en-PH", {
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  });
+  var phDateTimeFormatter = new Intl.DateTimeFormat("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
   var monthFormatter = new Intl.DateTimeFormat("en-US", {
     month: "long",
     year: "numeric",
@@ -124,6 +136,37 @@
     }
     var parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? fallback || "—" : dateTimeFormatter.format(parsed);
+  }
+
+  function phDate(value, fallback) {
+    if (!value) {
+      return fallback || "—";
+    }
+    var parsed = value instanceof Date ? value : new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? value + "T00:00:00" : value);
+    return Number.isNaN(parsed.getTime()) ? fallback || "—" : phDateFormatter.format(parsed);
+  }
+
+  function phDateTime(value, fallback) {
+    if (!value) {
+      return fallback || "—";
+    }
+    var parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? fallback || "—" : phDateTimeFormatter.format(parsed);
+  }
+
+  function time(value, fallback) {
+    if (!value) {
+      return fallback || "—";
+    }
+    var parts = String(value).slice(0, 5).split(":");
+    var hours = Number(parts[0]);
+    var minutes = parts[1];
+    if (Number.isNaN(hours) || !minutes) {
+      return String(value);
+    }
+    var suffix = hours >= 12 ? "PM" : "AM";
+    var display = hours % 12 === 0 ? 12 : hours % 12;
+    return display + ":" + minutes + " " + suffix;
   }
 
   function month(value) {
@@ -665,7 +708,42 @@
       "announcement.updated": "updated an announcement",
       "announcement.published": "published an announcement",
       "profile.updated": "updated their profile",
-      "profile.password_changed": "changed their password"
+      "profile.password_changed": "changed their password",
+      "learner.created": "registered a learner",
+      "learner.updated": "updated a learner profile",
+      "learner.archived": "archived a learner record",
+      "learner.restored": "restored a learner record",
+      "learner.promoted": "promoted a learner to a new school year",
+      "learner.document_uploaded": "uploaded a learner document",
+      "learner.document_removed": "removed a learner document",
+      "guardian.created": "added a parent or guardian",
+      "guardian.updated": "updated a parent or guardian",
+      "guardian.removed": "removed a parent or guardian",
+      "enrollment.created": "added a school-year record",
+      "enrollment.updated": "updated a school-year record",
+      "activity.created": "created a learner activity",
+      "activity.updated": "updated a learner activity",
+      "activity.removed": "removed a learner activity",
+      "activity.participant_added": "added an activity participant",
+      "activity.participant_removed": "removed an activity participant",
+      "school_year.created": "created a school year",
+      "school_year.updated": "updated a school year",
+      "school_year.structure_copied": "copied a school-year structure",
+      "grade_level.created": "added a grade level",
+      "grade_level.updated": "updated a grade level",
+      "grade_level.removed": "removed a grade level",
+      "section.created": "created a section",
+      "section.updated": "updated a section",
+      "section.removed": "removed a section",
+      "subject.created": "created a subject",
+      "subject.updated": "updated a subject",
+      "subject.removed": "removed a subject",
+      "assignment.created": "created a teaching assignment",
+      "assignment.updated": "updated a teaching assignment",
+      "assignment.removed": "removed a teaching assignment",
+      "schedule.created": "added a class schedule",
+      "schedule.updated": "updated a class schedule",
+      "schedule.removed": "removed a class schedule"
     };
     return labels[action] || titleCase(String(action || "").replace(/\./g, " "));
   }
@@ -687,6 +765,27 @@
     }
     if (prefix === "announcement") {
       return "bi-megaphone";
+    }
+    if (prefix === "learner") {
+      return "bi-person-vcard";
+    }
+    if (prefix === "guardian") {
+      return "bi-people";
+    }
+    if (prefix === "enrollment") {
+      return "bi-journal-bookmark";
+    }
+    if (prefix === "activity") {
+      return "bi-trophy";
+    }
+    if (prefix === "schedule") {
+      return "bi-calendar-week";
+    }
+    if (prefix === "assignment" || prefix === "subject") {
+      return "bi-easel2";
+    }
+    if (prefix === "section" || prefix === "grade_level" || prefix === "school_year") {
+      return "bi-diagram-3";
     }
     return "bi-activity";
   }
@@ -748,6 +847,9 @@
     compactNumber: compactNumber,
     date: date,
     dateTime: dateTime,
+    phDate: phDate,
+    phDateTime: phDateTime,
+    time: time,
     month: month,
     relativeTime: relativeTime,
     initials: initials,

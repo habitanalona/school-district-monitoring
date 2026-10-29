@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Activities · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+</head>
+<body class="app-body" data-page="activities">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-trophy"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading curricular activities…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Curricular and extracurricular</p>
+            <h1>Activities</h1>
+            <p class="page-subtitle">Record school activities across school years, track learner participation, and keep achievements on the permanent record.</p>
+          </div>
+          <div class="page-header__actions">
+            <button type="button" class="btn btn-primary d-none" id="newActivityButton">
+              <i class="bi bi-plus-lg" aria-hidden="true"></i>
+              <span>New activity</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="activityPageAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="surface-card table-card" aria-labelledby="activityTableHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="activityTableHeading">Activity register</h2>
+              <p>Participation is recorded per learner and preserved in every school year.</p>
+            </div>
+          </header>
+
+          <div class="school-filters learner-filters">
+            <div class="select-control d-none" id="activitySchoolControl">
+              <label for="activitySchoolFilter">School</label>
+              <select class="custom-select custom-select-sm" id="activitySchoolFilter"></select>
+            </div>
+            <select class="custom-select custom-select-sm" id="activityYearFilter" aria-label="Filter by school year"></select>
+            <select class="custom-select custom-select-sm" id="activityLevelFilter" aria-label="Filter by participation level">
+              <option value="">Any participation level</option>
+              <option value="classroom">Classroom</option>
+              <option value="school">School</option>
+              <option value="district">District</option>
+              <option value="division">Division</option>
+              <option value="regional">Regional</option>
+              <option value="national">National</option>
+              <option value="international">International</option>
+            </select>
+            <label class="search-field">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <span class="sr-only">Search activities</span>
+              <input type="search" id="activitySearch" placeholder="Search activity, category, or organization…" autocomplete="off">
+            </label>
+            <button type="button" class="btn btn-ghost btn-sm" id="resetActivityFilters">
+              <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reset
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="app-table" id="activityTable">
+              <caption class="sr-only">Activities with school year, participation level, adviser, and participant counts</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Activity</th>
+                  <th scope="col">Category</th>
+                  <th scope="col">School year</th>
+                  <th scope="col">Level</th>
+                  <th scope="col">School</th>
+                  <th scope="col">Dates</th>
+                  <th scope="col" class="text-right">Participants</th>
+                  <th scope="col" class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="activityTableBody">
+                <tr class="skeleton-row"><td colspan="8"><span class="skeleton skeleton-block"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <p class="table-footer__meta" id="activityTableMeta">Loading activities…</p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/activities.js"></script>
+</body>
+</html>

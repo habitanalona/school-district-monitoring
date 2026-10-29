@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Learner Profile · DepEd Learner Records</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/learner.css">
+</head>
+<body class="app-body" data-page="learner">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-person-vcard"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Opening the learner profile…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div id="learnerPageAlert" class="d-none mb-3" role="alert"></div>
+
+        <div class="mb-3">
+          <a class="text-button" href="learners.html"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to learner register</a>
+        </div>
+
+        <section id="learnerHero" aria-label="Learner summary">
+          <div class="learner-hero">
+            <div class="learner-hero__identity">
+              <span class="avatar">—</span>
+              <div>
+                <p class="page-eyebrow" style="color:rgba(236,245,255,.7);margin-bottom:.2rem">Learner profile</p>
+                <h1 class="learner-hero__name">Loading learner…</h1>
+                <p class="learner-hero__meta">Fetching the permanent record.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <nav class="profile-tabs" id="learnerTabs" aria-label="Learner profile sections">
+          <button type="button" class="is-active" data-tab="overview" aria-selected="true"><i class="bi bi-grid-1x2" aria-hidden="true"></i> Overview</button>
+          <button type="button" data-tab="personal" aria-selected="false"><i class="bi bi-person-vcard" aria-hidden="true"></i> Personal Information</button>
+          <button type="button" data-tab="guardians" aria-selected="false"><i class="bi bi-people" aria-hidden="true"></i> Parents / Guardians <span class="count-chip" id="guardianCount">0</span></button>
+          <button type="button" data-tab="enrollment" aria-selected="false"><i class="bi bi-journal-bookmark" aria-hidden="true"></i> School Year Records <span class="count-chip" id="enrollmentCount">0</span></button>
+          <button type="button" data-tab="subjects" aria-selected="false"><i class="bi bi-easel2" aria-hidden="true"></i> Subjects and Teachers <span class="count-chip" id="subjectCount">0</span></button>
+          <button type="button" data-tab="activities" aria-selected="false"><i class="bi bi-trophy" aria-hidden="true"></i> Curricular Activities <span class="count-chip" id="activityCount">0</span></button>
+          <button type="button" data-tab="history" aria-selected="false"><i class="bi bi-clock-history" aria-hidden="true"></i> History and Audit Trail</button>
+        </nav>
+
+        <section class="profile-panel" id="panel-overview" data-panel="overview" aria-labelledby="learnerTabs">
+          <div class="row">
+            <div class="col-xl-8">
+              <div class="surface-card p-3 p-md-4 mb-3">
+                <div class="panel-heading">
+                  <div>
+                    <h2>Current school-year record</h2>
+                    <p>Enrollment status and placement for the active school year.</p>
+                  </div>
+                  <span class="year-chip" id="overviewYear"><i class="bi bi-calendar3" aria-hidden="true"></i> —</span>
+                </div>
+                <div class="mini-grid" id="overviewEnrollment">
+                  <div class="mini-card"><span>Grade level</span><strong>—</strong></div>
+                </div>
+              </div>
+
+              <div class="surface-card p-3 p-md-4 mb-3" id="overviewMissingCard" hidden>
+                <div class="panel-heading">
+                  <div>
+                    <h3>Profile completeness</h3>
+                    <p>Complete these details to finish the learner's permanent record.</p>
+                  </div>
+                  <span class="status-badge status-badge--warning"><span class="status-dot"></span>Incomplete</span>
+                </div>
+                <ul class="missing-list" id="overviewMissing"></ul>
+              </div>
+
+              <div class="surface-card p-3 p-md-4">
+                <div class="panel-heading">
+                  <div>
+                    <h3>Recent record activity</h3>
+                    <p>Latest changes recorded in the audit trail.</p>
+                  </div>
+                  <button type="button" class="btn btn-light btn-sm" data-open-tab="history"><i class="bi bi-clock-history" aria-hidden="true"></i> Full history</button>
+                </div>
+                <ul class="timeline" id="overviewHistory"></ul>
+              </div>
+            </div>
+            <div class="col-xl-4">
+              <div class="surface-card p-3 p-md-4 mb-3">
+                <div class="panel-heading">
+                  <div>
+                    <h3>Guardians</h3>
+                    <p>Parent or guardian contacts on file.</p>
+                  </div>
+                  <button type="button" class="btn btn-light btn-sm" data-open-tab="guardians"><i class="bi bi-people" aria-hidden="true"></i> Manage</button>
+                </div>
+                <div id="overviewGuardians"></div>
+              </div>
+              <div class="surface-card p-3 p-md-4">
+                <div class="panel-heading">
+                  <div>
+                    <h3>Documents</h3>
+                    <p>Certificates and supporting files.</p>
+                  </div>
+                </div>
+                <div id="overviewDocuments"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="profile-panel" id="panel-personal" data-panel="personal" hidden>
+          <div class="surface-card p-3 p-md-4">
+            <div class="panel-heading">
+              <div>
+                <h2>Personal information</h2>
+                <p>Permanent learner identity and address details.</p>
+              </div>
+              <button type="button" class="btn btn-light btn-sm d-none" id="editPersonalButton"><i class="bi bi-pencil-square" aria-hidden="true"></i> Edit details</button>
+            </div>
+            <div class="detail-grid" id="personalDetails"></div>
+            <p class="profile-footnote"><i class="bi bi-info-circle" aria-hidden="true"></i> Age is derived from the birth date and is never stored or editable. LRN is unique and cannot be reused by another learner.</p>
+          </div>
+        </section>
+
+        <section class="profile-panel" id="panel-guardians" data-panel="guardians" hidden>
+          <div class="surface-card p-3 p-md-4">
+            <div class="panel-heading">
+              <div>
+                <h2>Parents and guardians</h2>
+                <p>Multiple guardians may be recorded. One primary and one emergency contact can be flagged.</p>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm d-none" id="addGuardianButton"><i class="bi bi-person-plus" aria-hidden="true"></i> Add guardian</button>
+            </div>
+            <div class="guardian-grid" id="guardianList"></div>
+          </div>
+        </section>
+
+        <section class="profile-panel" id="panel-enrollment" data-panel="enrollment" hidden>
+          <div class="surface-card p-3 p-md-4 mb-3">
+            <div class="panel-heading">
+              <div>
+                <h2>School year records</h2>
+                <p>Each school year is preserved as a historical folder. A learner can have only one enrollment per school year.</p>
+              </div>
+              <div class="d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-light btn-sm d-none" id="promoteButton"><i class="bi bi-arrow-up-circle" aria-hidden="true"></i> Promote / transfer year</button>
+                <button type="button" class="btn btn-primary btn-sm d-none" id="addEnrollmentButton"><i class="bi bi-journal-plus" aria-hidden="true"></i> Add school-year record</button>
+              </div>
+            </div>
+            <div id="enrollmentFolders"></div>
+          </div>
+          <div class="surface-card p-3 p-md-4">
+            <div class="panel-heading">
+              <div>
+                <h3>Documents</h3>
+                <p>Upload PDF, JPEG, or PNG files up to 5 MB. Files are stored in the database with scoped access.</p>
+              </div>
+              <button type="button" class="btn btn-light btn-sm d-none" id="uploadDocumentButton"><i class="bi bi-paperclip" aria-hidden="true"></i> Upload document</button>
+            </div>
+            <div class="doc-list" id="documentList"></div>
+          </div>
+        </section>
+
+        <section class="profile-panel" id="panel-subjects" data-panel="subjects" hidden>
+          <div class="surface-card p-3 p-md-4 mb-3">
+            <div class="panel-heading">
+              <div>
+                <h2>Subjects and teachers</h2>
+                <p id="subjectsSubtitle">Subject assignments for the learner's section and school year.</p>
+              </div>
+              <a class="btn btn-light btn-sm" href="subjects.html?view=timetable" id="timetableLink"><i class="bi bi-calendar-week" aria-hidden="true"></i> Weekly timetable</a>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Subject</th>
+                    <th scope="col">Teacher</th>
+                    <th scope="col">Employee no.</th>
+                    <th scope="col">Schedule</th>
+                    <th scope="col">Room</th>
+                    <th scope="col">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody id="subjectTableBody">
+                  <tr><td colspan="6" class="empty-cell">Loading subject assignments…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="surface-card p-3 p-md-4">
+            <div class="panel-heading">
+              <div>
+                <h3>Weekly class schedule</h3>
+                <p>Monday to Sunday timetable for the current section.</p>
+              </div>
+            </div>
+            <div id="learnerTimetable"></div>
+          </div>
+        </section>
+
+        <section class="profile-panel" id="panel-activities" data-panel="activities" hidden>
+          <div class="surface-card p-3 p-md-4">
+            <div class="panel-heading">
+              <div>
+                <h2>Curricular and extracurricular activities</h2>
+                <p>Participation across school years, including roles, achievements, and organizations.</p>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm d-none" id="addActivityButton"><i class="bi bi-trophy" aria-hidden="true"></i> Add participation</button>
+            </div>
+            <div id="activityList"></div>
+          </div>
+        </section>
+
+        <section class="profile-panel" id="panel-history" data-panel="history" hidden>
+          <div class="surface-card p-3 p-md-4">
+            <div class="panel-heading">
+              <div>
+                <h2>History and audit trail</h2>
+                <p>Every sensitive change to this learner record is logged with the acting user and timestamp.</p>
+              </div>
+            </div>
+            <ul class="timeline" id="historyList"></ul>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/learner-form.js"></script>
+  <script src="js/learner.js"></script>
+</body>
+</html>

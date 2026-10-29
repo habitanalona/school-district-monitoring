@@ -16,7 +16,8 @@
     sequence: 0,
     countSequence: 0,
     editingUser: null,
-    formModal: null
+    formModal: null,
+    pagination: null
   };
 
   var SCHOOL_ROLES = ["school_head", "teacher", "nt", "adviser", "learner"];
@@ -100,6 +101,17 @@
     var actions = '<div class="table-actions">';
     if (manageable) {
       actions +=
+        '<button type="button" class="icon-action" data-action="photo" data-id="' + user.id +
+        '" title="' + (user.photoUpdatedAt ? "Replace profile photo" : "Upload profile photo") +
+        '" aria-label="' + (user.photoUpdatedAt ? "Replace profile photo for " : "Upload profile photo for ") +
+        window.UI.escapeHtml(user.fullName) + '"><i class="bi bi-camera" aria-hidden="true"></i></button>';
+      if (user.photoUpdatedAt) {
+        actions +=
+          '<button type="button" class="icon-action icon-action--danger" data-action="remove-photo" data-id="' + user.id +
+          '" title="Remove profile photo" aria-label="Remove profile photo for ' +
+          window.UI.escapeHtml(user.fullName) + '"><i class="bi bi-trash" aria-hidden="true"></i></button>';
+      }
+      actions +=
         '<button type="button" class="icon-action" data-action="edit" data-id="' + user.id +
         '" title="Edit account" aria-label="Edit account for ' + window.UI.escapeHtml(user.fullName) +
         '"><i class="bi bi-pencil-square" aria-hidden="true"></i></button>';
@@ -156,6 +168,7 @@
   }
 
   function renderUsers(pagination) {
+    state.pagination = pagination || state.pagination;
     var body = el("userTableBody");
     var meta = el("userTableMeta");
     if (!body) {
@@ -562,6 +575,96 @@
     });
   }
 
+  var PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+  var HEIC_TYPES = ["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"];
+  var PHOTO_MAX_BYTES = 10 * 1024 * 1024;
+  var photoInput = null;
+  var photoTarget = null;
+
+  function ensurePhotoInput() {
+    if (photoInput) {
+      return photoInput;
+    }
+    photoInput = document.createElement("input");
+    photoInput.type = "file";
+    photoInput.accept = "image/jpeg,image/png,image/webp";
+    photoInput.className = "d-none";
+    photoInput.tabIndex = -1;
+    photoInput.setAttribute("aria-hidden", "true");
+    photoInput.addEventListener("change", function () {
+      var file = photoInput.files && photoInput.files[0];
+      var user = photoTarget;
+      photoInput.value = "";
+      if (!file || !user) {
+        return;
+      }
+      if (HEIC_TYPES.indexOf(file.type) !== -1) {
+        window.UI.toast(
+          "HEIC photo not supported",
+          "Set Camera > Formats to \"Most Compatible\" or export the photo as JPEG, then try again.",
+          "warning"
+        );
+        return;
+      }
+      if (PHOTO_TYPES.indexOf(file.type) === -1) {
+        window.UI.toast("Photo not uploaded", "Choose a JPEG, PNG, or WebP image.", "danger");
+        return;
+      }
+      if (file.size > PHOTO_MAX_BYTES) {
+        window.UI.toast("Photo not uploaded", "That image is larger than 10 MB.", "danger");
+        return;
+      }
+      var formData = new window.FormData();
+      formData.append("photo", file);
+      API.upload("/users/" + user.id + "/photo", formData, { method: "PUT" })
+        .then(function (response) {
+          user.photoUpdatedAt = response.data.photoUpdatedAt;
+          loadUsers();
+          window.UI.toast("Photo updated", user.fullName + "'s profile photo is ready.", "success");
+        })
+        .catch(function (error) {
+          window.UI.toast(
+            "Photo not uploaded",
+            error.status === 413 || error.status === 415
+              ? error.message
+              : "The photo could not be saved. Please try again.",
+            "danger"
+          );
+        });
+    });
+    document.body.appendChild(photoInput);
+    return photoInput;
+  }
+
+  function choosePhotoFor(user) {
+    photoTarget = user;
+    var input = ensurePhotoInput();
+    input.value = "";
+    input.click();
+  }
+
+  function removePhoto(user) {
+    window.UI.confirm({
+      title: "Remove " + user.fullName + "'s photo?",
+      message: "The account will go back to showing initials in the sidebar, top bar, and user list.",
+      confirmLabel: "Remove photo",
+      tone: "danger"
+    }).then(function (confirmed) {
+      if (!confirmed) {
+        return;
+      }
+      API.delete("/users/" + user.id + "/photo")
+        .then(function () {
+          user.photoUpdatedAt = null;
+          loadUsers();
+          window.UI.toast("Photo removed", user.fullName + " is back to initials.", "success");
+        })
+        .catch(function (error) {
+          window.UI.toast("Photo not removed", error.message, "danger");
+        });
+    });
+  }
+
   function resetFilters() {
     state.search = "";
     state.role = "";
@@ -574,6 +677,7 @@
   }
 
   function bind() {
+    ensurePhotoInput();
     document.querySelectorAll("#userTable [data-sort]").forEach(function (button) {
       button.addEventListener("click", function () {
         var column = button.dataset.sort;
@@ -619,6 +723,10 @@
           openForm(user);
         } else if (actionButton.dataset.action === "toggle") {
           toggleStatus(user);
+        } else if (actionButton.dataset.action === "photo") {
+          choosePhotoFor(user);
+        } else if (actionButton.dataset.action === "remove-photo") {
+          removePhoto(user);
         }
         return;
       }

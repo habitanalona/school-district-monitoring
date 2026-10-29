@@ -176,7 +176,8 @@
       return request("POST", path, Object.assign({}, options || {}, { body: body }));
     },
     upload: function (path, formData, options) {
-      return request("POST", path, Object.assign({}, options || {}, { formData: formData }));
+      var opts = options || {};
+      return request(opts.method || "POST", path, Object.assign({}, opts, { formData: formData }));
     },
     put: function (path, body, options) {
       return request("PUT", path, Object.assign({}, options || {}, { body: body }));

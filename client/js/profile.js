@@ -9,7 +9,8 @@
   };
 
   var PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
-  var PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+  var HEIC_TYPES = ["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"];
+  var PHOTO_MAX_BYTES = 10 * 1024 * 1024;
 
   var PERMISSIONS = [
     { key: "canManageSchools", label: "Manage school records", description: "Register, edit, archive, and restore schools." },
@@ -127,13 +128,21 @@
       renderPhoto();
       return;
     }
+    if (HEIC_TYPES.indexOf(file.type) !== -1) {
+      showPhotoError(
+        "iPhone HEIC photos are not supported. Set Camera > Formats to \"Most Compatible\" or export the photo as JPEG, then try again.",
+        "HEIC photo not supported"
+      );
+      renderPhoto();
+      return;
+    }
     if (PHOTO_TYPES.indexOf(file.type) === -1) {
       showPhotoError("Choose a JPEG, PNG, or WebP image.", "Unsupported file type");
       renderPhoto();
       return;
     }
     if (file.size > PHOTO_MAX_BYTES) {
-      showPhotoError("That image is larger than 2 MB. Choose a smaller file.", "Image too large");
+      showPhotoError("That image is larger than 10 MB. Choose a smaller file.", "Image too large");
       renderPhoto();
       return;
     }

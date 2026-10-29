@@ -857,6 +857,25 @@ test("profile photos are validated, normalised, scoped, and removable", async ()
     .set("If-None-Match", image.headers.etag);
   assert.equal(cached.status, 304);
 
+  const phoneJpeg = await sharp({
+    create: { width: 1200, height: 900, channels: 3, background: { r: 120, g: 60, b: 30 } }
+  })
+    .jpeg()
+    .toBuffer();
+  const phoneSized = Buffer.concat([phoneJpeg, Buffer.alloc(3 * 1024 * 1024, 0)]);
+  const largeUpload = await learner.agent
+    .post("/api/profile/photo")
+    .set("X-CSRF-Token", learner.csrfToken)
+    .attach("photo", phoneSized, { filename: "phone.jpg", contentType: "image/jpeg" });
+  assert.equal(largeUpload.status, 200, JSON.stringify(largeUpload.body));
+
+  const heic = await learner.agent
+    .post("/api/profile/photo")
+    .set("X-CSRF-Token", learner.csrfToken)
+    .attach("photo", png, { filename: "iphone.heic", contentType: "image/heic" });
+  assert.equal(heic.status, 415);
+  assert.equal(heic.body.code, "PHOTO_HEIC_UNSUPPORTED");
+
   const gif = await learner.agent
     .post("/api/profile/photo")
     .set("X-CSRF-Token", learner.csrfToken)
@@ -877,7 +896,7 @@ test("profile photos are validated, normalised, scoped, and removable", async ()
   const tooLarge = await learner.agent
     .post("/api/profile/photo")
     .set("X-CSRF-Token", learner.csrfToken)
-    .attach("photo", Buffer.alloc(2 * 1024 * 1024 + 1, 0x41), {
+    .attach("photo", Buffer.alloc(10 * 1024 * 1024 + 1, 0x41), {
       filename: "huge.png",
       contentType: "image/png"
     });

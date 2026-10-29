@@ -4,8 +4,11 @@ const sharp = require("sharp");
 const { query } = require("../config/database");
 const { HttpError } = require("../utils/httpError");
 
-const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
-const MAX_INPUT_PIXELS = 24 * 1000 * 1000;
+// Phone cameras routinely produce 2-8 MB files. The upload limit is generous
+// because the stored copy is always re-encoded to a small 512x512 WebP.
+const MAX_INPUT_BYTES = 10 * 1024 * 1024;
+const MAX_STORED_BYTES = 2 * 1024 * 1024;
+const MAX_INPUT_PIXELS = 48 * 1000 * 1000;
 const OUTPUT_SIZE = 512;
 const ALLOWED_FORMATS = new Set(["jpeg", "png", "webp"]);
 
@@ -31,7 +34,7 @@ async function normalizeUpload(buffer) {
       .webp({ quality: 82, effort: 4 })
       .toBuffer({ resolveWithObject: true });
 
-    if (normalized.data.length > MAX_UPLOAD_BYTES) {
+    if (normalized.data.length > MAX_STORED_BYTES) {
       throw new HttpError(413, "The processed image is too large. Choose a smaller photo.", "PHOTO_TOO_LARGE");
     }
 
@@ -121,7 +124,8 @@ function etagFor(row) {
 }
 
 module.exports = {
-  MAX_UPLOAD_BYTES,
+  MAX_INPUT_BYTES,
+  MAX_STORED_BYTES,
   normalizeUpload,
   saveForUser,
   getForUser,

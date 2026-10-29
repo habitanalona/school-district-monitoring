@@ -18,7 +18,7 @@ A full-stack web application for district administrators to manage enrolled scho
 - School registry with register, view, edit, archive (soft delete), and restore. Archived records are retained.
 - Monthly report tracking with submission status, reporting period, and uniqueness per school/period/type.
 - User administration, announcement publishing, notifications, audit logs, and self-service profile/password management.
-- Secure profile photos for every account: users upload their own picture, administrators can set one for any account they manage through the photo API, and avatars appear in the sidebar, top bar, profile page, and user list.
+- Secure profile photos for every account: users upload their own picture, administrators can set or remove one for any account they manage from the Users page, and avatars appear in the sidebar, top bar, profile page, and user list.
 - Responsive layout: collapsible navy sidebar, mobile drawer, keyboard-accessible focus styles, loading skeletons, toasts, and empty states.
 - Security hardening: Helmet CSP, HSTS in production, CSRF tokens for cookie-authenticated writes, login and password-reset rate limiting, parameterized SQL, centralized error handling, and no stack traces in production.
 
@@ -291,8 +291,8 @@ Every account can have one profile picture. Learners and staff upload it from **
 
 Upload rules:
 
-- Accepted formats are JPEG, PNG, and WebP, up to 2 MB per request. The file is decoded with `sharp`; a renamed non-image (for example a GIF or HTML file with a `.png` name) is rejected.
-- Images above 24 megapixels are refused before decoding to avoid decompression bombs.
+- Accepted formats are JPEG, PNG, and WebP, up to 10 MB per request. The file is decoded with `sharp`; a renamed non-image (for example a GIF or HTML file with a `.png` name) is rejected.
+- Images above 48 megapixels are refused before decoding to avoid decompression bombs, so modern phone cameras are accepted. iPhone HEIC files are rejected with guidance to share as JPEG, because the bundled `sharp` build cannot decode HEIC.
 - The server strips all metadata (including EXIF and GPS), applies the camera orientation, center-crops to a square, and re-encodes to a 512 × 512 WebP. The stored bytes never match the uploaded file, which also neutralizes polyglot and script-in-image tricks.
 - Uploads are held in memory (nothing is written to disk) and stored as `bytea` in the `user_photos` table, so they survive restarts and redeploys on hosts with an ephemeral filesystem such as Render.
 - Uploads are limited to 60 per hour per IP. They are multipart requests and still need the `X-CSRF-Token` header; let the browser set the multipart boundary instead of setting `Content-Type` yourself.
@@ -311,7 +311,7 @@ curl -X PUT http://localhost:3000/api/users/12/photo \
   -F "photo=@portrait.jpg"
 ```
 
-Possible error codes: `PHOTO_REQUIRED` (400), `PHOTO_TYPE_UNSUPPORTED` (415), `PHOTO_INVALID` (415), `PHOTO_TOO_LARGE` (413), `PHOTO_FIELD_INVALID` (400), `PHOTO_NOT_FOUND` (404), `PHOTO_FORBIDDEN` (403), `RATE_LIMITED` (429). Photo changes are recorded in the audit trail as `profile.photo_updated`, `profile.photo_removed`, `user.photo_updated`, and `user.photo_removed`.
+Possible error codes: `PHOTO_REQUIRED` (400), `PHOTO_TYPE_UNSUPPORTED` (415), `PHOTO_HEIC_UNSUPPORTED` (415), `PHOTO_INVALID` (415), `PHOTO_TOO_LARGE` (413), `PHOTO_FIELD_INVALID` (400), `PHOTO_NOT_FOUND` (404), `PHOTO_FORBIDDEN` (403), `RATE_LIMITED` (429). Photo changes are recorded in the audit trail as `profile.photo_updated`, `profile.photo_removed`, `user.photo_updated`, and `user.photo_removed`.
 
 The `user_photos` table is created by `database/schema.sql`, so run `npm run db:init` after pulling this release. The script is idempotent.
 
@@ -376,7 +376,7 @@ Tests create data prefixed `TST-` and remove it in `after()`. Run them against a
 - Helmet restricts scripts to same-origin and disables framing. Inline styles are allowed because Bootstrap utilities and chart sizing rely on them.
 - In production, `NODE_ENV=production` enables HSTS and secure cookies, and error responses omit stack traces and database details.
 - Sensitive administrative actions (login, logout, self-registration, account approval/rejection, district/school/user/announcement changes, reports, password reset requests, profile and photo changes) are written to `audit_logs`.
-- Profile photos are validated by decoding, not by filename or declared MIME type; they are re-encoded with `sharp` to strip metadata and scripts, capped at 2 MB and 24 megapixels, stored in PostgreSQL, and served with `nosniff`, a private cache policy, and district-scoped authorisation. Upload endpoints are rate limited and CSRF protected.
+- Profile photos are validated by decoding, not by filename or declared MIME type; they are re-encoded with `sharp` to strip metadata and scripts, capped at a 10 MB input and 48 megapixels, stored in PostgreSQL, and served with `nosniff`, a private cache policy, and district-scoped authorisation. Upload endpoints are rate limited and CSRF protected.
 - User management and audit logs are restricted server-side; hiding a navigation link is not the security boundary.
 
 ## Production deployment

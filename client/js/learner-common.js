@@ -405,9 +405,16 @@
       "</div></div>";
     document.body.appendChild(element);
     var instance = new window.bootstrap.Modal(element, { backdrop: true, keyboard: true });
-    element.addEventListener("hidden.bs.modal", function () {
+    var discard = function () {
       element.remove();
-    });
+    };
+    if (window.jQuery) {
+      /* Bootstrap 4 triggers hidden.bs.modal through jQuery, so a native
+         addEventListener never fires and the dialog would linger in the DOM. */
+      window.jQuery(element).on("hidden.bs.modal", discard);
+    } else {
+      element.addEventListener("hidden.bs.modal", discard);
+    }
     instance.show();
     return {
       element: element,

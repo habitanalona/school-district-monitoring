@@ -25,7 +25,7 @@
       ? ' <span class="required-mark">*</span>'
       : "";
     var attrs =
-      'class="form-control' +
+      '<input class="form-control' +
       (settings.className ? " " + settings.className : "") +
       '" id="learner-' +
       name +
@@ -59,9 +59,12 @@
     );
   }
 
-  function readAge() {
-    var input = document.getElementById("learner-birthDate");
-    var output = document.getElementById("learnerAgeReadout");
+  function readAge(form) {
+    if (!form) {
+      return;
+    }
+    var input = form.querySelector("#learner-birthDate");
+    var output = form.querySelector("#learnerAgeReadout");
     if (!input || !output) {
       return;
     }
@@ -202,10 +205,32 @@
     );
   }
 
+  /* Bootstrap 4 can ignore hide() during the show transition, leaving a hidden
+     dialog with duplicate field IDs. Drop any leftover learner dialog before
+     opening a fresh one so form-scoped lookups stay correct. */
+  function discardStaleDialogs() {
+    var stale = document.querySelectorAll("#learnerForm");
+    Array.prototype.forEach.call(stale, function (form) {
+      var modal = form.closest(".modal");
+      if (modal) {
+        modal.parentNode.removeChild(modal);
+      }
+    });
+    if (document.querySelector(".modal.show")) {
+      return;
+    }
+    Array.prototype.forEach.call(document.querySelectorAll(".modal-backdrop"), function (backdrop) {
+      backdrop.parentNode.removeChild(backdrop);
+    });
+    document.body.classList.remove("modal-open");
+    document.body.style.removeProperty("padding-right");
+  }
+
   function open(options) {
     var settings = Object.assign({ learner: null, onSaved: null }, options || {});
     var learner = settings.learner;
     var editing = Boolean(learner);
+    discardStaleDialogs();
     var dialog = window.LearnerUI.modal({
       eyebrow: editing ? "Update profile" : "New record",
       title: editing ? "Edit learner profile" : "Register a learner",
@@ -231,9 +256,13 @@
     }
     var birthDate = form.querySelector("#learner-birthDate");
     if (birthDate) {
-      birthDate.addEventListener("change", readAge);
-      birthDate.addEventListener("input", readAge);
-      readAge();
+      birthDate.addEventListener("change", function () {
+        readAge(form);
+      });
+      birthDate.addEventListener("input", function () {
+        readAge(form);
+      });
+      readAge(form);
     }
     var lrnInput = form.querySelector("#learner-lrn");
     if (lrnInput) {
@@ -267,7 +296,7 @@
             : API.post("/learners", values);
         },
         function (payload) {
-          dialog.close();
+          discardStaleDialogs();
           window.UI.toast(
             editing ? "Learner updated" : "Learner registered",
             (payload.data.learner.fullName || "The learner") +

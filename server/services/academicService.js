@@ -5,8 +5,10 @@ const { HttpError } = require("../utils/httpError");
 const {
   serializeSchoolYear,
   serializeGradeLevel,
+  serializeGradeLevelOption,
   serializeSection,
   serializeSubject,
+  serializeSubjectOption,
   serializeTeacherAssignment,
   serializeClassSchedule
 } = require("../utils/serializers");
@@ -363,6 +365,396 @@ async function copyStructure(actor, payload) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Grade level options (system administrator catalog)                          */
+/* -------------------------------------------------------------------------- */
+
+function assertSystemAdmin(actor, message, code) {
+  if (!actor || actor.role !== "system_admin") {
+    throw new HttpError(
+      403,
+      message || "Only the system administrator can manage the grade level options.",
+      code || "GRADE_LEVEL_OPTION_FORBIDDEN"
+    );
+  }
+}
+
+async function listGradeLevelOptions(actor, { includeInactive = false } = {}) {
+  // Inactive options are only exposed to the administrator who maintains the
+  // catalog. Schools receive the active choices for their dropdown.
+  const showInactive = Boolean(includeInactive) && actor.role === "system_admin";
+  const result = await query(
+    `SELECT glo.*,
+            (SELECT COUNT(*)::int FROM grade_levels gl
+              WHERE lower(gl.name) = lower(glo.name)) AS usage_count
+     FROM grade_level_options glo
+     WHERE $1::boolean OR glo.is_active
+     ORDER BY glo.is_active DESC, glo.sort_order ASC, glo.name ASC`,
+    [showInactive]
+  );
+  return result.rows.map(serializeGradeLevelOption);
+}
+
+async function gradeLevelOptionUsage(name) {
+  const usage = await query(
+    `SELECT COUNT(*)::int AS count FROM grade_levels WHERE lower(name) = lower($1)`,
+    [name]
+  );
+  return usage.rows[0].count;
+}
+
+async function createGradeLevelOption(actor, payload) {
+  assertSystemAdmin(actor);
+  try {
+    const result = await query(
+      `INSERT INTO grade_level_options (name, sort_order, is_active)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [payload.name, payload.sortOrder, payload.isActive]
+    );
+    await auditService.record({
+      userId: actor.id,
+      action: "grade_level_option.created",
+      entityType: "grade_level_option",
+      entityId: result.rows[0].id,
+      districtId: null,
+      ipAddress: actor.ipAddress || null,
+      details: {
+        name: payload.name,
+        sort_order: payload.sortOrder,
+        is_active: payload.isActive
+      }
+    });
+    return serializeGradeLevelOption({ ...result.rows[0], usage_count: 0 });
+  } catch (error) {
+    if (error.code === "23505") {
+      throw new HttpError(
+        409,
+        "That grade level option already exists.",
+        "GRADE_LEVEL_OPTION_EXISTS"
+      );
+    }
+    throw error;
+  }
+}
+
+async function updateGradeLevelOption(actor, id, payload) {
+  assertSystemAdmin(actor);
+  const existing = await query(
+    `SELECT * FROM grade_level_options WHERE id = $1`,
+    [id]
+  );
+  if (!existing.rows[0]) {
+    throw new HttpError(
+      404,
+      "Grade level option not found.",
+      "GRADE_LEVEL_OPTION_NOT_FOUND"
+    );
+  }
+  const isActive =
+    payload.isActive === null || payload.isActive === undefined
+      ? existing.rows[0].is_active
+      : payload.isActive;
+  try {
+    const result = await query(
+      `UPDATE grade_level_options
+       SET name = $1, sort_order = $2, is_active = $3
+       WHERE id = $4
+       RETURNING *`,
+      [payload.name, payload.sortOrder, isActive, id]
+    );
+    await auditService.record({
+      userId: actor.id,
+      action: "grade_level_option.updated",
+      entityType: "grade_level_option",
+      entityId: id,
+      districtId: null,
+      ipAddress: actor.ipAddress || null,
+      details: {
+        name: payload.name,
+        previous_name: existing.rows[0].name,
+        sort_order: payload.sortOrder,
+        is_active: isActive
+      }
+    });
+    return serializeGradeLevelOption({
+      ...result.rows[0],
+      usage_count: await gradeLevelOptionUsage(payload.name)
+    });
+  } catch (error) {
+    if (error.code === "23505") {
+      throw new HttpError(
+        409,
+        "That grade level option already exists.",
+        "GRADE_LEVEL_OPTION_EXISTS"
+      );
+    }
+    throw error;
+  }
+}
+
+async function deleteGradeLevelOption(actor, id) {
+  assertSystemAdmin(actor);
+  const existing = await query(
+    `SELECT * FROM grade_level_options WHERE id = $1`,
+    [id]
+  );
+  if (!existing.rows[0]) {
+    throw new HttpError(
+      404,
+      "Grade level option not found.",
+      "GRADE_LEVEL_OPTION_NOT_FOUND"
+    );
+  }
+  const usageCount = await gradeLevelOptionUsage(existing.rows[0].name);
+  if (usageCount > 0) {
+    throw new HttpError(
+      409,
+      "This option is used by school grade levels. Deactivate it instead of removing it.",
+      "GRADE_LEVEL_OPTION_IN_USE",
+      { usageCount }
+    );
+  }
+  await query(`DELETE FROM grade_level_options WHERE id = $1`, [id]);
+  await auditService.record({
+    userId: actor.id,
+    action: "grade_level_option.removed",
+    entityType: "grade_level_option",
+    entityId: id,
+    districtId: null,
+    ipAddress: actor.ipAddress || null,
+    details: { name: existing.rows[0].name }
+  });
+  return { id: Number(id) };
+}
+
+// Resolves a requested grade level name against the administrator-managed
+// catalog. `currentName` lets a school keep a legacy name that predates the
+// catalog or whose option was later deactivated, without allowing new free
+// text or a switch to an inactive option.
+async function resolveGradeLevelChoice(name, currentName = null) {
+  const requested = String(name || "").trim();
+  if (
+    currentName &&
+    requested.toLowerCase() === String(currentName).trim().toLowerCase()
+  ) {
+    return { name: currentName, sortOrder: null, legacy: true };
+  }
+  const result = await query(
+    `SELECT * FROM grade_level_options WHERE lower(name) = lower($1)`,
+    [requested]
+  );
+  const option = result.rows[0];
+  if (!option) {
+    throw new HttpError(
+      400,
+      "Choose a grade level from the list prepared by the system administrator.",
+      "GRADE_LEVEL_OPTION_REQUIRED",
+      { field: "name" }
+    );
+  }
+  if (!option.is_active) {
+    throw new HttpError(
+      400,
+      "That grade level option is inactive. Ask the system administrator to reactivate it.",
+      "GRADE_LEVEL_OPTION_INACTIVE",
+      { field: "name" }
+    );
+  }
+  return {
+    name: option.name,
+    sortOrder: Number(option.sort_order),
+    legacy: false
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Subject options (system administrator catalog)                              */
+/* -------------------------------------------------------------------------- */
+
+async function listSubjectOptions(actor, { includeInactive = false } = {}) {
+  // Inactive options are only exposed to the administrator who maintains the
+  // catalog. Schools receive the active choices for their dropdown.
+  const showInactive = Boolean(includeInactive) && actor.role === "system_admin";
+  const result = await query(
+    `SELECT so.*,
+            (SELECT COUNT(*)::int FROM subjects sub
+              WHERE lower(sub.name) = lower(so.name)) AS usage_count
+     FROM subject_options so
+     WHERE $1::boolean OR so.is_active
+     ORDER BY so.is_active DESC, so.sort_order ASC, so.name ASC`,
+    [showInactive]
+  );
+  return result.rows.map(serializeSubjectOption);
+}
+
+async function subjectOptionUsage(name) {
+  const usage = await query(
+    `SELECT COUNT(*)::int AS count FROM subjects WHERE lower(name) = lower($1)`,
+    [name]
+  );
+  return usage.rows[0].count;
+}
+
+async function createSubjectOption(actor, payload) {
+  assertSystemAdmin(
+    actor,
+    "Only the system administrator can manage the subject options.",
+    "SUBJECT_OPTION_FORBIDDEN"
+  );
+  try {
+    const result = await query(
+      `INSERT INTO subject_options (name, sort_order, is_active)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [payload.name, payload.sortOrder, payload.isActive]
+    );
+    await auditService.record({
+      userId: actor.id,
+      action: "subject_option.created",
+      entityType: "subject_option",
+      entityId: result.rows[0].id,
+      districtId: null,
+      ipAddress: actor.ipAddress || null,
+      details: {
+        name: payload.name,
+        sort_order: payload.sortOrder,
+        is_active: payload.isActive
+      }
+    });
+    return serializeSubjectOption({ ...result.rows[0], usage_count: 0 });
+  } catch (error) {
+    if (error.code === "23505") {
+      throw new HttpError(
+        409,
+        "That subject option already exists.",
+        "SUBJECT_OPTION_EXISTS"
+      );
+    }
+    throw error;
+  }
+}
+
+async function updateSubjectOption(actor, id, payload) {
+  assertSystemAdmin(
+    actor,
+    "Only the system administrator can manage the subject options.",
+    "SUBJECT_OPTION_FORBIDDEN"
+  );
+  const existing = await query(`SELECT * FROM subject_options WHERE id = $1`, [id]);
+  if (!existing.rows[0]) {
+    throw new HttpError(404, "Subject option not found.", "SUBJECT_OPTION_NOT_FOUND");
+  }
+  const isActive =
+    payload.isActive === null || payload.isActive === undefined
+      ? existing.rows[0].is_active
+      : payload.isActive;
+  try {
+    const result = await query(
+      `UPDATE subject_options
+       SET name = $1, sort_order = $2, is_active = $3
+       WHERE id = $4
+       RETURNING *`,
+      [payload.name, payload.sortOrder, isActive, id]
+    );
+    await auditService.record({
+      userId: actor.id,
+      action: "subject_option.updated",
+      entityType: "subject_option",
+      entityId: id,
+      districtId: null,
+      ipAddress: actor.ipAddress || null,
+      details: {
+        name: payload.name,
+        previous_name: existing.rows[0].name,
+        sort_order: payload.sortOrder,
+        is_active: isActive
+      }
+    });
+    return serializeSubjectOption({
+      ...result.rows[0],
+      usage_count: await subjectOptionUsage(payload.name)
+    });
+  } catch (error) {
+    if (error.code === "23505") {
+      throw new HttpError(
+        409,
+        "That subject option already exists.",
+        "SUBJECT_OPTION_EXISTS"
+      );
+    }
+    throw error;
+  }
+}
+
+async function deleteSubjectOption(actor, id) {
+  assertSystemAdmin(
+    actor,
+    "Only the system administrator can manage the subject options.",
+    "SUBJECT_OPTION_FORBIDDEN"
+  );
+  const existing = await query(`SELECT * FROM subject_options WHERE id = $1`, [id]);
+  if (!existing.rows[0]) {
+    throw new HttpError(404, "Subject option not found.", "SUBJECT_OPTION_NOT_FOUND");
+  }
+  const usageCount = await subjectOptionUsage(existing.rows[0].name);
+  if (usageCount > 0) {
+    throw new HttpError(
+      409,
+      "This option is used by school subjects. Deactivate it instead of removing it.",
+      "SUBJECT_OPTION_IN_USE",
+      { usageCount }
+    );
+  }
+  await query(`DELETE FROM subject_options WHERE id = $1`, [id]);
+  await auditService.record({
+    userId: actor.id,
+    action: "subject_option.removed",
+    entityType: "subject_option",
+    entityId: id,
+    districtId: null,
+    ipAddress: actor.ipAddress || null,
+    details: { name: existing.rows[0].name }
+  });
+  return { id: Number(id) };
+}
+
+// Resolves a requested subject name against the administrator-managed
+// catalog. `currentName` lets a school keep a legacy name that predates the
+// catalog or whose option was later deactivated, without allowing new free
+// text or a switch to an inactive option.
+async function resolveSubjectChoice(name, currentName = null) {
+  const requested = String(name || "").trim();
+  if (
+    currentName &&
+    requested.toLowerCase() === String(currentName).trim().toLowerCase()
+  ) {
+    return { name: currentName, legacy: true };
+  }
+  const result = await query(
+    `SELECT * FROM subject_options WHERE lower(name) = lower($1)`,
+    [requested]
+  );
+  const option = result.rows[0];
+  if (!option) {
+    throw new HttpError(
+      400,
+      "Choose a subject from the list prepared by the system administrator.",
+      "SUBJECT_OPTION_REQUIRED",
+      { field: "name" }
+    );
+  }
+  if (!option.is_active) {
+    throw new HttpError(
+      400,
+      "That subject option is inactive. Ask the system administrator to reactivate it.",
+      "SUBJECT_OPTION_INACTIVE",
+      { field: "name" }
+    );
+  }
+  return { name: option.name, legacy: false };
+}
+
+/* -------------------------------------------------------------------------- */
 /* Grade levels                                                                */
 /* -------------------------------------------------------------------------- */
 
@@ -386,12 +778,17 @@ async function listGradeLevels(actor, { schoolId = null } = {}) {
 async function createGradeLevel(actor, payload) {
   assertCanManageAcademics(actor);
   const school = await schoolForActor(actor, payload.schoolId);
+  const choice = await resolveGradeLevelChoice(payload.name);
+  const sortOrder =
+    payload.sortOrder === null || payload.sortOrder === undefined
+      ? choice.sortOrder
+      : payload.sortOrder;
   try {
     const result = await query(
       `INSERT INTO grade_levels (school_id, name, sort_order)
        VALUES ($1, $2, $3)
        RETURNING *`,
-      [school.id, payload.name, payload.sortOrder]
+      [school.id, choice.name, sortOrder]
     );
     await auditService.record({
       userId: actor.id,
@@ -402,8 +799,8 @@ async function createGradeLevel(actor, payload) {
       ipAddress: actor.ipAddress || null,
       details: {
         school_code: school.school_code,
-        name: payload.name,
-        sort_order: payload.sortOrder
+        name: choice.name,
+        sort_order: sortOrder
       }
     });
     return serializeGradeLevel(result.rows[0]);
@@ -430,10 +827,15 @@ async function updateGradeLevel(actor, id, payload) {
     throw new HttpError(404, "Grade level not found.", "GRADE_LEVEL_NOT_FOUND");
   }
   assertSchoolScope(actor, existing.rows[0].school_id, existing.rows[0].district_id);
+  const choice = await resolveGradeLevelChoice(payload.name, existing.rows[0].name);
+  const sortOrder =
+    payload.sortOrder === null || payload.sortOrder === undefined
+      ? Number(existing.rows[0].sort_order)
+      : payload.sortOrder;
   try {
     const result = await query(
       `UPDATE grade_levels SET name = $1, sort_order = $2 WHERE id = $3 RETURNING *`,
-      [payload.name, payload.sortOrder, id]
+      [choice.name, sortOrder, id]
     );
     await auditService.record({
       userId: actor.id,
@@ -442,7 +844,11 @@ async function updateGradeLevel(actor, id, payload) {
       entityId: id,
       districtId: existing.rows[0].district_id,
       ipAddress: actor.ipAddress || null,
-      details: { name: payload.name, sort_order: payload.sortOrder }
+      details: {
+        name: choice.name,
+        previous_name: existing.rows[0].name,
+        sort_order: sortOrder
+      }
     });
     return serializeGradeLevel(result.rows[0]);
   } catch (error) {
@@ -792,12 +1198,13 @@ async function createSubject(actor, payload) {
     payload.schoolId,
     payload.gradeLevelId
   );
+  const choice = await resolveSubjectChoice(payload.name);
   try {
     const result = await query(
       `INSERT INTO subjects (school_id, code, name, grade_level_id)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [school.id, payload.code, payload.name, grade ? grade.id : null]
+      [school.id, payload.code, choice.name, grade ? grade.id : null]
     );
     await auditService.record({
       userId: actor.id,
@@ -809,7 +1216,7 @@ async function createSubject(actor, payload) {
       details: {
         school_code: school.school_code,
         code: payload.code,
-        name: payload.name,
+        name: choice.name,
         grade_level: grade ? grade.name : null
       }
     });
@@ -856,11 +1263,12 @@ async function updateSubject(actor, id, payload) {
     payload.gradeLevelId,
     existing.school_id
   );
+  const choice = await resolveSubjectChoice(payload.name, existing.name);
   try {
     const result = await query(
       `UPDATE subjects SET code = $1, name = $2, grade_level_id = $3
        WHERE id = $4 RETURNING *`,
-      [payload.code, payload.name, grade ? grade.id : null, id]
+      [payload.code, choice.name, grade ? grade.id : null, id]
     );
     await auditService.record({
       userId: actor.id,
@@ -869,7 +1277,12 @@ async function updateSubject(actor, id, payload) {
       entityId: id,
       districtId: existing.district_id,
       ipAddress: actor.ipAddress || null,
-      details: { code: payload.code, name: payload.name, previous_code: existing.code }
+      details: {
+        code: payload.code,
+        name: choice.name,
+        previous_name: existing.name,
+        previous_code: existing.code
+      }
     });
     return serializeSubject({
       ...result.rows[0],
@@ -1584,6 +1997,14 @@ module.exports = {
   createSchoolYear,
   updateSchoolYear,
   copyStructure,
+  listGradeLevelOptions,
+  createGradeLevelOption,
+  updateGradeLevelOption,
+  deleteGradeLevelOption,
+  listSubjectOptions,
+  createSubjectOption,
+  updateSubjectOption,
+  deleteSubjectOption,
   listGradeLevels,
   createGradeLevel,
   updateGradeLevel,

@@ -39,6 +39,14 @@
               <i class="bi bi-printer" aria-hidden="true"></i>
               <span>Reports</span>
             </a>
+            <button type="button" class="btn btn-light d-none" id="learnerImportHistoryButton">
+              <i class="bi bi-clock-history" aria-hidden="true"></i>
+              <span>Import history</span>
+            </button>
+            <button type="button" class="btn btn-light d-none" id="bulkUploadLearners">
+              <i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i>
+              <span>Bulk upload</span>
+            </button>
             <button type="button" class="btn btn-primary d-none" id="newLearnerButton">
               <i class="bi bi-person-plus" aria-hidden="true"></i>
               <span>New learner</span>
@@ -167,6 +175,148 @@
     </div>
   </div>
 
+  <div class="modal fade" id="learnerImportModal" tabindex="-1" role="dialog" aria-labelledby="learnerImportTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <p class="modal-eyebrow">Secure spreadsheet import</p>
+            <h2 class="modal-title" id="learnerImportTitle">Bulk upload learners</h2>
+            <p class="modal-subtitle" id="learnerImportSubtitle">Import permanent learner profile details only. Enrollments, guardians, grades, attendance, and health records are never created by this upload.</p>
+          </div>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="modal-body">
+          <div id="learnerImportAlert" class="d-none mb-3" role="alert"></div>
+
+          <ol class="import-steps" id="learnerImportSteps" aria-label="Import progress">
+            <li class="is-active" data-import-step="select"><span>1</span> Select files</li>
+            <li data-import-step="review"><span>2</span> Review</li>
+            <li data-import-step="done"><span>3</span> Confirm</li>
+          </ol>
+
+          <section id="learnerImportSelectStep" aria-labelledby="learnerImportSelectHeading">
+            <h3 class="sr-only" id="learnerImportSelectHeading">Select spreadsheet files</h3>
+            <div class="import-dropzone" id="learnerImportDropzone" role="button" tabindex="0" aria-label="Choose or drop spreadsheet files">
+              <span class="import-dropzone__icon"><i class="bi bi-cloud-arrow-up" aria-hidden="true"></i></span>
+              <p class="import-dropzone__title">Drop spreadsheets here or choose files</p>
+              <p class="import-dropzone__hint">Up to 5 files · 5 MB each · 15 MB total · 1,000 rows per sheet</p>
+              <span class="btn btn-primary btn-sm">Choose files</span>
+              <input type="file" id="learnerImportInput" class="sr-only" accept=".xlsx,.xls,.csv" multiple>
+            </div>
+
+            <div class="import-file-list" id="learnerImportFileList" aria-live="polite"></div>
+
+            <div class="import-assist">
+              <p class="form-note mb-0">
+                <i class="bi bi-shield-check" aria-hidden="true"></i>
+                Profiles only. Existing LRNs are skipped, never overwritten. Format the LRN column as text so spreadsheets keep all 12 digits.
+              </p>
+              <button type="button" class="btn btn-ghost btn-sm" id="learnerImportTemplateButton">
+                <i class="bi bi-download" aria-hidden="true"></i> Excel template
+              </button>
+            </div>
+
+            <div class="import-progress d-none" id="learnerImportProgress" aria-live="polite">
+              <div class="import-progress__head">
+                <span id="learnerImportProgressLabel">Uploading…</span>
+                <span id="learnerImportProgressValue">0%</span>
+              </div>
+              <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="learnerImportProgressBar">
+                <div class="progress-bar" id="learnerImportProgressFill" style="width: 0%"></div>
+              </div>
+            </div>
+          </section>
+
+          <section id="learnerImportPreviewStep" class="d-none" aria-labelledby="learnerImportPreviewHeading">
+            <h3 class="sr-only" id="learnerImportPreviewHeading">Review validated learner records</h3>
+            <div class="import-summary" id="learnerImportSummary"></div>
+            <div class="import-file-results" id="learnerImportFileResults"></div>
+
+            <div class="import-block" id="learnerImportPreviewBlock">
+              <div class="import-block__head">
+                <h4>Valid learner profiles</h4>
+                <span class="import-block__meta" id="learnerImportPreviewMeta"></span>
+              </div>
+              <div class="table-responsive">
+                <table class="app-table app-table--compact">
+                  <caption class="sr-only">Server-validated learner profiles that will be imported</caption>
+                  <thead id="learnerImportPreviewHead"></thead>
+                  <tbody id="learnerImportPreviewBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="import-block d-none" id="learnerImportIssuesBlock">
+              <div class="import-block__head">
+                <h4>Rejected and duplicate records</h4>
+                <span class="import-block__meta" id="learnerImportIssuesMeta"></span>
+              </div>
+              <div class="table-responsive">
+                <table class="app-table app-table--compact">
+                  <caption class="sr-only">Rows that will not be imported</caption>
+                  <thead><tr><th scope="col">Type</th><th scope="col">File</th><th scope="col">Sheet / row</th><th scope="col">Column</th><th scope="col">Reason</th></tr></thead>
+                  <tbody id="learnerImportIssuesBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <p class="import-expiry" id="learnerImportExpiry"></p>
+          </section>
+
+          <section id="learnerImportResultStep" class="d-none" aria-labelledby="learnerImportResultHeading">
+            <div class="import-result" id="learnerImportResult"></div>
+          </section>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-dismiss="modal" id="learnerImportCloseButton">Close</button>
+          <button type="button" class="btn btn-light d-none" id="learnerImportBackButton">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i> Back to files
+          </button>
+          <button type="button" class="btn btn-light d-none" id="learnerImportReportButton">
+            <i class="bi bi-download" aria-hidden="true"></i> Error report
+          </button>
+          <button type="button" class="btn btn-primary" id="learnerImportPreviewButton" disabled>
+            <i class="bi bi-search" aria-hidden="true"></i> <span>Validate &amp; preview</span>
+          </button>
+          <button type="button" class="btn btn-primary d-none" id="learnerImportConfirmButton">
+            <i class="bi bi-database-add" aria-hidden="true"></i> <span>Confirm import</span>
+          </button>
+          <button type="button" class="btn btn-primary d-none" id="learnerImportDoneButton" data-dismiss="modal">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="learnerImportHistoryModal" tabindex="-1" role="dialog" aria-labelledby="learnerImportHistoryTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <p class="modal-eyebrow">Audit trail</p>
+            <h2 class="modal-title" id="learnerImportHistoryTitle">Learner import history</h2>
+            <p class="modal-subtitle">Previewed, committed, and expired learner import batches for your account.</p>
+          </div>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="modal-body">
+          <div id="learnerImportHistoryAlert" class="d-none mb-3" role="alert"></div>
+          <div class="table-responsive">
+            <table class="app-table app-table--compact">
+              <caption class="sr-only">Recent learner import batches</caption>
+              <thead><tr><th scope="col">Import</th><th scope="col">Files</th><th scope="col">Records</th><th scope="col">Status</th><th scope="col" class="text-right">Report</th></tr></thead>
+              <tbody id="learnerImportHistoryBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" id="learnerImportHistoryRefresh"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh</button>
+          <button type="button" class="btn btn-light" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
   <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
 
@@ -177,6 +327,7 @@
   <script src="js/app-shell.js"></script>
   <script src="js/learner-common.js"></script>
   <script src="js/learner-form.js"></script>
+  <script src="js/spreadsheet-import.js"></script>
   <script src="js/learners.js"></script>
 </body>
 </html>

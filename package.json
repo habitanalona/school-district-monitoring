@@ -11,6 +11,12 @@
     "db:migrate": "node scripts/migrate.js",
     "db:migrate:forms": "node scripts/migrate-forms.js",
     "db:migrate:classrecords": "node scripts/migrate-classrecords.js",
+    "db:migrate:districts": "node scripts/migrate-districts.js",
+    "db:migrate:school-imports": "node scripts/migrate-school-imports.js",
+    "db:migrate:personnel-imports": "node scripts/migrate-personnel-imports.js",
+    "db:migrate:learner-imports": "node scripts/migrate-learner-imports.js",
+    "db:migrate:grade-level-options": "node scripts/migrate-grade-level-options.js",
+    "db:migrate:subject-options": "node scripts/migrate-subject-options.js",
     "db:hash": "node scripts/hash-password.js",
     "test": "node --test --test-concurrency=1"
   },
@@ -31,7 +37,8 @@
     "multer": "^2.5.0",
     "pdfkit": "^0.20.2",
     "pg": "^8.13.1",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.9",

@@ -15,12 +15,18 @@ A full-stack web application for district administrators to manage enrolled scho
 - Account approvals queue: PSDS registrations are confirmed by the district administrator, school heads by the PSDS, teachers/NT/advisers by the school head, and learners by the class adviser. System administrators can confirm any registration.
 - School Division Office hierarchy in the sidebar: expandable districts, their two PSDS (Public Schools District Supervisors), nested schools, live search, and deep links into the school registry.
 - District management for system administrators: create, edit, and delete districts with office contact details and exactly two PSDS assignments. Deletion is blocked while schools, accounts, or announcements still reference the district.
+- Secure district bulk import: drag up to five `.xlsx`, `.xls`, or `.csv` files, see each file's records validated independently, preview every detected row with its worksheet and Excel row number, confirm, and commit in one transaction. Duplicates are detected against the database and across files, invalid rows never import, and a downloadable Excel error report lists each rejected row and reason. Every batch is audited.
+- Secure school register bulk import with the same drag-and-drop preview and confirm workflow. Rows use the same validators as manual registration, district administrators are restricted to their own district, and duplicate school codes are skipped rather than overwritten.
+- Secure personnel bulk import for school heads, teachers, and non-teaching staff. Each valid row creates one personnel profile plus one active login account; passwords are never imported, and each account receives a one-time activation link that is shown only in the confirmation step and never stored in history or the audit trail.
+- Secure learner profile bulk import. Each valid row creates one permanent learner profile only — no enrollment, guardian, grade, attendance, or health record is created — and an existing LRN is skipped, never overwritten.
 - Dashboard with six live metrics, four Chart.js charts, recent audit activity, and a filterable school monitoring table.
 - School registry with register, view, edit, archive (soft delete), and restore. Archived records are retained.
 - Monthly report tracking with submission status, reporting period, and uniqueness per school/period/type.
 - User administration, announcement publishing, notifications, audit logs, and self-service profile/password management.
 - Secure profile photos for every account: users upload their own picture, administrators can set or remove one for any account they manage from the Users page, and avatars appear in the sidebar, top bar, profile page, and user list.
 - Permanent learner records with one profile per learner, multiple school-year enrollments, guardians, documents, activities, and a connected academic history. School years, grade levels, sections, subjects, teacher assignments, and class schedules form a single hierarchy rather than separate modules.
+- Administrator-managed grade level options: a system administrator creates system-wide grade levels such as Kindergarten through Grade 12 without choosing a school, and schools add a grade level to their own school by selecting from that dropdown instead of typing free text. Existing school grade levels, sections, and enrollments are preserved, and an option still in use cannot be removed.
+- Administrator-managed subject options: a system administrator creates general subjects with no school and no grade level, seeded with the standard Kindergarten to Grade 12 learning areas. Each school adds a subject by selecting one from the active dropdown instead of typing free text, then assigns teachers and schedules. Existing school subjects and all linked records are preserved, and an option still in use cannot be removed.
 - Unified learner profile with tabs for overview, personal details, guardians, enrollment history, subjects and teachers, activities, school-year records, attendance, grades, books, restricted health data, school forms, and permanent academic records.
 - Daily attendance workspace: section roster, present/absent/tardy/excused/half-day marks, school-calendar overrides, monthly reconciliation, and a print-ready working register. Unrecorded days are flagged and never assumed present.
 - Grades and promotion: quarter grade entry, submit/finalize workflow, locked finalized grades with an audited correction path, school grading policy (passing grade, averaging or weighted quarters), promotion decisions, and report-card generation without a hardcoded grading formula.
@@ -95,16 +101,32 @@ school-district-monitoring/
 │   ├── schema.sql          Core tables, constraints, indexes
 │   ├── schema-forms.sql    Attendance, books, grades, health, personnel, permanent records, forms
 │   ├── schema-classrecords.sql  Curricula, class records, assessments, submissions, SF 9 snapshot
+│   ├── schema-districts.sql  Server-side district import previews and history
+│   ├── schema-school-imports.sql  Server-side school import previews and history
+│   ├── schema-personnel-imports.sql  Server-side staff import previews and history
+│   ├── schema-learner-imports.sql  Server-side learner import previews and history
+│   ├── schema-grade-level-options.sql  Administrator-managed grade level catalogue
+│   ├── schema-subject-options.sql  Administrator-managed general subject catalogue
 │   ├── seed.sql            Fictional demonstration data
 │   └── init.js             Applies the schemas + seed
 ├── postman/
 │   ├── SDMS.postman_collection.json
-│   └── SDMS.local.postman_environment.json
+│   ├── SDMS.local.postman_environment.json
+│   ├── sample-districts.csv  Idempotent sample for the district import preview
+│   ├── sample-schools.csv  Idempotent sample for the school import preview
+│   ├── sample-staff.csv  Idempotent sample for the personnel import preview
+│   └── sample-learners.csv  Idempotent sample for the learner import preview
 ├── scripts/
 │   ├── hash-password.js
 │   ├── migrate.js          Additive rights upgrade for existing databases
 │   ├── migrate-forms.js    Additive learner/forms upgrade for existing databases
 │   ├── migrate-classrecords.js  Additive class record and SF 9 upgrade
+│   ├── migrate-districts.js  Additive district import upgrade
+│   ├── migrate-school-imports.js  Additive school import upgrade
+│   ├── migrate-personnel-imports.js  Additive staff import upgrade
+│   ├── migrate-learner-imports.js  Additive learner import upgrade
+│   ├── migrate-grade-level-options.js  Additive grade level catalogue upgrade
+│   ├── migrate-subject-options.js  Additive general subject catalogue upgrade
 │   ├── smoke-forms.js      End-to-end forms smoke test
 │   ├── smoke-classrecords.js  End-to-end class record to SF 9 smoke test
 │   └── verify-academic-tabs.js  Learner academic endpoint check
@@ -121,7 +143,13 @@ school-district-monitoring/
 │   ├── api.test.js         Automated API tests
 │   ├── permissions.test.js Rights matrix and enforcement tests
 │   ├── forms.test.js       School Forms acceptance and privacy tests
-│   └── classrecords.test.js  Class record to SF 9 workflow tests
+│   ├── classrecords.test.js  Class record to SF 9 workflow tests
+│   ├── districtImport.test.js  Preview, validation, security, and commit tests
+│   ├── schoolImport.test.js  School register import acceptance tests
+│   ├── personnelImport.test.js  Staff import, account creation, activation, and scope tests
+│   ├── learnerImport.test.js  Learner profile import, duplicate, and scope tests
+│   ├── gradeLevelOptions.test.js  Administrator catalogue, dropdown enforcement, and preservation tests
+│   └── subjectOptions.test.js  General subject catalogue, dropdown enforcement, and preservation tests
 ├── .env.example
 ├── .gitignore
 └── package.json
@@ -181,7 +209,7 @@ npm run db:init
 
 The script is idempotent: tables use `CREATE TABLE IF NOT EXISTS`, columns use `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, seed inserts use uniqueness guards, and audit seed rows only load when the table is empty. Existing databases are upgraded in place, including the PSDS columns added to `districts`, which the seed backfills with `COALESCE`. To reset completely, drop and recreate the database before rerunning.
 
-Expected seed volume: 3 districts (each with two PSDS assignments), 16 schools, 32 monthly reports, 22 users (including pending applicants), 4 announcements, 2 school years, 2 grade levels, 2 sections, 8 subjects, 5 teaching assignments, 15 class schedules, 8 learner profiles, 16 school-year enrollments, and 3 activities. Attendance, grades, books, health measurements, movements, personnel profiles, and form submissions start empty so every generated form reflects source records that were actually saved.
+Expected seed volume: 3 districts (each with two PSDS assignments), 16 schools, 32 monthly reports, 22 users (including pending applicants), 4 announcements, 2 school years, 13 grade level options, 50 subject options, 2 school grade levels, 2 sections, 8 subjects, 5 teaching assignments, 15 class schedules, 8 learner profiles, 16 school-year enrollments, and 3 activities. Attendance, grades, books, health measurements, movements, personnel profiles, and form submissions start empty so every generated form reflects source records that were actually saved.
 
 ### Upgrading an existing database
 
@@ -208,6 +236,54 @@ npm run db:migrate:classrecords
 ```
 
 It creates curricula, curriculum versions, class record templates, class records, assessments, scores, computed grades, grade submissions, submission items, and submission reviews; adds `class_record_id` and `source` to `grade_records`; adds template, snapshot, finalization, and reopen columns to `report_cards`; and attaches the system curriculum version to sections that do not have one. Existing learners, enrollments, sections, subjects, assignments, grades, and report cards are reused, never duplicated. The migration is additive and idempotent, but it deliberately leaves the assessment weights unconfigured (`null`) so an administrator must enter values from the school's verified policy before grades can be computed or submitted. Back up the database first.
+
+The district bulk import release adds `database/schema-districts.sql`. Apply it to an existing database with:
+
+```bash
+npm run db:migrate:districts
+```
+
+It creates only `district_import_batches`, which holds the server-side preview (validated rows, per-file summary, issues, owner, random token, expiry, commit time) used by the two-step upload. It does not alter the existing `districts` table and never deletes districts, schools, users, enrollments, or audit rows. The migration is additive and idempotent; `npm run db:init` also applies it for a fresh installation. Back up the database first. Previews expire after 30 minutes and a committed batch's staged rows are cleared immediately, so the table stays small.
+
+The school register bulk import release adds `database/schema-school-imports.sql`. Apply it to an existing database with:
+
+```bash
+npm run db:migrate:school-imports
+```
+
+It creates only `school_import_batches`, which mirrors the district preview table (validated rows, per-file summary, issues, owner, random token, expiry, commit time). It does not alter the existing `schools` table and never deletes schools, districts, users, enrollments, or audit rows. The migration is additive and idempotent; `npm run db:init` also applies it for a fresh installation. Back up the database first. Previews expire after 30 minutes and a committed batch's staged rows are cleared immediately.
+
+The personnel bulk import release adds `database/schema-personnel-imports.sql`:
+
+```bash
+npm run db:migrate:personnel-imports
+```
+
+It creates only `personnel_import_batches`, which stores the validated staff rows, per-file summary, issues, owner, random token, expiry, and commit time. It does not create or alter `users` or `personnel_profiles`; the migration script only counts those tables so it can report readiness. Apply the rights, forms, and school import migrations first on an older database so `role_permissions`, `personnel_profiles`, and the school register exist. The migration is additive and idempotent and never deletes accounts, profiles, schools, districts, or audit rows; `npm run db:init` also applies it for a fresh installation.
+
+The learner profile bulk import release adds `database/schema-learner-imports.sql`:
+
+```bash
+npm run db:migrate:learner-imports
+```
+
+It creates only `learner_import_batches`, which stores the validated profile rows, per-file summary, issues, owner, random token, expiry, and commit time. It does not alter the `learners` table, and never creates or deletes enrollments, guardians, grades, attendance, health records, or permanent academic records. The migration is additive and idempotent; `npm run db:init` also applies it for a fresh installation.
+
+The administrator-managed grade level release adds `database/schema-grade-level-options.sql`:
+
+```bash
+npm run db:migrate:grade-level-options
+```
+
+It creates `grade_level_options`, the catalogue that feeds the grade level dropdown on the school pages. Existing distinct grade level names are copied into it once with `ON CONFLICT DO NOTHING`, so no school grade level, section, enrollment, or learner record is changed or removed. Names are unique case-insensitively, and each option has an order and an active flag. The migration is additive and idempotent; a fresh `npm run db:init` seeds Kindergarten through Grade 12. When the catalogue is empty, the migration seeds the same standard levels so the administrator can edit them instead of starting from a blank list; a catalogue that already has entries is left alone. After upgrading a real database, sign in as the system administrator and review **Grade Levels → Manage** before schools add new grade levels. Back up the database first.
+
+The administrator-managed subject release adds `database/schema-subject-options.sql`:
+
+```bash
+npm run db:migrate:subject-options
+```
+
+It creates `subject_options`, the catalogue that feeds the subject name dropdown on the school pages. Existing distinct subject names are copied into it once with `ON CONFLICT DO NOTHING`, so no school subject, teacher assignment, schedule, class record, or grade is changed or removed. Names are unique case-insensitively, and each option has an order and an active flag. The migration is additive and idempotent; a fresh `npm run db:init` seeds 50 standard learning areas from Kindergarten through Grade 12, and an empty catalogue receives the same starter list so the administrator edits rather than starts blank. A catalogue that already has entries is left alone, apart from adding any missing standard names. The subject catalogue is independent of the grade level one, so run both after upgrading. After upgrading, sign in as the system administrator and review **Subjects → Manage** before schools add new subjects. Back up the database first.
 
 ## Run the application
 
@@ -256,8 +332,10 @@ The table below lists the **default** policy shipped in the seed. Administrators
 | --- | --- | --- | --- | --- | --- |
 | View dashboard and scoped schools | All districts | Own district | Own district | Own district | Own district |
 | View district hierarchy and PSDS assignments | All districts | Own district | Own district | Own district | Own district |
-| Create, edit, delete districts and PSDS assignments | Yes | No | No | No | No |
-| Create, edit, archive, restore schools | Yes | Yes | No | No | No |
+| Create, edit, delete districts, PSDS assignments, and bulk import | Yes | No | No | No | No |
+| Create, edit, archive, restore schools, and school bulk import | Yes | Yes (own district) | No | No | No |
+| Personnel bulk import (profiles and login accounts) | Yes | Yes (own district) | No | No | No |
+| Learner profile bulk import (profiles only) | Yes | Yes (own district) | No | School head: own school; adviser and coordinator: no | No |
 | Submit and update reports | Yes | Yes | Yes | Yes | Yes |
 | Manage users | Yes | Yes (own district, no system/district admins) | No | No | No |
 | Confirm self-registered accounts | Any registration | PSDS in own district | School heads in own district | Teachers, NT, advisers, coordinators in own school; learners (adviser only) | No |
@@ -302,6 +380,28 @@ Records follow one chain: district → school → school year → grade level �
 | `monitoring.html` | District submission status, overdue work, discrepancies, and audit trail |
 
 Profile tabs are lazy-loaded and permission-checked. An account without health access does not receive the tab, the page content, or the API; an unauthorized direct URL or API call is rejected server-side.
+
+### Administrator-managed grade levels
+
+The system administrator creates the system-wide grade levels; schools choose from that list when they build their own academic structure.
+
+- **Create a general grade level.** Sign in as a system administrator, open **Grade Levels**, and choose **New grade level**. Enter the name (for example, Kindergarten or Grade 7) and a display order. No school is selected: the entry is system-wide and appears in every school's dropdown. The **General grade levels** table lists each option with its order, how many schools use it, and whether it is active.
+- **Manage the list.** Choose **Manage** in the general card to rename or reorder an option, deactivate it, reactivate it, or remove it. Deactivated options disappear from the school dropdown but remain visible to the administrator with an **Inactive** status.
+- **Add a grade level at a school.** A school head or authorized staff member opens **Grade Levels → New grade level** and picks the name from the active options; the school is fixed to their account, or chosen from the schools they manage. The option's order is filled in automatically and can still be adjusted. Manual free text is no longer accepted: the API returns `400 GRADE_LEVEL_OPTION_REQUIRED` when the submitted name is not an active catalogue entry, and `400 GRADE_LEVEL_OPTION_INACTIVE` when the option exists but is deactivated. This applies to the API as well as the screen.
+- **Preservation.** Each school still has its own `grade_levels` row, unique per school and name, so sections, enrollments, grades, report cards, and generated forms keep pointing at the same records. The catalogue is a reference list, not a replacement for those rows. Renaming or deactivating an option never rewrites an existing school grade level. When a school edits a grade level whose name predates the catalogue or is now inactive, that name appears in the dropdown as `(current)` so the record stays editable without inventing a new name.
+- **Removal guard.** An option used by any school grade level cannot be deleted; the API returns `409 GRADE_LEVEL_OPTION_IN_USE` with the usage count. Deactivate it instead. Unused options can be removed.
+- **Access and audit.** Only a system administrator can add, edit, deactivate, or remove options, and those actions require the `grade_levels` module rights. School accounts can read active options and use them but receive `403` on the management endpoints. Option changes are written to `audit_logs` as `grade_level_option.created`, `.updated`, and `.removed`; school grade level changes remain `grade_level.created`, `.updated`, and `.removed`.
+
+### Administrator-managed subjects
+
+The system administrator prepares one general subject list; each school builds its own subject records from it.
+
+- **Create a general subject.** Sign in as a system administrator, open **Subjects**, and choose **New subject**. Enter the subject name (for example, Mathematics or Araling Panlipunan) and a display order. No school and no grade level are selected: the entry is system-wide and appears in every school's dropdown, covering Kindergarten through Grade 12. The **General subjects** table lists each option with its order, how many schools use it, and whether it is active. A fresh install seeds 50 standard learning areas, and the administrator can add specialized subjects such as a school-specific elective.
+- **Manage the list.** Choose **Manage** in the general card to rename or reorder an option, deactivate it, reactivate it, or remove it. Deactivated options disappear from the school dropdown but remain visible to the administrator with an **Inactive** status.
+- **Add a subject at a school.** A school head or authorized staff member opens **Subjects → New subject**, picks the name from the active options, enters the school subject code, and optionally assigns a grade level. The school is fixed to their account, or chosen from the schools they manage. Selecting a name fills in a suggested code when the code field is still empty, and the code stays editable. Manual free text is no longer accepted: the API returns `400 SUBJECT_OPTION_REQUIRED` when the submitted name is not an active catalogue entry, and `400 SUBJECT_OPTION_INACTIVE` when the option exists but is deactivated. This applies to the API as well as the screen.
+- **Preservation.** Each school still has its own `subjects` row, unique per school and code, so teacher assignments, class schedules, class records, assessments, grades, report cards, and generated forms keep pointing at the same records. The catalogue is a reference list, not a replacement for those rows. Renaming or deactivating an option never rewrites an existing school subject. When a school edits a subject whose name predates the catalogue or is now inactive, that name appears in the dropdown as `(current)` so the record stays editable without inventing a new name.
+- **Removal guard.** An option used by any school subject cannot be deleted; the API returns `409 SUBJECT_OPTION_IN_USE` with the usage count. Deactivate it instead. Unused options can be removed.
+- **Access and audit.** Only a system administrator can add, edit, deactivate, or remove options, and those actions require the `subjects` module rights. School accounts can read active options and use them but receive `403` on the management endpoints. Option changes are written to `audit_logs` as `subject_option.created`, `.updated`, and `.removed`; school subject changes remain `subject.created`, `.updated`, and `.removed`, and a rename records the previous name.
 
 ### School Forms 1–10
 
@@ -423,6 +523,309 @@ Printing and export:
 - No default assessment weights or transmutation table are asserted as DepEd policy. A school must enter the weights and any transmutation ranges from its verified policy; until then, grades cannot be computed or submitted.
 - Finalized cards are not deletable through ordinary workflows. Corrections use reopen and a new version.
 
+## District management and secure bulk import
+
+Districts are managed in `districts.html`. Manual add, edit, view, search, and delete use the existing district CRUD API and permission checks; the importer writes to the same `districts` table and never introduces a parallel record type, so a manually created district and an imported one behave identically. Deletion keeps its existing dependency guard (schools, accounts, announcements).
+
+The import button is visible only to accounts that hold the `districts` module with **Add** and the system-administrator role. The server enforces the same rule on every import route, so hiding the button is not the security boundary.
+
+### Workflow
+
+1. **Select files.** Drag and drop or browse up to **5** files (`.xlsx`, `.xls`, `.csv`). The list shows each filename, size, detected format, and a remove control. Files are held in memory only for the request; nothing is written to disk.
+2. **Preview.** `POST /api/districts/imports/preview` parses every file, validates each independently, and stores a server-side preview. The response lists detected, valid, duplicate, and rejected counts per file plus a row preview and an issues table. **No district row is written in this step**; only a short-lived batch row is created.
+3. **Confirm.** The modal asks for explicit confirmation, then `POST /api/districts/imports/:id/commit` revalidates the stored rows, rechecks duplicates, and inserts accepted rows inside one transaction using its preview token.
+4. **Result.** The modal reports files, records detected, imported, duplicates, rejected, processing time, and final status, with a link to the downloadable error report. The directory refreshes and the batch appears in **Import history**.
+
+### Template and columns
+
+`GET /api/districts/imports/template` returns an `.xlsx` workbook whose header row matches the current schema: `district_name`, `district_code`, `address`, `contact_email`, `psds_one_name`, `psds_one_email`, `psds_one_phone`, `psds_two_name`, `psds_two_email`, `psds_two_phone`. Its **Districts** sheet is the one imported; **Example** and **Instructions** are reference only, so a sample row is never mistaken for data. A workbook without a sheet named `Districts` uses its first sheet. Common header spellings are accepted, but unknown, duplicate, and database-controlled headers (`id`, `created_at`, `updated_at`, `status`, counts, and similar) are rejected with the offending column named.
+
+Database-controlled values are never taken from a cell: the primary key is generated by PostgreSQL, timestamps are managed by the table, and there is no status column to set. Duplicate `district_code` values inside one file, across files, or against existing districts are reported and skipped — the importer never updates or overwrites an existing district. Two PSDS assignments must name different people.
+
+### Validation and limits
+
+Every row is validated server-side with the same validators used by manual entry: required name/code/PSDS names, code format and length, email and phone formats, optional address, control characters, and Unicode-safe lengths. Blank trailing rows are ignored; a row with content is never discarded silently. Each issue carries the **filename, worksheet, Excel row number, column, and human-readable reason**. A valid file imports even when another file in the same upload is rejected.
+
+| Limit | Value |
+| --- | --- |
+| Files per operation | 5 |
+| Size per file / total | 5 MB / 15 MB |
+| Rows per worksheet / records per operation | 1,000 / 3,000 |
+| Columns / worksheets per file | 20 / 5 |
+| ZIP entries / uncompressed size | 250 / 25 MB |
+| Preview lifetime | 30 minutes |
+| Preview requests | 20 per 15 minutes per client address |
+
+### Security protections
+
+- **Content inspection before parsing.** `.xlsx` files are checked as ZIP archives: entry count, central directory, path-traversal names, ZIP64, unsafe compression ratio, encryption, macros (`vbaProject.bin`), embedded objects, ActiveX, and external links are rejected. Legacy `.xls` OLE files are scanned for VBA streams. CSV must be valid UTF-8 and free of binary or control characters.
+- **No execution.** A worksheet containing a formula is rejected with a paste-values-only message; formulæ are never evaluated. Exported values are prefixed where needed to neutralise spreadsheet-formula injection. Filenames are validated before use and never used as a disk path. There is no temporary upload directory to traverse.
+- **No SQL from cells.** Every insert and duplicate check uses a parameterized query against the fixed schema mapping. Cell contents cannot influence SQL, identifiers, or table names.
+- **Untrusted previews.** The preview is stored server-side, not returned to the client for replay. Commit requires the batch owner, a live (unexpired) preview, and a random token compared in constant time.
+- **Atomic writes.** Commit runs in a single transaction with `BEGIN`/`COMMIT`/`ROLLBACK`; rows that fail revalidation are rejected before any insert, and a database failure rolls back the whole batch. Race-safe duplicate handling uses `INSERT ... ON CONFLICT (district_code) DO NOTHING RETURNING id`.
+- **Abuse resistance.** Multipart limits, the dedicated rate limiter, authentication, CSRF header checks, and role/permission checks all run before a file is parsed. Rejected uploads and completed imports are audited; tokens, credentials, and file contents are never written to the audit trail.
+- **Safe output.** The error workbook is generated server-side with escaped values, sent `no-store` as an attachment, and scoped to the requesting administrator's own batches.
+
+### Audit and history
+
+Preview attempts that are rejected by the upload guard, successful commits, and their counts are recorded in `audit_logs` (`district.import_rejected`, `district.imported`) with the actor, time, filenames, counts, and status. **Import history** lists the signed-in administrator's recent batches with status, file count, detected/imported/duplicate/rejected counts, and a link to the error report. There is no cross-administrator history.
+
+### API
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/districts/imports/template` | Schema-matched `.xlsx` template |
+| GET | `/districts/imports` | Recent batches for the signed-in administrator (`limit` 1–50) |
+| POST | `/districts/imports/preview` | Multipart `files` upload; validate and stage without writing |
+| GET | `/districts/imports/:id/errors.xlsx` | Download the Summary/Files/Issues error report |
+| POST | `/districts/imports/:id/commit` | Commit a previewed batch with its token |
+
+All five require a system administrator with `districts/add`; they are not available to district administrators or staff. Browser clients send the CSRF token in `X-CSRF-Token` as with every other write.
+
+### Not claimed
+
+- Import is create-only. Correcting an existing district is a deliberate manual edit, so an upload can never silently overwrite verified office data.
+- The importer does not create schools, accounts, or PSDS logins; it records district office and PSDS contact details only.
+- A row rejected for a transient reason must be corrected and re-uploaded; rejected rows are not queued for retry.
+
+## School register bulk import
+
+The School Register page (`schools.html`) has the same secure two-step spreadsheet workflow as districts. The **Bulk upload** and **Import history** buttons are visible to a system administrator or district administrator who holds the `schools` module with **Add**. The server enforces `requireAdmin` plus `schools/add` on every school import route, so hiding the buttons is not the security boundary. Manual add, edit, archive, and restore are unchanged, and an imported school is an ordinary row in the same `schools` table.
+
+District administrators are confined to their own district. The preview resolves `district_code` only inside that scope; a blank district code falls back to their assigned district, and a code belonging to another district or an unknown code is rejected. System administrators must supply a district code and can import into any district.
+
+### Workflow
+
+1. **Select files.** Drag and drop or browse up to **5** files (`.xlsx`, `.xls`, `.csv`); the list shows filename, size, detected format, and a remove control. Files stay in memory for the request.
+2. **Preview.** `POST /api/schools/imports/preview` parses each file independently, validates every row, detects duplicates, and stores a server-side batch. The response reports detected, valid, duplicate, and rejected counts per file plus row and issue tables. **No school row is written**; only the short-lived batch row exists.
+3. **Confirm.** `POST /api/schools/imports/:id/commit` requires the batch owner, the live preview, and its random token. It revalidates every stored row and district, then inserts accepted schools in one transaction. The token is compared in constant time and the preview is single-use.
+4. **Result.** The modal reports imported, duplicate, and rejected counts with the processing time, offers the error workbook, and refreshes the register. The batch appears in **Import history**.
+
+### Template and columns
+
+`GET /api/schools/imports/template` returns `school-import-template.xlsx`. Its **Schools** sheet contains only the header row; **Example** and **Instructions** are reference sheets. The imported headers are:
+
+| Column | Required | Notes |
+| --- | --- | --- |
+| `school_code` | Yes | 3–32 characters, uppercased; letters, digits, and hyphens only. Matches the manual validator, including numeric school IDs. |
+| `school_name` | Yes | 2–200 characters |
+| `school_type` | Yes | Elementary School, High School, Integrated School, or Senior High School |
+| `address` | Yes | 5–500 characters |
+| `district_code` | Column required | Code is required for system administrators and optional for district administrators, who default to their own district |
+| `school_head` | Yes | 2–160 characters |
+| `contact_email` | No | Valid email when supplied |
+| `contact_phone` | No | Valid phone when supplied |
+| `student_count` | Yes | Integer 0–1,000,000 |
+| `teacher_count` | Yes | Integer 0–100,000 |
+| `performance_score` | No | Number 0–100 |
+| `status` | No | `active` (default) or `inactive`; archived is not accepted from a spreadsheet |
+
+Common header spellings are accepted. Unknown, duplicate, missing required, and database-controlled headers (`id`, `district_id`, `created_at`, `updated_at`, `archived_at`, `report_status`, `school_id`) are rejected with the offending column named. A workbook without a **Schools** sheet uses its first sheet.
+
+Primary keys, timestamps, archive state, and report status are never taken from a cell. Duplicate `school_code` values inside one file, across files, or against PostgreSQL are reported and skipped; the importer is create-only and never overwrites an existing school. Rows that name a district outside the actor's scope are rejected.
+
+### Validation and limits
+
+Rows pass through the same validators as manual registration: trimmed values, Unicode-safe lengths, code pattern, enum membership, email/phone formats, integer and score ranges, and control-character rejection. Blank trailing rows are ignored. Every issue reports the **filename, worksheet, Excel row, column, reason, and offending value**. A corrupt or invalid file fails independently and does not block a valid file in the same upload.
+
+| Limit | Value |
+| --- | --- |
+| Files per operation | 5 |
+| Size per file / total | 5 MB / 15 MB |
+| Rows per worksheet / records per operation | 1,000 / 3,000 |
+| Columns / worksheets per file | 20 / 5 |
+| ZIP entries / uncompressed size | 250 / 25 MB |
+| Preview lifetime | 30 minutes |
+| Preview requests | 20 per 15 minutes per client address |
+
+### Security and audit
+
+School imports reuse the shared spreadsheet guard: byte-level file identification, ZIP directory checks (traversal, ZIP64, unsafe compression ratio, encryption, macros, embedded objects, ActiveX, external links), legacy `.xls` VBA scanning, UTF-8-only CSV, formula rejection without evaluation, neutralised export values, and parameterised inserts only. Commit runs inside `BEGIN`/`COMMIT`/`ROLLBACK` with `INSERT ... ON CONFLICT (school_code) DO NOTHING RETURNING id`; revalidation failures abort before any insert. The upload route has multipart limits, authentication, CSRF, role/permission checks, and a dedicated rate limiter before parsing.
+
+The upload guard records rejected attempts (`school.import_rejected`), previews (`school.import_previewed`), and committed imports (`school.imported`) with actor, time, filenames, counts, and status. Tokens, credentials, and cell contents are never written to the audit trail. The error workbook is generated server-side with escaped values, sent `no-store` as an attachment, and scoped to the requesting administrator's own batches.
+
+### API
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/schools/imports/template` | Schema-matched `school-import-template.xlsx` |
+| GET | `/schools/imports` | Recent batches for the signed-in administrator (`limit` 1–50) |
+| POST | `/schools/imports/preview` | Multipart `files` upload; validate and stage without writing |
+| GET | `/schools/imports/:id/errors.xlsx` | Download the Summary/Files/Issues error report |
+| POST | `/schools/imports/:id/commit` | Commit a previewed batch with its token in the JSON body |
+
+All five require an administrator with `schools/add`; browser clients send the CSRF token in `X-CSRF-Token` as with every other write.
+
+### Not claimed
+
+- Import is create-only. Correcting an existing school is a deliberate manual edit, so an upload cannot silently overwrite verified school data.
+- The importer does not create districts, accounts, school heads as users, sections, or learners; it records only the school register fields above.
+- A rejected row must be corrected and re-uploaded; rejected rows are not queued for retry.
+- Only `active` and `inactive` are accepted. Archiving remains a manual, audited action.
+
+## Personnel bulk import
+
+The Personnel page (`personnel.html`) carries the same two-step spreadsheet workflow for school heads, teachers, and non-teaching staff. The **Bulk upload** and **Import history** buttons appear for a system administrator or district administrator who holds both `personnel` with **Add** and `users` with **Add**; the server enforces both permissions on every personnel import route, so the buttons are a convenience, not the boundary. Manual personnel creation is unchanged, and imported staff are ordinary rows in `users` and `personnel_profiles`.
+
+A valid row creates **one login account and one personnel profile**. The account is active and approved, mapped to the role implied by the row: `school_head` → school head, `teacher` → teacher, `non_teaching` → non-teaching personnel. Passwords are never read from the spreadsheet.
+
+### Workflow
+
+1. **Select files.** Drag and drop or browse up to **5** files (`.xlsx`, `.xls`, `.csv`); the list shows filename, size, detected format, and a remove control.
+2. **Preview.** `POST /api/personnel/imports/preview` parses each file independently, validates every row, resolves the school inside the actor's scope, detects duplicates, and stores a server-side batch. Nothing is written to `users` or `personnel_profiles`; only the short-lived batch row exists.
+3. **Confirm.** `POST /api/personnel/imports/:id/commit` requires the batch owner, the live preview, and its random token, then revalidates every stored row and duplicate before writing. Accounts, hashed activation tokens, profiles, and audit rows are inserted in one transaction; a failure rolls the whole batch back.
+4. **Deliver activation links.** The confirmation step shows the created accounts and a **Download credentials CSV** button. Each account receives a single-use activation link valid for **7 days**; hand it to its owner through a private channel and delete the file afterwards. The raw links are returned only in this response and are never stored in the import history or the audit trail.
+
+### Template and columns
+
+`GET /api/personnel/imports/template` returns `personnel-import-template.xlsx`. Its **Personnel** sheet contains only the header row; **Example** and **Instructions** are reference sheets. Each valid row creates a login account plus a personnel profile.
+
+| Column | Required | Notes |
+| --- | --- | --- |
+| `personnel_type` | Yes | `school_head`, `teacher`, or `non_teaching` (common aliases accepted) |
+| `school_code` | Yes | An existing active school in the actor's scope; uppercased, letters/digits/hyphens |
+| `employee_no` | Yes | 1–32 characters; unique within the school |
+| `last_name` | Yes | Up to 80 characters |
+| `first_name` | Yes | Up to 80 characters |
+| `middle_name` | No | Up to 80 characters |
+| `suffix` | No | Up to 16 characters |
+| `position` | No | Up to 120 characters; defaults from the personnel type |
+| `employment_type` | No | `plantilla` (default), `provisional`, `contractual`, `substitute`, `volunteer`, or `other` |
+| `employment_status` | No | `active` (default) or `inactive` |
+| `specialization` | No | Up to 160 characters |
+| `designation` | No | Up to 160 characters |
+| `contact_number` | No | Valid phone format, up to 32 characters |
+| `email` | Yes | Valid email; becomes the login email and must be globally unique |
+| `username` | No | 3–64 characters; derived from the email when blank, and must be globally unique |
+| `date_hired` | No | `YYYY-MM-DD` |
+| `qualifications` | No | Up to 4,000 characters |
+
+Common header spellings are accepted. Unknown, duplicate, missing required, and database-controlled headers (`id`, `user_id`, `district_id`, `school_id`, `is_teaching`, `account_role`, `password_hash`, `approval_status`, `archived_at`, `created_at`, `updated_at`) are rejected with the offending column named. A workbook without a **Personnel** sheet uses its first sheet. Primary keys, roles derived from something other than `personnel_type`, password hashes, approval state, and timestamps are never taken from a cell.
+
+### Duplicates and scope
+
+A system administrator may import into any active school. A district administrator is confined to active schools in their own district; the school code is mandatory for staff because a login account must be bound to exactly one school.
+
+Duplicates are detected **inside one file, across files in the same upload, and against PostgreSQL**, and are reported and skipped rather than overwritten:
+
+- The same `(school_id, employee_no)` pair already in `personnel_profiles`.
+- An email already used by any existing account.
+- A username already in use.
+
+The importer is create-only. Correcting an imported account or profile is a deliberate manual action, so an upload cannot silently change an existing employee record or take over an existing login.
+
+### Validation, limits, and security
+
+Rows use the same validators as manual personnel entry: trimmed values, Unicode-safe lengths, enum membership, email/phone formats, ISO dates, numeric ranges, and control-character rejection. Blank trailing rows are ignored. CSV cells are read exactly as typed, so a `YYYY-MM-DD` date is not converted to a spreadsheet serial and leading zeros are preserved. Every issue reports the **filename, worksheet, Excel row, column, reason, and offending value**. A corrupt file fails independently and does not block a valid file.
+
+| Limit | Value |
+| --- | --- |
+| Files per operation | 5 |
+| Size per file / total | 5 MB / 15 MB |
+| Rows per worksheet / records per operation | 1,000 / 3,000 |
+| Columns / worksheets per file | 20 / 5 |
+| ZIP entries / uncompressed size | 250 / 25 MB |
+| Preview lifetime | 30 minutes |
+| Preview requests | 20 per 15 minutes per client address |
+
+The upload reuses the shared spreadsheet guard: byte-level file identification, ZIP directory and compression checks, legacy `.xls` VBA scanning, UTF-8-only CSV, formula rejection without evaluation, neutralised export values, and parameterised inserts only. Import is restricted to administrators with both `personnel/add` and `users/add`, requires CSRF, and passes through a dedicated rate limiter before parsing. Each commit hashes one random placeholder password with bcrypt cost 12, so no imported account has a usable known password; activation tokens are stored only as SHA-256 hashes in `password_reset_tokens` with a 7-day expiry and are consumed once.
+
+The audit trail records rejected uploads (`personnel.import_rejected`), previews (`personnel.import_previewed`), each created account (`user.created` with `source: "bulk_import"`), and the committed batch (`personnel.imported`) with actor, time, filenames, counts, and status. Passwords, activation links, tokens, and cell contents are never written to the audit trail. The error workbook is generated server-side with escaped values, sent `no-store` as an attachment, and scoped to the requesting administrator's own batches.
+
+### API
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/personnel/imports/template` | Schema-matched `personnel-import-template.xlsx` |
+| GET | `/personnel/imports` | Recent batches for the signed-in administrator (`limit` 1–50) |
+| POST | `/personnel/imports/preview` | Multipart `files` upload; validate and stage without writing |
+| GET | `/personnel/imports/:id/errors.xlsx` | Download the Summary/Files/Issues error report |
+| POST | `/personnel/imports/:id/commit` | Create accounts and profiles from a previewed batch with its token |
+
+All five require an administrator with `personnel/add` and `users/add`; browser clients send the CSRF token in `X-CSRF-Token` as with every other write.
+
+### Not claimed
+
+- Import is create-only and never resets or replaces an existing password.
+- The importer does not send email. Activation links are displayed once for manual, private delivery; the system does not claim to have notified anyone.
+- It does not create teaching assignments, schedules, sections, or adviser roles; those remain deliberate manual steps.
+- A rejected row must be corrected and re-uploaded; rejected rows are not queued for retry.
+
+## Learner profile bulk import
+
+The Learners page (`learners.html`) has the same two-step workflow for permanent learner profiles. The **Bulk upload** and **Import history** buttons appear for any account holding `learners` with **Add** — by default a system administrator, district administrator, staff member, or school head. The server enforces `learners/add` on every learner import route; teachers and learners receive `403`.
+
+A valid row creates **one learner profile only**. The import never creates an enrollment, guardian, grade, attendance, health measurement, document, activity participation, or form submission, so no academic or health record can be fabricated by a spreadsheet.
+
+### Workflow
+
+1. **Select files.** Drag and drop or browse up to **5** files (`.xlsx`, `.xls`, `.csv`).
+2. **Preview.** `POST /api/learners/imports/preview` validates each file independently, resolves the school inside the actor's scope, detects duplicate LRNs, and stores a server-side batch. No learner row is written.
+3. **Confirm.** `POST /api/learners/imports/:id/commit` revalidates every stored row and duplicate, then inserts the accepted profiles in one transaction with `ON CONFLICT (lrn) DO NOTHING`. The token is single-use and the whole batch rolls back on failure.
+4. **Result.** The modal reports imported, duplicate, and rejected counts, offers the error workbook, and refreshes the learner list. The batch appears in **Import history**.
+
+### Template and columns
+
+`GET /api/learners/imports/template` returns `learner-import-template.xlsx`. Its **Learners** sheet contains only the header row; **Example** and **Instructions** are reference sheets.
+
+| Column | Required | Notes |
+| --- | --- | --- |
+| `lrn` | Yes | Exactly 12 digits; format the column as text so leading zeros are kept |
+| `last_name` | Yes | Up to 80 characters |
+| `first_name` | Yes | Up to 80 characters |
+| `middle_name` | No | Up to 80 characters |
+| `extension_name` | No | Up to 16 characters |
+| `birth_date` | Yes | `YYYY-MM-DD`; not in the future and not before 1900 |
+| `sex` | Yes | `male` or `female` (`m`/`f` accepted) |
+| `weight_kg` | No | Number 1–500 |
+| `height_cm` | No | Number 1–300 |
+| `house_number` | No | Up to 120 characters |
+| `barangay` | No | Up to 120 characters |
+| `municipality` | No | Up to 120 characters |
+| `province` | No | Up to 120 characters |
+| `region` | No | Up to 120 characters |
+| `zip_code` | No | 4–10 digits |
+| `contact_number` | No | Valid phone format, up to 32 characters |
+| `email` | No | Valid email, up to 160 characters |
+| `school_code` | Yes | An existing active school; school-scoped users may leave it blank for their own school |
+
+Unknown, duplicate, missing required, and database-controlled headers (`id`, `user_id`, `district_id`, `school_id`, `archived_at`, `created_by`, `created_at`, `updated_at`) are rejected. A workbook without a **Learners** sheet uses its first sheet. Weight and height are recorded as profile measurements only; the import does not compute BMI or make any nutritional claim.
+
+### Duplicates and scope
+
+Scope follows the signed-in account's role:
+
+- **System administrator** — any active school; `school_code` is required.
+- **District-wide roles** (district administrator, PSDS, staff) — active schools in their own district; `school_code` is required and a school from another district is rejected.
+- **School roles** (school head, teacher, coordinator, adviser, non-teaching, learner) — fixed to their own school; a blank `school_code` resolves to it, and naming another school is rejected.
+
+A duplicate LRN — inside one file, across files, or already in PostgreSQL — is reported as a duplicate and skipped. Existing learner profiles are never overwritten, and the import cannot merge two learners or move an LRN between schools.
+
+### Validation, limits, and security
+
+Rows pass through the same validators as the manual learner form: 12-digit LRN, non-future birth date, sex normalization, numeric ranges, Philippine ZIP pattern, email/phone formats, Unicode-safe lengths, and control-character rejection. CSV cells are read exactly as typed, so an LRN keeps its leading zeros and a `YYYY-MM-DD` birth date is not converted to a spreadsheet serial. Every issue reports the **filename, worksheet, Excel row, column, reason, and offending value**. The same limits apply as for the other importers: 5 files, 5 MB each, 15 MB total, 1,000 rows per worksheet, 3,000 records, 20 columns, 5 worksheets, a 30-minute preview, and 20 preview requests per 15 minutes. The shared spreadsheet guard rejects formulas, macros, embedded objects, external links, unsafe ZIP structures, non-UTF-8 CSV, and legacy `.xls` VBA.
+
+Learner import requires authentication, `learners/add`, CSRF, and a dedicated rate limiter before parsing, and inserts only with parameterized statements inside a transaction. The audit trail records rejected uploads (`learner.import_rejected`), previews (`learner.import_previewed`), and committed batches (`learner.imported`) with actor, time, filenames, counts, and status; tokens and cell contents are never recorded. Error workbooks are escaped, sent `no-store`, and scoped to their owner.
+
+### API
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/learners/imports/template` | Schema-matched `learner-import-template.xlsx` |
+| GET | `/learners/imports` | Recent batches for the signed-in user (`limit` 1–50) |
+| POST | `/learners/imports/preview` | Multipart `files` upload; validate and stage without writing |
+| GET | `/learners/imports/:id/errors.xlsx` | Download the Summary/Files/Issues error report |
+| POST | `/learners/imports/:id/commit` | Insert accepted learner profiles from a previewed batch with its token |
+
+All five require `learners/add`; browser clients send the CSRF token in `X-CSRF-Token`.
+
+### Not claimed
+
+- Profiles only. An imported learner has no school-year enrollment until a teacher or administrator enrolls them deliberately, and no guardian, grade, attendance, or health record exists yet.
+- An existing LRN is skipped, never updated, so an upload cannot overwrite a permanent record.
+- The importer does not create accounts or send notifications to learners or guardians.
+- A rejected row must be corrected and re-uploaded; rejected rows are not queued for retry.
+
 ## API overview
 
 Base URL: `http://localhost:3000/api`
@@ -461,6 +864,21 @@ Single resources use `{ "data": { ... } }`. Errors use:
 | PUT | `/schools/:id` | Update a school (admin only) |
 | PATCH | `/schools/:id/archive` | Archive without deleting (admin only) |
 | PATCH | `/schools/:id/restore` | Restore an archived school (admin only) |
+| GET | `/schools/imports/template` | Download the schema-matched school Excel template (admin, `schools/add`) |
+| GET | `/schools/imports` | Recent school import batches for the signed-in administrator (limit 1–50) |
+| POST | `/schools/imports/preview` | Multipart `files` upload; validate and stage school rows without writing (admin, `schools/add`) |
+| GET | `/schools/imports/:id/errors.xlsx` | Download the school Summary/Files/Issues error report |
+| POST | `/schools/imports/:id/commit` | Commit a previewed school batch using its token in the JSON body |
+| GET | `/personnel/imports/template` | Download the staff Excel template (admin, `personnel/add` and `users/add`) |
+| GET | `/personnel/imports` | Recent staff import batches for the signed-in administrator (limit 1–50) |
+| POST | `/personnel/imports/preview` | Multipart `files` upload; validate and stage staff rows without writing |
+| GET | `/personnel/imports/:id/errors.xlsx` | Download the staff Summary/Files/Issues error report |
+| POST | `/personnel/imports/:id/commit` | Create staff accounts and profiles from a previewed batch |
+| GET | `/learners/imports/template` | Download the learner profile template (`learners/add`) |
+| GET | `/learners/imports` | Recent learner import batches for the signed-in user (limit 1–50) |
+| POST | `/learners/imports/preview` | Multipart `files` upload; validate and stage learner profiles without writing |
+| GET | `/learners/imports/:id/errors.xlsx` | Download the learner Summary/Files/Issues error report |
+| POST | `/learners/imports/:id/commit` | Insert learner profiles only from a previewed batch |
 | GET | `/reports` | Paginated report list |
 | GET | `/reports/summary` | Reporting summary |
 | GET | `/reports/:id` | Report detail |
@@ -494,6 +912,11 @@ Single resources use `{ "data": { ... } }`. Errors use:
 | POST | `/districts` | Create a district with two PSDS (system admin only) |
 | PUT | `/districts/:id` | Update a district and both PSDS (system admin only) |
 | DELETE | `/districts/:id` | Delete an unused district (system admin only) |
+| GET | `/districts/imports/template` | Download the schema-matched Excel template (system admin, `districts/add`) |
+| GET | `/districts/imports` | Recent import batches for the signed-in administrator (limit 1–50) |
+| POST | `/districts/imports/preview` | Multipart `files` upload; validate and stage rows without writing (system admin, `districts/add`) |
+| GET | `/districts/imports/:id/errors.xlsx` | Download the Summary/Files/Issues error report |
+| POST | `/districts/imports/:id/commit` | Commit a previewed batch using its token in the JSON body |
 | GET | `/user-rights/catalog` | Modules, supported actions, roles, and schools (system admin only) |
 | GET | `/user-rights/users` | Paginated rights directory with summary counts (system admin only) |
 | GET | `/user-rights/users/:id` | Effective matrix, role defaults, overrides, and last change (system admin only) |
@@ -509,6 +932,14 @@ Single resources use `{ "data": { ... } }`. Errors use:
 | GET | `/learner-reports/:type` | Authorized CSV/Excel-style learner reports |
 | GET | `/academic/school-years` | School years |
 | GET | `/academic/grade-levels` | Grade levels for a school |
+| GET | `/academic/grade-level-options` | General grade level options for the dropdown; system administrators may request inactive ones |
+| POST | `/academic/grade-level-options` | Add a catalogue option (system admin, `grade_levels/add`) |
+| PUT | `/academic/grade-level-options/:id` | Rename, reorder, activate, or deactivate an option (system admin, `grade_levels/edit`) |
+| DELETE | `/academic/grade-level-options/:id` | Remove an unused option; in-use options return `409 GRADE_LEVEL_OPTION_IN_USE` (system admin, `grade_levels/delete`) |
+| GET | `/academic/subject-options` | General subject options for the dropdown; system administrators may request inactive ones |
+| POST | `/academic/subject-options` | Add a general subject option (system admin, `subjects/add`) |
+| PUT | `/academic/subject-options/:id` | Rename, reorder, activate, or deactivate an option (system admin, `subjects/edit`) |
+| DELETE | `/academic/subject-options/:id` | Remove an unused option; in-use options return `409 SUBJECT_OPTION_IN_USE` (system admin, `subjects/delete`) |
 | GET | `/academic/sections` | Sections with school, year, grade, adviser, and learner count |
 | GET | `/academic/subjects`, `/assignments`, `/schedules`, `/timetable`, `/teachers` | Subjects, teaching loads, class schedules, and teachers |
 | GET | `/attendance/sheet` | Daily roster for a section and date; unsaved status is `null`, never `present` |
@@ -605,7 +1036,7 @@ Import both files from `postman/`:
 
 Set `username` and `password` in the environment to one of the demonstration accounts. The environment ships with blank credentials on purpose. `baseUrl` defaults to `http://localhost:3000/api`.
 
-The collection enables Postman's cookie jar automatically, fetches a fresh CSRF token before login, and rotates the saved token after login. It runs 86 requests across Authentication, Dashboard, Districts, Schools, Reports, Users, Registration and approvals, Announcements, System and account, User rights, School forms and operations, Class records and SF 9, and Session. Logout is deliberately the final request. To exercise approvals, sign in as the approver (for example `northhead`) before running **List pending approvals** and **Approve registration**; change the sample registration username if you run it more than once.
+The collection enables Postman's cookie jar automatically, fetches a fresh CSRF token before login, and rotates the saved token after login. It runs 106 requests across Authentication, Dashboard, Districts, Schools, Personnel import, Learner import, Reports, Users, Registration and approvals, Announcements, System and account, User rights, School forms and operations, Class records and SF 9, and Session. Logout is deliberately the final request. To exercise approvals, sign in as the approver (for example `northhead`) before running **List pending approvals** and **Approve registration**; change the sample registration username if you run it more than once.
 
 The School forms and operations folder reads the form catalogue, loads the cards for one school, previews and generates SF 1, reads the new submission, renders its PDF, lists submissions, and calls the attendance, academic profile, grading policy, health summary, personnel, and district monitoring endpoints. It uses `formsSchoolId`, `formsSchoolYearId`, `formsSectionId`, and `formsLearnerId`, which default to the demo seed (Central Elementary, 2026-2027, Rizal, learner 1). Sign in as a school head or system administrator for the write requests; a district administrator can read the monitoring summary. Generating SF 1 creates one row in `form_submissions` and an audit entry, so run it against a development database.
 
@@ -613,7 +1044,13 @@ The Class records and SF 9 folder walks the full workflow: teacher dashboard, in
 
 The User rights folder reads the catalogue and directory, picks the first non-system account, and re-saves that account's current matrix unchanged, so the sample data is not altered. Run it with `sysadmin`; every request in the folder is restricted to the system administrator.
 
-The Districts folder lists districts, loads the hierarchy, creates a district with two PSDS, reads and updates it, then deletes it. Created rows use an `API-` timestamp code.
+The Districts folder lists districts, loads the hierarchy, creates a district with two PSDS, reads and updates it, then deletes it. Created rows use an `API-` timestamp code. It also exercises the bulk import API: download the template, preview `postman/sample-districts.csv`, read history, commit with the returned token, and download the error report. The sample row repeats the seeded `NVD` district, so preview and commit report a duplicate and insert nothing; only a committed import batch is recorded. Run Newman from the repository root so the relative sample path resolves. To see a real insert, replace the sample code with a new value and remove the resulting district afterward.
+
+The Schools folder exercises the same five import requests with `postman/sample-schools.csv`. Its row repeats the seeded `114534` school in `SWD`, so preview and commit report a duplicate and insert no school. Run the import requests as a system administrator or as a district administrator scoped to that district; the latter may leave `district_code` blank. To see a real insert, use a new school code and remove the resulting school afterward.
+
+The Personnel import folder exercises `postman/sample-staff.csv`: download the template, preview the one-row file, read history, commit with the returned token, and download the error report. The row names the seeded `paolo.rivera@example.com` account and `NES-001`, so preview and commit report a duplicate and create no account or profile. Run it as `sysadmin` (staff import needs both `personnel/add` and `users/add`). To see a real insert, replace the email and employee number with new values, run the preview and commit, then remove the created account and profile and expire its activation token.
+
+The Learner import folder does the same with `postman/sample-learners.csv`, whose LRN `136001230001` belongs to the seeded Joshua Lim. Preview and commit report a duplicate and insert no learner profile, and no enrollment or guardian row is ever created by an import. Run it as `sysadmin`, a district administrator, staff, or a school head. To see a real insert, use an unused 12-digit LRN and remove the created learner afterward.
 
 Run it headlessly with Newman:
 
@@ -625,7 +1062,7 @@ npx --yes newman@6 run postman/SDMS.postman_collection.json \
   --env-var "newUserPassword=ApiTest@2026"
 ```
 
-`newUserPassword` is required by the Create user request and is never stored in the environment file. The verification run leaves a deactivated `api.staff.` account behind and removes its own `API-` school and district. Use a development database, or clean up afterward.
+`newUserPassword` is required by the Create user request and is never stored in the environment file. The verification run leaves a deactivated `api.staff.` account behind and removes its own `API-` school and district. The personnel and learner import folders commit duplicate-only samples, so they create no account, profile, or learner; they do leave committed batch and audit rows behind. Use a development database, or clean up afterward.
 
 ## Automated tests
 
@@ -662,9 +1099,15 @@ The suite uses `node:test` and `supertest`, starts the Express app in test mode,
 - Submission workflow: locked resubmission, mandatory return reason, retained review history, resubmission version increment, and adviser-only acceptance that finalizes the matching `grade_records` row without changing raw scores
 - SF 9: teacher denial for generate/finalize, `409 REPORT_CARD_INCOMPLETE` for a card with gaps, an immutable finalized snapshot that survives a later grade edit, reopen with a required reason, refinalization incrementing the version, and learner denial of card detail and batch output
 - Authorized report card HTML, PDF, batch PDF (`%PDF`), and CSV output
+- District bulk import: unauthenticated, non-system, and missing-CSRF uploads rejected; template headers match the schema; preview writes no district rows; commit requires the batch token, is single-use, clears staged rows, and records `district.imported`; multi-file XLSX/CSV uploads with duplicate detection inside a file, across files, and against PostgreSQL; invalid rows reported with filename, worksheet, Excel row, column, and reason plus a valid error workbook; corrupt and truncated files failing independently without blocking a valid file; formula, macro, and executable rejection; filename path traversal and export formula injection; per-file/total/count limits; SQL-injection and XSS strings stored as plain data; expired previews refused; unknown, reserved, duplicate, and missing header rejection; and administrator-scoped history that never returns tokens or staged rows
+- School bulk import: administrator and `schools/add` gating, missing CSRF rejection, schema-matched template, preview that writes no school rows, token-protected single-use commit with `school.imported` audit and cleared staging, multi-file XLSX/CSV, duplicates inside a file, across files, and against PostgreSQL, district administrators confined to their own district (blank code defaults to it, another district is refused), invalid-row evidence and error workbook, corrupt and truncated files isolated from valid ones, formula/macro/executable rejection, oversized and too-many-file rejection before parsing, SQL-injection and XSS strings stored as plain data, expired preview refusal, header validation, and administrator-scoped history and reports
+- Personnel bulk import: administrator gating for both `personnel/add` and `users/add`, missing-CSRF rejection, schema-matched template, preview that writes no accounts or profiles, token-protected single-use commit that creates one active account and one personnel profile per row, `user.created` and `personnel.imported` audit entries, hashed single-use activation tokens with no raw token in history or audit, duplicate employee numbers, emails, and usernames inside a file, across files, and against PostgreSQL, district scoping, malformed rows, and scoped history that never returns credentials
+- Learner profile bulk import: `learners/add` gating (teacher denied), schema-matched template, preview that writes no learner rows, commit that creates profiles only with no enrollment or guardian rows, token-protected single-use commit, duplicate LRN detection in the upload and against PostgreSQL without overwriting, district and school scoping (blank school code resolving to the actor's school), invalid-row evidence and error workbook, corrupt and formula files isolated from valid ones, UTF-8 CSV dates and numbers kept as typed, and scoped history and reports
+- Grade level options: system-administrator-only creation and management, case-insensitive duplicate rejection, active options visible to schools, free-text grade level names rejected with `GRADE_LEVEL_OPTION_REQUIRED`, deactivated options hidden from schools and rejected with `GRADE_LEVEL_OPTION_INACTIVE`, canonical option name and order applied to the new school grade level, a legacy school grade level that predates the catalogue still editable, in-use option deletion blocked, unused option add/remove, audit entries, and schools denied the management endpoints
+- Subject options: the seeded Kindergarten to Grade 12 starter catalogue, system-administrator-only creation and management, case-insensitive duplicate rejection, active options visible to schools, free-text subject names rejected with `SUBJECT_OPTION_REQUIRED`, deactivated options hidden from schools and rejected with `SUBJECT_OPTION_INACTIVE`, an existing school subject keeping its name, in-use option deletion blocked with `SUBJECT_OPTION_IN_USE`, unused option add/remove with `subject_option.*` audit entries, and schools denied the management endpoints
 - Notifications, malformed JSON, and no stack-trace leakage
 
-Tests create data prefixed `TST-` and remove it in `after()`, and `tests/classrecords.test.js` restores the shared class record template it edits. Run them against a disposable development database, not production. The suite requires the seed accounts and the forms plus class record schemas to exist.
+The suite runs 136 tests across `api.test.js`, `permissions.test.js`, `forms.test.js`, `classrecords.test.js`, `districtImport.test.js`, `schoolImport.test.js`, `personnelImport.test.js`, `learnerImport.test.js`, `gradeLevelOptions.test.js`, and `subjectOptions.test.js`. Tests create data prefixed `TST-` or `RUN-` and remove it in `after()`, and `tests/classrecords.test.js` restores the shared class record template it edits. Run them against a disposable development database, not production. The suite requires the seed accounts and the forms, class record, district import, school import, personnel import, learner import, grade level option, and subject option schemas to exist.
 
 ## Security notes
 
@@ -674,6 +1117,8 @@ Tests create data prefixed `TST-` and remove it in `after()`, and `tests/classre
 - CSRF protection applies to every cookie-authenticated state-changing request.
 - Login is limited to 10 failed attempts per 15 minutes; password reset requests to 5 per hour; self-registration to 5 requests per hour; general API traffic to 600 requests per 15 minutes.
 - All SQL uses parameterized queries. Multi-row writes use transactions.
+- Spreadsheet imports are treated as hostile input. The file is identified from its bytes, ZIP directories are checked for traversal, ZIP64, unsafe compression ratios, encryption, macros, embedded objects, and external links, and legacy `.xls` files are scanned for VBA streams before parsing. CSV must be UTF-8 without binary or control characters. Formula cells are read as text and never evaluated, exported values are neutralised against formula injection, and cell contents never reach SQL as identifiers or statements. Previews are stored server-side with an owner, expiry, and random token; commit is single-use and transactional.
+- The personnel import never accepts a password. Each created account gets one random, unknowable password hash and a single-use activation link whose raw token is returned only in the commit response; only its SHA-256 hash is stored, it expires after 7 days, and it is never written to the import history or the audit trail.
 - Input is validated and trimmed at API boundaries; output is serialized through explicit field lists.
 - Helmet restricts scripts to same-origin and disables framing. Inline styles are allowed because Bootstrap utilities and chart sizing rely on them.
 - In production, `NODE_ENV=production` enables HSTS and secure cookies, and error responses omit stack traces and database details.
@@ -692,7 +1137,7 @@ Tests create data prefixed `TST-` and remove it in `after()`, and `tests/classre
 1. Set `NODE_ENV=production`, `TRUST_PROXY=1` behind an HTTPS terminator, and a strong `SESSION_SECRET`.
 2. Set `DATABASE_SSL=true` if your PostgreSQL provider requires TLS.
 3. Serve the app over HTTPS only. Cookies are marked `Secure` in production, so plain HTTP will not keep a session.
-4. For a database that already holds real data, run `npm run db:migrate` to add the rights tables and synchronise the catalogue without touching existing records, then `npm run db:migrate:forms` to add the learner/forms tables and the per-learner submission scope, then `npm run db:migrate:classrecords` to add the class record, submission, and SF 9 snapshot schema. For a fresh installation, run `npm run db:init`, then replace or remove the demonstration accounts. Rerun the appropriate scripts after every release that changes `database/schema.sql`, `database/schema-forms.sql`, or `database/schema-classrecords.sql`; all are idempotent and only add tables, columns, constraints, and indexes.
+4. For a database that already holds real data, run `npm run db:migrate` to add the rights tables and synchronise the catalogue without touching existing records, then `npm run db:migrate:forms` to add the learner/forms tables and the per-learner submission scope, then `npm run db:migrate:classrecords` to add the class record, submission, and SF 9 snapshot schema, then `npm run db:migrate:districts` to add the district import batch table, then `npm run db:migrate:school-imports` to add the school import batch table, then `npm run db:migrate:personnel-imports` and `npm run db:migrate:learner-imports` to add the staff and learner import batch tables, then `npm run db:migrate:grade-level-options` to create the administrator grade level catalogue and copy existing grade level names into it, then `npm run db:migrate:subject-options` to create the general subject catalogue and copy existing subject names into it. For a fresh installation, run `npm run db:init`, then replace or remove the demonstration accounts. Rerun the appropriate scripts after every release that changes `database/schema.sql`, `database/schema-forms.sql`, `database/schema-classrecords.sql`, `database/schema-districts.sql`, `database/schema-school-imports.sql`, `database/schema-personnel-imports.sql`, `database/schema-learner-imports.sql`, `database/schema-grade-level-options.sql`, or `database/schema-subject-options.sql`; all are idempotent and only add tables, columns, constraints, and indexes.
 5. Obtain and load the current official DepEd form layouts through the Templates console before using generated output for official submission. Review a printed proof of every form for school identity, multipage headers, clipped names, and signature space.
 6. Use a process manager (systemd, PM2, or a container orchestrator) and run the app as an unprivileged user.
 7. Back up PostgreSQL and monitor the `audit_logs` and `session` tables for growth. Learner forms, health measurements, and permanent academic records are covered by the same backup policy; never delete permanent records during routine cleanup.
@@ -712,6 +1157,25 @@ Tests create data prefixed `TST-` and remove it in `after()`, and `tests/classre
 | `{"error":"An unexpected server error occurred.","code":"42703"}` | PostgreSQL `undefined_column`: the database predates the deployed release. Run `npm run db:migrate` (existing data) or `npm run db:init` (fresh/demo database) with `DATABASE_URL` pointing at that database, then retry. |
 | Charts are empty | Confirm `npm run db:init` loaded the seed data and that the selected period has reports. |
 | Password reset link is missing | In development the API returns `devResetUrl`; production never exposes it. Check your email delivery integration. |
+| District import returns `IMPORT_EXPIRED` | The 30-minute preview window elapsed. Upload the files again; nothing was written. |
+| District import reports `SPREADSHEET_TOO_LARGE` or `TOO_MANY_FILES` | Respect the 5 MB per file, 15 MB total, five-file limit, and 1,000-row worksheet cap. Split the workbook or remove macros and embedded objects. |
+| School import rejects a district code | A district administrator may import only into their own district; leave `district_code` blank to use it. A system administrator must supply a district code that exists. |
+| School import returns `IMPORT_EXPIRED` | The 30-minute school preview elapsed. Upload the files again; no school was written. |
+| Personnel import rejects a school code or reports `DISTRICT_REQUIRED` | Staff accounts are always bound to one school, so `school_code` is mandatory even for school-scoped administrators. A district administrator may import only into their own district; an account without a district cannot import at all. |
+| Personnel import reports a duplicate employee number, email, or username | The importer is create-only. Correct the value in the source file, or update the existing account manually; an upload never overwrites an existing login or profile. |
+| Personnel activation links are needed again | The links are shown once in the confirmation step and only their hashes are stored. Use the normal password-reset flow for that account instead of importing it again. |
+| Personnel or learner import returns `IMPORT_EXPIRED` | The 30-minute preview elapsed. Upload the files again; no account, profile, or learner row was written. |
+| Import preview reports zero valid rows | Read the Issues table or download the error report. Unknown, reserved, duplicate, or missing headers and invalid required values are listed with their worksheet, Excel row, and column; fix them in the source file and re-upload. |
+| Grade level dropdown is empty | The catalogue has no active options. Sign in as a system administrator, open **Grade Levels → New grade level**, and add Kindergarten through Grade 12 or the levels your division uses. A fresh `npm run db:init` seeds Kindergarten–Grade 12, and the migration seeds the same standards when the catalogue is empty; a catalogue that already has entries is backfilled only from existing school grade level names. |
+| A grade level option is missing from the school page | The option is deactivated. Reactivate it from **Manage** in the General grade levels card; deactivated options stay visible to the system administrator with an **Inactive** status but are hidden from schools. |
+| Creating a grade level returns `GRADE_LEVEL_OPTION_REQUIRED` or `GRADE_LEVEL_OPTION_INACTIVE` | The submitted name is not an active catalogue option. Pick a name from the dropdown instead of typing one, or ask the system administrator to add or reactivate it. |
+| Removing a grade level option returns `GRADE_LEVEL_OPTION_IN_USE` | One or more school grade levels use the option. Deactivate it instead of removing it; existing sections and enrollments keep their grade level. |
+| An older grade level cannot be edited after the upgrade | The name predates the catalogue or its option was deactivated. The edit form shows it as `(current)` and keeps it selectable for that record; choose an active option only when you intend to rename the grade level. |
+| Subject dropdown is empty | The catalogue has no active options. Sign in as a system administrator, open **Subjects → New subject**, and add the learning areas your schools offer. A fresh `npm run db:init` seeds 50 Kindergarten to Grade 12 subjects, and the migration adds the same standard list when the catalogue is empty. |
+| A subject option is missing from the school page | The option is deactivated. Reactivate it from **Manage** in the General subjects card; deactivated options stay visible to the system administrator with an **Inactive** status but are hidden from schools. |
+| Creating a subject returns `SUBJECT_OPTION_REQUIRED` or `SUBJECT_OPTION_INACTIVE` | The submitted name is not an active catalogue option. Pick a name from the dropdown instead of typing one, or ask the system administrator to add or reactivate it. |
+| Removing a subject option returns `SUBJECT_OPTION_IN_USE` | One or more school subjects use the option. Deactivate it instead of removing it; existing assignments, schedules, and grades keep their subject. |
+| An older subject cannot be edited after the upgrade | The name predates the catalogue or its option was deactivated. The edit form shows it as `(current)` and keeps it selectable for that record; choose an active option only when you intend to rename the subject. |
 
 ## Scripts
 
@@ -723,8 +1187,14 @@ Tests create data prefixed `TST-` and remove it in `after()`, and `tests/classre
 | `npm run db:migrate` | Add the rights schema to an existing database without reseeding |
 | `npm run db:migrate:forms` | Add learner, attendance, grade, book, health, movement, personnel, permanent-record, and forms tables without reseeding |
 | `npm run db:migrate:classrecords` | Add curricula, class records, assessments, submissions, and SF 9 snapshot columns without reseeding |
+| `npm run db:migrate:districts` | Add the district import batch table without reseeding |
+| `npm run db:migrate:school-imports` | Add the school import batch table without reseeding |
+| `npm run db:migrate:personnel-imports` | Add the staff import batch table without reseeding |
+| `npm run db:migrate:learner-imports` | Add the learner import batch table without reseeding |
+| `npm run db:migrate:grade-level-options` | Add the administrator grade level catalogue and backfill existing names without reseeding |
+| `npm run db:migrate:subject-options` | Add the general subject catalogue, backfill existing subject names, and seed the standard Kindergarten to Grade 12 list without reseeding |
 | `npm run db:hash` | Generate a bcrypt hash for a new password |
-| `npm test` | Run the automated API, permissions, School Forms, and class record suites |
+| `npm test` | Run the automated API, permissions, School Forms, class record, district, school, staff, learner, grade level, and subject option suites |
 | `node scripts/smoke-forms.js` | Signed-in end-to-end check of the forms and operations APIs |
 | `node scripts/smoke-classrecords.js` | Signed-in end-to-end check of the class record, adviser, and SF 9 APIs |
 | `node scripts/verify-academic-tabs.js` | Check the learner attendance, grades, books, health, forms, and SF 10 endpoints |

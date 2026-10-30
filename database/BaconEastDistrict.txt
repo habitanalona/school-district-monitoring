@@ -1,0 +1,189 @@
+• Bacon East District
+• Bacon West District
+• Sorsogon East District 
+• Sorsogon West District
+Sorsogon Secondary Cluster
+
+/////////////////////////////////////////////////////
+
+
+Bacon East Central School
+	• Location: Poblacion, Bacon District
+	• School ID: 114520
+Balogo Elementary School
+	• Location: Balogo, Bacon District
+	• School ID: 114521
+Bato Elementary School
+	• Location: Bato, Bacon District
+	• School ID: 114522
+Bogna Integrated School
+	• Location: Bogna, Bacon District
+Bon-ot Elementary School
+	• Location: Bon-ot, Bacon District
+	• School ID: 114524
+Buenavista Elementary School
+	• Location: Buenavista, Bacon District
+	• School ID: 114525
+Maricrum Elementary School
+	• Location: Maricrum, Bacon District
+San Isidro Elementary School
+	• Location: San Isidro, Bacon District
+San Juan Elementary School
+	• Location: San Juan, Bacon District
+San Pascual Elementary School
+	• Location: San Pascual, Bacon District
+San Roque Elementary School
+	• Location: San Roque, Bacon District
+Sto. Domingo Integrated School
+	• Location: Sto. Domingo, Bacon District
+	• School ID: 502555
+Sugod Elementary School
+	• Location: Sugod, Bacon District
+
+
+//////////////////////////////////////////////////////////
+
+
+
+Sorsogon East District Schools
+
+The Sorsogon East District comprises around 14 public schools, including:
+• Sorsogon East Central School
+	• Location: Alegre St., Burabod, Sorsogon City
+	• School ID: 114563
+• Abuyog Elementary School
+	• Location: Abuyog, Sorsogon City
+	• School ID: 114552
+• Abuyog National High School
+	• Location: Abuyog, Sorsogon City
+• Balogo Elementary School
+	• Location: Balogo, Sorsogon City
+	• School ID: 114553
+• Bibincahan Elementary School
+	• Location: Bibincahan, Sorsogon City
+	• School ID: 114554
+• Cabid-an Elementary School
+	• Location: Cabid-an, Sorsogon City
+	• School ID: 114556
+• Our Lady's Village Elementary School
+	• Location: Our Lady's Village, Sorsogon City
+	• School ID: 114559
+• Rosa T. Arellano Elementary School
+	• School ID: 114560
+• Ambrosio J. Labrador Elementary School
+	• School ID: 114561
+• Barayong Elementary School
+	• School ID: 114564
+• Bitan-o Elementary School
+	• School ID: 114566
+• Bucalbucalan Elementary School
+	• School ID: 114567
+• Buenavista Elementary School
+	• School ID: 114568
+• Patricia Jesalva Delgado Memorial Elementary School
+	• School ID: 114569
+• Cambulaga Elementary School
+	• School ID: 114570
+• Gimaloto Elementary School
+	• School ID: 114572
+///////////////////////////////////////////
+Sorsogon West District Schools
+
+The Sorsogon West District covers around 21 campuses, including:
+• Sorsogon Pilot Elementary School
+	• Location: Talisay, Sorsogon City
+	• Note: The district's central and largest elementary school.
+• Basud Elementary School
+	• Location: Basud, Sorsogon City
+	• School ID: 114565
+• Pangpang Elementary School
+	• Location: Pan-Philippine Highway, Pangpang, Sorsogon City
+	• School ID: 114575
+• Guinlajon Elementary School
+	• Location: Guinlajon, Sorsogon City
+	• School ID: 114573
+• Buhatan Integrated National School
+	• Location: Buhatan, Sorsogon City
+• Pio Jebulan Elementary School
+	• Location: Sorsogon City
+• Canarum Elementary School
+	• Location: Sorsogon City
+• Tublijon Elementary School
+	• Location: Sorsogon City
+• Tugos Elementary School
+	• Location: Sorsogon City
+/////////////////////////////////////////
+
+• Bacon West Central School
+	• Location: Balete, Bacon District
+	• School ID: 114534
+• Cabarbuhan Elementary School
+	• Location: Cabarbuhan, Bacon District
+	• School ID: 114535
+• Del Rosario Elementary School
+	• Location: Del Rosario, Bacon District
+	• School ID: 114536
+• Gajo Elementary School
+	• Location: Gajo, Bacon District
+• Osiao Paglingap Elementary School
+	• Location: Osiao, Bacon District
+• San Isidro National High School
+	• Location: San Isidro, Bacon District
+• San Ramon Elementary School
+	• Location: San Ramon, Bacon District
+• Sta. Teresita Elementary School
+	• Location: Sta. Teresita, Bacon District
+	• School ID: 114532
+• Sto. Niño Integrated School
+	• Location: Sto. Niño, Bacon District
+
+	/////////////////////////////////////////
+
+• Sorsogon National High School
+	• Type: National High School (Junior & Senior High)
+	• School ID: 302279
+• Abuyog National High School
+	• Type: National High School
+	• School ID: 302270
+• Buenavista National High School
+	• Type: National High School
+	• School ID: 302271
+• Celestino G. Tabuena Memorial National High School
+	• Type: National High School
+	• School ID: 302272
+• Gatbo National High School
+	• Type: National High School
+	• School ID: 302273
+• Lydia D. Martinez Memorial High School
+	• Type: Public High School
+	• School ID: 302280
+• Mercedes B. Peralta Senior High School
+	• Type: Standalone Senior High School
+	• School ID: 305403
+• Sugod Senior High School
+	• Type: Standalone Senior High School
+	• School ID: 305544
+• Rawis Senior High School
+	• Type: Standalone Senior High School
+	• School ID: 305726
+• Buhatan National High School
+	• Type: National High School
+	• School ID: 310401
+• Panlayaan National High School
+	• Type: National High School
+	• School ID: 310402
+• Buhatan Integrated National School
+	• Type: Integrated National School
+	• School ID: 500464
+• Rizal Integrated National School
+	• Type: Integrated National School
+	• School ID: 500466
+• Felomino D. Deramas Integrated School
+	• Type: Integrated School
+	• School ID: 500462
+• Sto. Niño Integrated School
+	• Type: Integrated School
+	• School ID: 500463
+• Pamurayan Integrated School
+	• Type: Integrated School
+	• School ID: 500465

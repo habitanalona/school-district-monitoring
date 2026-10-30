@@ -224,6 +224,17 @@ VALUES
   ('2026-2027', DATE '2026-06-01', DATE '2027-03-31', TRUE)
 ON CONFLICT (name) DO NOTHING;
 
+-- Administrator-managed grade level options used by the school dropdown.
+INSERT INTO grade_level_options (name, sort_order)
+SELECT v.name, v.sort_order
+FROM (VALUES
+  ('Kindergarten', 0),
+  ('Grade 1', 1), ('Grade 2', 2), ('Grade 3', 3), ('Grade 4', 4),
+  ('Grade 5', 5), ('Grade 6', 6), ('Grade 7', 7), ('Grade 8', 8),
+  ('Grade 9', 9), ('Grade 10', 10), ('Grade 11', 11), ('Grade 12', 12)
+) AS v(name, sort_order)
+ON CONFLICT DO NOTHING;
+
 INSERT INTO grade_levels (school_id, name, sort_order)
 SELECT s.id, v.name, v.sort_order
 FROM schools s
@@ -303,14 +314,14 @@ SELECT s.id, v.code, v.name,
        (SELECT g.id FROM grade_levels g WHERE g.school_id = s.id AND g.name = v.grade_level)
 FROM schools s
 CROSS JOIN (VALUES
-  ('ENG6', 'English 6', 'Grade 6'),
-  ('FIL6', 'Filipino 6', 'Grade 6'),
-  ('MATH6', 'Mathematics 6', 'Grade 6'),
-  ('SCI6', 'Science 6', 'Grade 6'),
-  ('AP6', 'Araling Panlipunan 6', 'Grade 6'),
-  ('MAPEH6', 'MAPEH 6', 'Grade 6'),
-  ('ESP6', 'Edukasyon sa Pagpapakatao 6', 'Grade 6'),
-  ('TLE6', 'Technology and Livelihood Education 6', 'Grade 6')
+  ('ENG6', 'English', 'Grade 6'),
+  ('FIL6', 'Filipino', 'Grade 6'),
+  ('MATH6', 'Mathematics', 'Grade 6'),
+  ('SCI6', 'Science', 'Grade 6'),
+  ('AP6', 'Araling Panlipunan', 'Grade 6'),
+  ('MAPEH6', 'MAPEH', 'Grade 6'),
+  ('ESP6', 'Edukasyon sa Pagpapakatao', 'Grade 6'),
+  ('TLE6', 'Technology and Livelihood Education', 'Grade 6')
 ) AS v(code, name, grade_level)
 WHERE s.school_code = 'NES-001'
 ON CONFLICT (school_id, code) DO NOTHING;

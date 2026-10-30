@@ -32,7 +32,7 @@
           <div class="page-header__copy">
             <p class="page-eyebrow">Teaching and learning</p>
             <h1>Subjects and teachers</h1>
-            <p class="page-subtitle">Maintain the subject catalog, assign teachers to sections, and build conflict-free weekly timetables.</p>
+            <p class="page-subtitle">The system administrator prepares the general subject list; each school adds its subjects from it, assigns teachers, and builds conflict-free weekly timetables.</p>
           </div>
           <div class="page-header__actions">
             <button type="button" class="btn btn-light d-none" id="newSubjectButton">
@@ -61,10 +61,41 @@
         </div>
 
         <section class="profile-panel surface-card" id="panel-subjects" role="tabpanel" aria-labelledby="tab-subjects">
+          <section class="general-catalog d-none" id="generalSubjectCard" aria-labelledby="generalSubjectHeading">
+            <header class="panel-heading">
+              <div>
+                <h2 id="generalSubjectHeading">General subjects</h2>
+                <p>System-wide subjects that every school can select, covering Kindergarten to Grade 12. Adding one here assigns no school and no grade level.</p>
+              </div>
+              <button type="button" class="btn btn-light btn-sm" id="manageSubjectOptionsButton">
+                <i class="bi bi-sliders" aria-hidden="true"></i>
+                <span>Manage</span>
+              </button>
+            </header>
+            <div class="table-responsive">
+              <table class="app-table" id="generalSubjectTable">
+                <caption class="sr-only">General subjects maintained by the system administrator</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Subject</th>
+                    <th scope="col" class="text-right">Sort order</th>
+                    <th scope="col" class="text-right">Schools using it</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="generalSubjectTableBody">
+                  <tr class="skeleton-row"><td colspan="4"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer">
+              <p class="table-footer__meta" id="generalSubjectMeta">Loading general subjects…</p>
+            </div>
+          </section>
           <header class="panel-heading">
             <div>
-              <h2>Subject catalog</h2>
-              <p>Subject codes are unique per school and are reused across sections and school years.</p>
+              <h2>School subjects</h2>
+              <p>Each school adds its subjects from the general list. Subject codes are unique per school and are reused across sections and school years.</p>
             </div>
           </header>
           <div class="school-filters learner-filters">

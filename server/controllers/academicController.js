@@ -25,6 +25,33 @@ function optionalId(value, field) {
   return requireInteger(value, field, { min: 1 });
 }
 
+function optionalOrder(value, field) {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  return requireInteger(value, field, { min: 0, max: 100 });
+}
+
+function readGradeLevelOption(body, { isUpdate = false } = {}) {
+  return {
+    name: requireString(body.name, "Grade level option", { min: 1, max: 32 }),
+    sortOrder: requireInteger(body.sortOrder ?? 0, "Sort order", { min: 0, max: 100 }),
+    isActive: isUpdate && body.isActive === undefined
+      ? null
+      : parseBoolean(body.isActive, !isUpdate)
+  };
+}
+
+function readSubjectOption(body, { isUpdate = false } = {}) {
+  return {
+    name: requireString(body.name, "Subject option", { min: 1, max: 160 }),
+    sortOrder: requireInteger(body.sortOrder ?? 0, "Sort order", { min: 0, max: 100 }),
+    isActive: isUpdate && body.isActive === undefined
+      ? null
+      : parseBoolean(body.isActive, !isUpdate)
+  };
+}
+
 function requireDate(value, field) {
   const text = requireString(value, field, { min: 10, max: 10 });
   if (!DATE_PATTERN.test(text)) {
@@ -144,6 +171,74 @@ async function copyStructure(req, res) {
   res.status(data.dryRun ? 200 : 201).json({ data });
 }
 
+/* Grade level options ----------------------------------------------------- */
+
+async function listGradeLevelOptions(req, res) {
+  const data = await academicService.listGradeLevelOptions(req.user, {
+    includeInactive: parseBoolean(req.query.includeInactive, false)
+  });
+  res.json({ data });
+}
+
+async function createGradeLevelOption(req, res) {
+  const data = await academicService.createGradeLevelOption(
+    actorFrom(req),
+    readGradeLevelOption(req.body)
+  );
+  res.status(201).json({ data });
+}
+
+async function updateGradeLevelOption(req, res) {
+  const data = await academicService.updateGradeLevelOption(
+    actorFrom(req),
+    requireIdParam(req.params.id, "Grade level option ID"),
+    readGradeLevelOption(req.body, { isUpdate: true })
+  );
+  res.json({ data });
+}
+
+async function deleteGradeLevelOption(req, res) {
+  const data = await academicService.deleteGradeLevelOption(
+    actorFrom(req),
+    requireIdParam(req.params.id, "Grade level option ID")
+  );
+  res.json({ data });
+}
+
+/* Subject options --------------------------------------------------------- */
+
+async function listSubjectOptions(req, res) {
+  const data = await academicService.listSubjectOptions(req.user, {
+    includeInactive: parseBoolean(req.query.includeInactive, false)
+  });
+  res.json({ data });
+}
+
+async function createSubjectOption(req, res) {
+  const data = await academicService.createSubjectOption(
+    actorFrom(req),
+    readSubjectOption(req.body)
+  );
+  res.status(201).json({ data });
+}
+
+async function updateSubjectOption(req, res) {
+  const data = await academicService.updateSubjectOption(
+    actorFrom(req),
+    requireIdParam(req.params.id, "Subject option ID"),
+    readSubjectOption(req.body, { isUpdate: true })
+  );
+  res.json({ data });
+}
+
+async function deleteSubjectOption(req, res) {
+  const data = await academicService.deleteSubjectOption(
+    actorFrom(req),
+    requireIdParam(req.params.id, "Subject option ID")
+  );
+  res.json({ data });
+}
+
 /* Grade levels ------------------------------------------------------------ */
 
 async function listGradeLevels(req, res) {
@@ -157,7 +252,7 @@ async function createGradeLevel(req, res) {
   const data = await academicService.createGradeLevel(actorFrom(req), {
     schoolId: optionalId(req.body.schoolId, "School"),
     name: requireString(req.body.name, "Grade level", { min: 1, max: 32 }),
-    sortOrder: requireInteger(req.body.sortOrder ?? 0, "Sort order", { min: 0, max: 100 })
+    sortOrder: optionalOrder(req.body.sortOrder, "Sort order")
   });
   res.status(201).json({ data });
 }
@@ -168,7 +263,7 @@ async function updateGradeLevel(req, res) {
     requireIdParam(req.params.id, "Grade level ID"),
     {
       name: requireString(req.body.name, "Grade level", { min: 1, max: 32 }),
-      sortOrder: requireInteger(req.body.sortOrder ?? 0, "Sort order", { min: 0, max: 100 })
+      sortOrder: optionalOrder(req.body.sortOrder, "Sort order")
     }
   );
   res.json({ data });
@@ -356,6 +451,14 @@ module.exports = {
   createSchoolYear,
   updateSchoolYear,
   copyStructure,
+  listGradeLevelOptions,
+  createGradeLevelOption,
+  updateGradeLevelOption,
+  deleteGradeLevelOption,
+  listSubjectOptions,
+  createSubjectOption,
+  updateSubjectOption,
+  deleteSubjectOption,
   listGradeLevels,
   createGradeLevel,
   updateGradeLevel,

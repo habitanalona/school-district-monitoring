@@ -21,7 +21,20 @@
     search: "",
     sequence: 0,
     editing: null,
-    formModal: null
+    formModal: null,
+    importModal: null,
+    importHistoryModal: null,
+    importFiles: [],
+    importBatch: null,
+    importUploading: false,
+    importSequence: 0
+  };
+
+  var IMPORT_LIMITS = {
+    maxFiles: 5,
+    maxFileBytes: 5 * 1024 * 1024,
+    maxTotalBytes: 15 * 1024 * 1024,
+    allowed: [".xlsx", ".xls", ".csv"]
   };
 
   function el(id) {
@@ -426,6 +439,763 @@
     });
   }
 
+  function formatFileSize(bytes) {
+    var value = Number(bytes) || 0;
+    if (value < 1024) {
+      return value + " B";
+    }
+    if (value < 1024 * 1024) {
+      return (value / 1024).toFixed(1) + " KB";
+    }
+    return (value / (1024 * 1024)).toFixed(2) + " MB";
+  }
+
+  function formatDateTime(value) {
+    if (!value) {
+      return "—";
+    }
+    var date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return "—";
+    }
+    return date.toLocaleString([], {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  }
+
+  function formatDuration(milliseconds) {
+    var value = Math.max(0, Number(milliseconds) || 0);
+    if (value < 1000) {
+      return Math.max(1, Math.round(value)) + " ms";
+    }
+    return (value / 1000).toFixed(value < 10000 ? 1 : 0) + " s";
+  }
+
+  function importStatusBadge(status) {
+    var map = {
+      committed: ["success", "Committed"],
+      previewed: ["info", "Awaiting confirmation"],
+      expired: ["neutral", "Expired"],
+      failed: ["danger", "Failed"]
+    };
+    var meta = map[status] || ["neutral", status || "Unknown"];
+    return '<span class="status-badge status-badge--' + meta[0] + '">' +
+      '<span class="status-dot" aria-hidden="true"></span>' + window.UI.escapeHtml(meta[1]) + "</span>";
+  }
+
+  function fileStatusBadge(status) {
+    var map = {
+      valid: ["success", "Ready"],
+      warning: ["warning", "Review"],
+      failed: ["danger", "Failed"]
+    };
+    var meta = map[status] || ["neutral", status || "Unknown"];
+    return '<span class="status-badge status-badge--' + meta[0] + '">' +
+      window.UI.escapeHtml(meta[1]) + "</span>";
+  }
+
+  function canImportDistricts() {
+    var modules = (state.session && state.session.permissions && state.session.permissions.modules) || {};
+    return Boolean(modules.districts && modules.districts.add);
+  }
+
+  function setImportStep(step) {
+    var steps = document.querySelectorAll("#districtImportSteps li");
+    Array.prototype.forEach.call(steps, function (node) {
+      var key = node.getAttribute("data-import-step");
+      node.classList.toggle("is-active", key === step);
+      node.classList.toggle("is-done", key === "select" ? step !== "select" : key === "review" && step === "done");
+    });
+
+    el("districtImportSelectStep").classList.toggle("d-none", step !== "select");
+    el("districtImportPreviewStep").classList.toggle("d-none", step !== "review");
+    el("districtImportResultStep").classList.toggle("d-none", step !== "done");
+
+    el("districtImportPreviewButton").classList.toggle("d-none", step !== "select");
+    el("districtImportBackButton").classList.toggle("d-none", step !== "review");
+    el("districtImportConfirmButton").classList.toggle("d-none", step !== "review");
+    el("districtImportDoneButton").classList.toggle("d-none", step !== "done");
+    el("districtImportCloseButton").classList.toggle("d-none", step === "done");
+    el("districtImportReportButton").classList.toggle(
+      "d-none",
+      step === "select" || !state.importBatch
+    );
+  }
+
+  function setImportProgress(percent, label) {
+    var value = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+    var fill = el("districtImportProgressFill");
+    var bar = el("districtImportProgressBar");
+    if (fill) {
+      fill.style.width = value + "%";
+    }
+    if (bar) {
+      bar.setAttribute("aria-valuenow", String(value));
+    }
+    setText("districtImportProgressValue", value + "%");
+    setText("districtImportProgressLabel", label || "Uploading…");
+  }
+
+  function showImportProgress(show) {
+    var node = el("districtImportProgress");
+    if (node) {
+      node.classList.toggle("d-none", !show);
+    }
+  }
+
+  function renderImportFiles() {
+    var list = el("districtImportFileList");
+    if (!list) {
+      return;
+    }
+    if (!state.importFiles.length) {
+      list.innerHTML = "";
+      el("districtImportPreviewButton").disabled = true;
+      return;
+    }
+    list.innerHTML = state.importFiles.map(function (file, index) {
+      var extension = String(file.name || "").slice(file.name.lastIndexOf(".")).toLowerCase();
+      return (
+        '<div class="import-file">' +
+          '<span class="import-file__icon"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i></span>' +
+          '<div class="import-file__copy">' +
+            '<span class="import-file__name">' + window.UI.escapeHtml(file.name) + "</span>" +
+            '<span class="import-file__meta">' + window.UI.escapeHtml(formatFileSize(file.size)) +
+              " · " + window.UI.escapeHtml(extension.replace(".", "").toUpperCase()) + "</span>" +
+          "</div>" +
+          '<button type="button" class="icon-action icon-action--danger import-file__remove" data-import-remove="' + index +
+            '" title="Remove file" aria-label="Remove ' + window.UI.escapeHtml(file.name) + '">' +
+            '<i class="bi bi-x-lg" aria-hidden="true"></i></button>' +
+        "</div>"
+      );
+    }).join("");
+    el("districtImportPreviewButton").disabled = state.importUploading;
+  }
+
+  function addImportFiles(fileList) {
+    var incoming = Array.prototype.slice.call(fileList || []);
+    var errors = [];
+    var added = 0;
+
+    incoming.forEach(function (file) {
+      if (state.importFiles.length >= IMPORT_LIMITS.maxFiles) {
+        errors.push("Only " + IMPORT_LIMITS.maxFiles + " files can be uploaded at once.");
+        return;
+      }
+      var dot = String(file.name || "").lastIndexOf(".");
+      var extension = dot === -1 ? "" : file.name.slice(dot).toLowerCase();
+      if (IMPORT_LIMITS.allowed.indexOf(extension) === -1) {
+        errors.push(file.name + " is not an .xlsx, .xls, or .csv file.");
+        return;
+      }
+      if (!file.size) {
+        errors.push(file.name + " is empty.");
+        return;
+      }
+      if (file.size > IMPORT_LIMITS.maxFileBytes) {
+        errors.push(file.name + " is larger than 5 MB.");
+        return;
+      }
+      var total = state.importFiles.reduce(function (sum, item) { return sum + item.size; }, 0);
+      if (total + file.size > IMPORT_LIMITS.maxTotalBytes) {
+        errors.push("The combined upload would exceed 15 MB.");
+        return;
+      }
+      var duplicate = state.importFiles.some(function (item) {
+        return item.name === file.name && item.size === file.size && item.lastModified === file.lastModified;
+      });
+      if (duplicate) {
+        return;
+      }
+      state.importFiles.push(file);
+      added += 1;
+    });
+
+    renderImportFiles();
+    if (errors.length) {
+      window.UI.showAlert(
+        el("districtImportAlert"),
+        "warning",
+        errors.slice(0, 3).join(" "),
+        "Some files were not added"
+      );
+    } else if (added) {
+      window.UI.hideAlert(el("districtImportAlert"));
+    }
+  }
+
+  function resetImport() {
+    state.importFiles = [];
+    state.importBatch = null;
+    state.importUploading = false;
+    state.importSequence += 1;
+    var input = el("districtImportInput");
+    if (input) {
+      input.value = "";
+    }
+    window.UI.hideAlert(el("districtImportAlert"));
+    window.UI.setButtonLoading(el("districtImportPreviewButton"), false);
+    window.UI.setButtonLoading(el("districtImportConfirmButton"), false);
+    el("districtImportPreviewButton").disabled = true;
+    el("districtImportConfirmButton").disabled = false;
+    var confirmLabel = el("districtImportConfirmButton").querySelector("span");
+    if (confirmLabel) {
+      confirmLabel.textContent = "Confirm import";
+    }
+    el("districtImportResult").innerHTML = "";
+    showImportProgress(false);
+    setImportProgress(0, "Uploading…");
+    renderImportFiles();
+    setImportStep("select");
+  }
+
+  function openImportModal() {
+    if (!canImportDistricts()) {
+      return;
+    }
+    resetImport();
+    state.importModal.show();
+  }
+
+  function parseXhrPayload(xhr) {
+    try {
+      return JSON.parse(xhr.responseText || "{}");
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function sendImportFiles(formData, onProgress) {
+    return API.ensureCsrfToken().then(function (token) {
+      return new Promise(function (resolve, reject) {
+        var retried = false;
+
+        function send(csrfToken) {
+          var xhr = new XMLHttpRequest();
+          xhr.open("POST", "/api/districts/imports/preview", true);
+          xhr.withCredentials = true;
+          xhr.timeout = 120000;
+          xhr.setRequestHeader("Accept", "application/json");
+          xhr.setRequestHeader("X-CSRF-Token", csrfToken);
+
+          xhr.upload.onprogress = function (event) {
+            if (event.lengthComputable) {
+              onProgress(Math.round((event.loaded / event.total) * 100));
+            }
+          };
+          xhr.upload.onload = function () {
+            onProgress(100, "Validating on the server…");
+          };
+          xhr.onload = function () {
+            var payload = parseXhrPayload(xhr);
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(payload);
+              return;
+            }
+            if (xhr.status === 403 && payload.code === "CSRF_INVALID" && !retried) {
+              retried = true;
+              API.ensureCsrfToken(true).then(send).catch(reject);
+              return;
+            }
+            reject(
+              API.ApiError(
+                payload.error || "The files could not be validated.",
+                xhr.status,
+                payload.code || "IMPORT_FAILED",
+                payload.details
+              )
+            );
+          };
+          xhr.onerror = function () {
+            reject(API.ApiError("The upload could not reach the server.", 0, "NETWORK_ERROR"));
+          };
+          xhr.ontimeout = function () {
+            reject(API.ApiError("The upload timed out. Try a smaller file.", 0, "UPLOAD_TIMEOUT"));
+          };
+          xhr.send(formData);
+        }
+
+        send(token);
+      });
+    });
+  }
+
+  function renderImportPreview(batch) {
+    state.importBatch = batch;
+    var summary = batch.summary || {};
+    var previewButton = el("districtImportPreviewButton");
+    var confirmButton = el("districtImportConfirmButton");
+
+    el("districtImportSummary").innerHTML = [
+      { label: "Files", value: summary.files || 0, tone: "" },
+      { label: "Detected", value: summary.recordsDetected || 0, tone: "" },
+      { label: "Valid", value: summary.validRecords || 0, tone: "good" },
+      { label: "Duplicates", value: summary.duplicates || 0, tone: "warn" },
+      { label: "Rejected", value: summary.rejected || 0, tone: "bad" }
+    ].map(function (item) {
+      return (
+        '<div class="import-summary__item' + (item.tone ? " import-summary__item--" + item.tone : "") + '">' +
+          '<span class="import-summary__label">' + window.UI.escapeHtml(item.label) + "</span>" +
+          '<span class="import-summary__value">' + window.UI.number(item.value) + "</span>" +
+        "</div>"
+      );
+    }).join("");
+
+    el("districtImportFileResults").innerHTML = (batch.files || []).map(function (file) {
+      return (
+        '<div class="import-file-result">' +
+          '<span class="import-file-result__name">' +
+            '<i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> ' +
+            window.UI.escapeHtml(file.name) + "</span>" +
+          fileStatusBadge(file.status) +
+          '<span>' + window.UI.escapeHtml(formatFileSize(file.size)) + "</span>" +
+          '<span class="import-block__meta">' + window.UI.number(file.detected) + " detected · " +
+            window.UI.number(file.valid) + " valid · " + window.UI.number(file.duplicates) + " duplicate · " +
+            window.UI.number(file.rejected) + " rejected</span>" +
+          (file.error ? '<p class="import-file-result__error"><i class="bi bi-exclamation-circle" aria-hidden="true"></i> ' +
+            window.UI.escapeHtml(file.error) + "</p>" : "") +
+        "</div>"
+      );
+    }).join("");
+
+    var rows = batch.preview || [];
+    el("districtImportPreviewBody").innerHTML = rows.length
+      ? rows.map(function (row) {
+          return (
+            "<tr>" +
+              "<td><strong>" + window.UI.escapeHtml(row.name) + "</strong>" +
+                (row.address ? '<div class="cell-muted">' + window.UI.escapeHtml(row.address) + "</div>" : "") +
+              "</td>" +
+              "<td>" + window.UI.escapeHtml(row.code) + "</td>" +
+              "<td>" + window.UI.escapeHtml((row.psds || []).join(" · ")) + "</td>" +
+              '<td class="cell-muted">' + window.UI.escapeHtml(row.file) + " · row " + window.UI.number(row.row) + "</td>" +
+            "</tr>"
+          );
+        }).join("")
+      : '<tr class="empty-row"><td colspan="4">No records are ready to import.</td></tr>';
+    setText(
+      "districtImportPreviewMeta",
+      rows.length
+        ? "Showing " + rows.length + " of " + window.UI.number(summary.validRecords) + " valid record(s)"
+        : "Nothing will be written"
+    );
+
+    var issues = batch.issues || [];
+    el("districtImportIssuesBody").innerHTML = issues.map(function (item) {
+      var badge = item.type === "duplicate"
+        ? '<span class="status-badge status-badge--warning">Duplicate</span>'
+        : '<span class="status-badge status-badge--danger">Rejected</span>';
+      var where = [item.sheet, item.row ? "row " + item.row : ""].filter(Boolean).join(" · ");
+      return (
+        "<tr>" +
+          "<td>" + badge + "</td>" +
+          "<td>" + window.UI.escapeHtml(item.file) + "</td>" +
+          "<td>" + window.UI.escapeHtml(where || "—") + "</td>" +
+          "<td>" + window.UI.escapeHtml(item.column || "—") + "</td>" +
+          "<td>" + window.UI.escapeHtml(item.reason) + "</td>" +
+        "</tr>"
+      );
+    }).join("") || '<tr class="empty-row"><td colspan="5">No rejected or duplicate records.</td></tr>';
+    setText(
+      "districtImportIssuesMeta",
+      issues.length
+        ? "Showing " + Math.min(issues.length, 200) + " of " + window.UI.number(batch.issueCount || issues.length)
+        : "Nothing rejected"
+    );
+    el("districtImportIssuesBlock").classList.toggle("d-none", !issues.length);
+    el("districtImportReportButton").disabled = false;
+
+    setText(
+      "districtImportExpiry",
+      "Preview expires " + formatDateTime(batch.expiresAt) +
+        ". Records are written only after you confirm, and the server revalidates every row."
+    );
+
+    var valid = Number(summary.validRecords) || 0;
+    confirmButton.disabled = valid < 1;
+    var confirmLabel = confirmButton.querySelector("span");
+    if (confirmLabel) {
+      confirmLabel.textContent = valid > 0 ? "Confirm import (" + valid + ")" : "Nothing to import";
+    }
+    previewButton.disabled = true;
+    setImportStep("review");
+  }
+
+  function renderImportResult(result) {
+    var summary = result.summary || {};
+    var imported = result.imported || [];
+    var tone = imported.length ? "success" : "warning";
+    var title = imported.length
+      ? imported.length + " district" + (imported.length === 1 ? "" : "s") + " imported"
+      : "No district was imported";
+    var copy = imported.length
+      ? "The validated records were saved in one transaction. The district directory has been refreshed."
+      : "Every row was a duplicate or was rejected. Review the report and correct the source file.";
+
+    el("districtImportResult").innerHTML =
+      '<div class="import-result__banner' + (tone === "warning" ? " import-result__banner--warning" : "") + '">' +
+        '<span class="import-result__icon"><i class="bi ' +
+          (tone === "warning" ? "bi-exclamation-triangle" : "bi-check2-circle") + '" aria-hidden="true"></i></span>' +
+        "<div>" +
+          '<p class="import-result__title">' + window.UI.escapeHtml(title) + "</p>" +
+          '<p class="import-result__copy">' + window.UI.escapeHtml(copy) + "</p>" +
+        "</div>" +
+      "</div>" +
+      '<div class="import-summary">' +
+        '<div class="import-summary__item import-summary__item--good"><span class="import-summary__label">Imported</span>' +
+          '<span class="import-summary__value">' + window.UI.number(imported.length) + "</span></div>" +
+        '<div class="import-summary__item"><span class="import-summary__label">Detected</span>' +
+          '<span class="import-summary__value">' + window.UI.number(summary.recordsDetected || 0) + "</span></div>" +
+        '<div class="import-summary__item import-summary__item--warn"><span class="import-summary__label">Duplicates</span>' +
+          '<span class="import-summary__value">' + window.UI.number(result.duplicates || 0) + "</span></div>" +
+        '<div class="import-summary__item import-summary__item--bad"><span class="import-summary__label">Rejected</span>' +
+          '<span class="import-summary__value">' + window.UI.number(result.rejected || 0) + "</span></div>" +
+        '<div class="import-summary__item"><span class="import-summary__label">Time</span>' +
+          '<span class="import-summary__value">' + window.UI.escapeHtml(formatDuration(summary.durationMs)) + "</span></div>" +
+      "</div>" +
+      (imported.length
+        ? '<div class="import-block"><div class="import-block__head"><h4>Imported districts</h4>' +
+          '<span class="import-block__meta">' + imported.length + " record(s)</span></div>" +
+          '<div class="table-responsive"><table class="app-table app-table--compact">' +
+          '<thead><tr><th scope="col">District</th><th scope="col">Code</th><th scope="col">ID</th></tr></thead><tbody>' +
+          imported.map(function (item) {
+            return "<tr><td><strong>" + window.UI.escapeHtml(item.name) + "</strong></td><td>" +
+              window.UI.escapeHtml(item.code) + "</td><td class=\"cell-muted\">#" + window.UI.number(item.id) + "</td></tr>";
+          }).join("") +
+          "</tbody></table></div></div>"
+        : "");
+
+    el("districtImportReportButton").classList.remove("d-none");
+    el("districtImportReportButton").disabled = false;
+    setImportStep("done");
+  }
+
+  function downloadFile(path, fallbackName) {
+    return fetch(path, {
+      method: "GET",
+      credentials: "same-origin",
+      headers: { Accept: "application/json" }
+    }).then(function (response) {
+      if (!response.ok) {
+        return response.json().catch(function () { return {}; }).then(function (payload) {
+          throw API.ApiError(
+            payload.error || "The file could not be downloaded.",
+            response.status,
+            payload.code || "DOWNLOAD_FAILED"
+          );
+        });
+      }
+      return response.blob();
+    }).then(function (blob) {
+      var url = window.URL.createObjectURL(blob);
+      var link = document.createElement("a");
+      link.href = url;
+      link.download = fallbackName;
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(function () { window.URL.revokeObjectURL(url); }, 2000);
+    });
+  }
+
+  function downloadTemplate() {
+    downloadFile("/api/districts/imports/template", "district-import-template.xlsx").catch(function (error) {
+      window.UI.showAlert(
+        el("districtImportAlert"),
+        "danger",
+        error.message || "The template could not be downloaded.",
+        "Download failed"
+      );
+    });
+  }
+
+  function downloadImportReport(importId, alertId) {
+    var target = importId || (state.importBatch && state.importBatch.importId);
+    if (!target) {
+      return;
+    }
+    downloadFile(
+      "/api/districts/imports/" + target + "/errors.xlsx",
+      "district-import-" + target + "-errors.xlsx"
+    ).catch(function (error) {
+      window.UI.showAlert(
+        el(alertId || "districtImportAlert"),
+        "danger",
+        error.message || "The error report could not be downloaded.",
+        "Download failed"
+      );
+    });
+  }
+
+  function uploadImportPreview() {
+    if (state.importUploading || !state.importFiles.length) {
+      return;
+    }
+    var sequence = ++state.importSequence;
+    state.importUploading = true;
+    state.importBatch = null;
+    window.UI.hideAlert(el("districtImportAlert"));
+    window.UI.setButtonLoading(el("districtImportPreviewButton"), true, "Validating…");
+    showImportProgress(true);
+    setImportProgress(0, "Uploading…");
+
+    var formData = new FormData();
+    state.importFiles.forEach(function (file) {
+      formData.append("files", file, file.name);
+    });
+
+    sendImportFiles(formData, function (percent, label) {
+      if (sequence === state.importSequence) {
+        setImportProgress(percent, label);
+      }
+    })
+      .then(function (payload) {
+        if (sequence !== state.importSequence) {
+          return;
+        }
+        state.importUploading = false;
+        window.UI.setButtonLoading(el("districtImportPreviewButton"), false);
+        showImportProgress(false);
+        renderImportPreview(payload.data);
+      })
+      .catch(function (error) {
+        if (sequence !== state.importSequence) {
+          return;
+        }
+        state.importUploading = false;
+        window.UI.setButtonLoading(el("districtImportPreviewButton"), false);
+        showImportProgress(false);
+        renderImportFiles();
+        window.UI.showAlert(
+          el("districtImportAlert"),
+          error.status === 413 ? "warning" : "danger",
+          error.message || "The files could not be validated.",
+          "Validation failed"
+        );
+      });
+  }
+
+  function confirmImport() {
+    var batch = state.importBatch;
+    if (!batch || !batch.summary || Number(batch.summary.validRecords) < 1) {
+      return;
+    }
+    window.UI.confirm({
+      title: "Import " + batch.summary.validRecords + " district record(s)?",
+      message: "This writes the server-validated records to PostgreSQL in one transaction. Duplicate codes are skipped and reported.",
+      confirmLabel: "Yes, import records"
+    }).then(function (confirmed) {
+      if (!confirmed) {
+        return;
+      }
+      var button = el("districtImportConfirmButton");
+      window.UI.setButtonLoading(button, true, "Importing…");
+      API.post("/districts/imports/" + batch.importId + "/commit", { token: batch.token })
+        .then(function (response) {
+          window.UI.setButtonLoading(button, false);
+          renderImportResult(response.data);
+          loadDistricts();
+          window.AppShell.refreshSchools();
+          window.UI.toast(
+            "District import complete",
+            response.data.imported.length + " district record(s) were saved.",
+            "success"
+          );
+        })
+        .catch(function (error) {
+          window.UI.setButtonLoading(button, false);
+          window.UI.showAlert(
+            el("districtImportAlert"),
+            "danger",
+            error.message || "The import could not be completed.",
+            error.code === "IMPORT_EXPIRED" ? "Preview expired" : "Import failed"
+          );
+          if (error.code === "IMPORT_EXPIRED") {
+            button.disabled = true;
+          }
+        });
+    });
+  }
+
+  function openImportHistory() {
+    if (!canImportDistricts()) {
+      return;
+    }
+    window.UI.hideAlert(el("districtImportHistoryAlert"));
+    state.importHistoryModal.show();
+    loadImportHistory();
+  }
+
+  function renderImportHistory(rows) {
+    var body = el("districtImportHistoryBody");
+    if (!rows.length) {
+      body.innerHTML = '<tr class="empty-row"><td colspan="5">No import batches have been recorded for this account.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(function (row) {
+      var summary = row.summary || {};
+      var imported = summary.imported === undefined ? summary.validRecords : summary.imported;
+      var counts = row.status === "previewed"
+        ? window.UI.number(summary.validRecords || 0) + " valid / " + window.UI.number(summary.recordsDetected || 0) + " detected"
+        : window.UI.number(imported || 0) + " imported / " + window.UI.number(summary.recordsDetected || 0) + " detected";
+      var files = (row.files || []).join(", ");
+      return (
+        '<tr class="import-history-row">' +
+          "<td><strong>#" + window.UI.number(row.id) + "</strong>" +
+            '<div class="cell-muted">' + window.UI.escapeHtml(formatDateTime(row.createdAt)) + "</div></td>" +
+          '<td><span title="' + window.UI.escapeHtml(files) + '">' +
+            window.UI.number((row.files || []).length) + " file(s)</span>" +
+            (files ? '<div class="cell-muted">' + window.UI.escapeHtml(files) + "</div>" : "") + "</td>" +
+          "<td>" + window.UI.escapeHtml(counts) +
+            '<div class="cell-muted">' + window.UI.number(summary.duplicates || 0) + " duplicate · " +
+            window.UI.number(summary.rejected || 0) + " rejected</div></td>" +
+          "<td>" + importStatusBadge(row.status) + "</td>" +
+          '<td class="text-right">' +
+            (row.issueCount
+              ? '<button type="button" class="btn btn-light btn-sm" data-import-report="' + row.id + '">' +
+                '<i class="bi bi-download" aria-hidden="true"></i> Report</button>'
+              : '<span class="cell-muted">No issues</span>') +
+          "</td>" +
+        "</tr>"
+      );
+    }).join("");
+  }
+
+  function loadImportHistory() {
+    var body = el("districtImportHistoryBody");
+    body.innerHTML = '<tr class="skeleton-row"><td colspan="5"><span class="skeleton skeleton-block"></span></td></tr>';
+    return API.get("/districts/imports", { limit: 20 })
+      .then(function (payload) {
+        renderImportHistory(payload.data || []);
+      })
+      .catch(function (error) {
+        body.innerHTML = '<tr class="empty-row"><td colspan="5">Import history could not be loaded.</td></tr>';
+        window.UI.showAlert(
+          el("districtImportHistoryAlert"),
+          "danger",
+          error.message || "Import history could not be loaded.",
+          "Unable to load history"
+        );
+      });
+  }
+
+  function bindImport() {
+    var importButton = el("bulkUploadDistricts");
+    var historyButton = el("districtImportHistoryButton");
+    if (importButton) {
+      importButton.addEventListener("click", openImportModal);
+    }
+    if (historyButton) {
+      historyButton.addEventListener("click", openImportHistory);
+    }
+
+    var dropzone = el("districtDropzone");
+    var input = el("districtImportInput");
+    if (dropzone && input) {
+      dropzone.addEventListener("click", function () {
+        input.click();
+      });
+      dropzone.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          input.click();
+        }
+      });
+      ["dragenter", "dragover"].forEach(function (name) {
+        dropzone.addEventListener(name, function (event) {
+          event.preventDefault();
+          dropzone.classList.add("is-dragging");
+        });
+      });
+      ["dragleave", "dragend"].forEach(function (name) {
+        dropzone.addEventListener(name, function () {
+          dropzone.classList.remove("is-dragging");
+        });
+      });
+      dropzone.addEventListener("drop", function (event) {
+        event.preventDefault();
+        dropzone.classList.remove("is-dragging");
+        if (event.dataTransfer && event.dataTransfer.files) {
+          addImportFiles(event.dataTransfer.files);
+        }
+      });
+      input.addEventListener("change", function () {
+        addImportFiles(input.files);
+        input.value = "";
+      });
+    }
+
+    var fileList = el("districtImportFileList");
+    if (fileList) {
+      fileList.addEventListener("click", function (event) {
+        var remove = event.target.closest("[data-import-remove]");
+        if (!remove || state.importUploading) {
+          return;
+        }
+        var index = Number(remove.dataset.importRemove);
+        if (Number.isInteger(index) && index >= 0) {
+          state.importFiles.splice(index, 1);
+          renderImportFiles();
+        }
+      });
+    }
+
+    var templateButton = el("districtTemplateButton");
+    if (templateButton) {
+      templateButton.addEventListener("click", downloadTemplate);
+    }
+    var previewButton = el("districtImportPreviewButton");
+    if (previewButton) {
+      previewButton.addEventListener("click", uploadImportPreview);
+    }
+    var backButton = el("districtImportBackButton");
+    if (backButton) {
+      backButton.addEventListener("click", function () {
+        renderImportFiles();
+        setImportStep("select");
+      });
+    }
+    var confirmButton = el("districtImportConfirmButton");
+    if (confirmButton) {
+      confirmButton.addEventListener("click", confirmImport);
+    }
+    var reportButton = el("districtImportReportButton");
+    if (reportButton) {
+      reportButton.addEventListener("click", function () {
+        downloadImportReport(null, "districtImportAlert");
+      });
+    }
+
+    var importModal = el("districtImportModal");
+    if (importModal) {
+      importModal.addEventListener("hidden.bs.modal", resetImport);
+    }
+
+    var historyRefresh = el("districtImportHistoryRefresh");
+    if (historyRefresh) {
+      historyRefresh.addEventListener("click", function () {
+        window.UI.setButtonLoading(historyRefresh, true, "Refreshing…");
+        loadImportHistory().then(function () {
+          window.UI.setButtonLoading(historyRefresh, false);
+        });
+      });
+    }
+    var historyBody = el("districtImportHistoryBody");
+    if (historyBody) {
+      historyBody.addEventListener("click", function (event) {
+        var report = event.target.closest("[data-import-report]");
+        if (report) {
+          downloadImportReport(report.dataset.importReport, "districtImportHistoryAlert");
+        }
+      });
+    }
+  }
+
   function resetFilters() {
     state.search = "";
     el("districtSearch").value = "";
@@ -484,10 +1254,14 @@
     el("districtFormModal").addEventListener("hidden.bs.modal", function () {
       window.UI.setButtonLoading(el("districtSaveButton"), false);
     });
+
+    bindImport();
   }
 
   function init() {
     state.formModal = new window.bootstrap.Modal(el("districtFormModal"));
+    state.importModal = new window.bootstrap.Modal(el("districtImportModal"));
+    state.importHistoryModal = new window.bootstrap.Modal(el("districtImportHistoryModal"));
     window.AppShell.init({
       page: "districts",
       breadcrumbs: ["Districts"],
@@ -498,6 +1272,14 @@
       }
       state.session = session;
       bind();
+      if (!canImportDistricts()) {
+        ["bulkUploadDistricts", "districtImportHistoryButton"].forEach(function (id) {
+          var node = el(id);
+          if (node) {
+            node.classList.add("d-none");
+          }
+        });
+      }
       loadDistricts();
       var footer = el("footerUpdated");
       if (footer) {

@@ -2,16 +2,55 @@
 
 const express = require("express");
 const learnerController = require("../controllers/learnerController");
+const importController = require("../controllers/learnerImportController");
 const { requireAuth } = require("../middleware/authMiddleware");
 const { requireModule } = require("../middleware/permissionMiddleware");
 const { documentUpload } = require("../middleware/documentUpload");
+const { createSpreadsheetImportUpload } = require("../middleware/spreadsheetImportUpload");
+const { learnerImportLimiter } = require("../middleware/rateLimiters");
 const { asyncHandler } = require("../utils/asyncHandler");
 
 const router = express.Router();
 
+const importUpload = createSpreadsheetImportUpload({
+  action: "learner.import_rejected",
+  entityType: "learner_import"
+});
+
 router.use(requireAuth, requireModule("learners"));
 
 router.get("/summary", asyncHandler(learnerController.summary));
+
+// Bulk learner import, profiles only. Declared before /:id so literal paths
+// are never read as learner identifiers.
+router.get(
+  "/imports/template",
+  requireModule("learners", "add"),
+  asyncHandler(importController.template)
+);
+router.get(
+  "/imports",
+  requireModule("learners", "add"),
+  asyncHandler(importController.history)
+);
+router.post(
+  "/imports/preview",
+  requireModule("learners", "add"),
+  learnerImportLimiter,
+  importUpload,
+  asyncHandler(importController.preview)
+);
+router.get(
+  "/imports/:id/errors.xlsx",
+  requireModule("learners", "add"),
+  asyncHandler(importController.errorReport)
+);
+router.post(
+  "/imports/:id/commit",
+  requireModule("learners", "add"),
+  asyncHandler(importController.commit)
+);
+
 router.get("/", asyncHandler(learnerController.list));
 router.post("/", requireModule("learners", "add"), asyncHandler(learnerController.create));
 

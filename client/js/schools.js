@@ -519,6 +519,18 @@
       state.districtId = readDistrictFromUrl();
       populateDistricts();
       setupTable();
+      if (window.SchoolImport) {
+        window.SchoolImport.init({
+          session: session,
+          onImported: function () {
+            if (state.table) {
+              state.table.afterChange();
+            } else {
+              refreshData();
+            }
+          }
+        });
+      }
       refreshData();
       openSchoolFromUrl();
       document.addEventListener("sdms:schoolsearch", function (event) {

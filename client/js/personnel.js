@@ -653,6 +653,112 @@
     });
   }
 
+  var staffImport = window.SpreadsheetImport.create({
+    prefix: "staffImport",
+    triggerId: "bulkUploadPersonnel",
+    historyTriggerId: "staffImportHistoryButton",
+    endpoints: {
+      preview: "/api/personnel/imports/preview",
+      history: "/personnel/imports",
+      template: "/api/personnel/imports/template",
+      commit: function (id) {
+        return "/personnel/imports/" + id + "/commit";
+      },
+      report: function (id) {
+        return "/api/personnel/imports/" + id + "/errors.xlsx";
+      }
+    },
+    templateName: "staff-import-template.xlsx",
+    canImport: function (session) {
+      var role = session.user && session.user.role;
+      var modules = (session.permissions && session.permissions.modules) || {};
+      return (
+        (role === "system_admin" || role === "district_admin") &&
+        Boolean(modules.personnel && modules.personnel.add) &&
+        Boolean(modules.users && modules.users.add)
+      );
+    },
+    previewColumns: [
+      {
+        label: "Personnel",
+        render: function (row) {
+          return (
+            "<strong>" + F.esc(row.fullName) + "</strong>" +
+            '<div class="cell-muted">' +
+            F.esc([row.employeeNo, row.position].filter(Boolean).join(" · ")) +
+            "</div>"
+          );
+        }
+      },
+      {
+        label: "Type",
+        render: function (row) {
+          return F.esc(row.roleLabel || row.personnelType);
+        }
+      },
+      {
+        label: "School",
+        render: function (row) {
+          return F.esc(row.school) +
+            '<div class="cell-muted">' + F.esc(row.schoolCode) + "</div>";
+        }
+      },
+      {
+        label: "Username",
+        render: function (row) {
+          return F.esc(row.username || "—") +
+            '<div class="cell-muted">' + F.esc(row.email) + "</div>";
+        }
+      },
+      {
+        label: "Source",
+        render: function (row) {
+          return '<span class="cell-muted">' + F.esc(row.file) + " · row " + window.UI.number(row.row) + "</span>";
+        }
+      }
+    ],
+    previewEmpty: "No staff records are ready to import.",
+    resultNoun: "staff account",
+    resultHeading: "Imported staff",
+    resultSuccessCopy:
+      "The validated personnel profiles and login accounts were saved in one transaction. Accounts stay inactive for sign-in until each person sets a password from their one-time link.",
+    resultWarningCopy:
+      "Every row was a duplicate or was rejected. Review the report and correct the source file.",
+    resultColumns: [
+      {
+        label: "Staff",
+        render: function (item) {
+          return "<strong>" + F.esc(item.fullName) + "</strong>" +
+            '<div class="cell-muted">' + F.esc(item.employeeNo) + "</div>";
+        }
+      },
+      {
+        label: "Account",
+        render: function (item) {
+          return F.esc(item.username) +
+            '<div class="cell-muted">' + F.esc(item.email || "—") + "</div>";
+        }
+      },
+      {
+        label: "Type",
+        render: function (item) {
+          return F.esc(item.roleLabel);
+        }
+      },
+      {
+        label: "School",
+        render: function (item) {
+          return F.esc(item.school) +
+            '<div class="cell-muted">' + F.esc(item.schoolCode) + "</div>";
+        }
+      }
+    ],
+    credentials: true,
+    confirmMessage:
+      "This creates one personnel profile and one login account per valid row in a single transaction. Duplicate employee numbers, emails, and usernames are skipped and reported.",
+    toastTitle: "Staff import complete"
+  });
+
   function init() {
     AppShell.init({
       page: "personnel",
@@ -663,6 +769,12 @@
         return;
       }
       wire();
+      staffImport.init(session, {
+        onImported: function () {
+          summary();
+          loadPersonnel();
+        }
+      });
       el("newPersonnelButton").classList.toggle("d-none", !canManage());
       F.schoolFilter("personnelSchoolControl", "personnelSchoolFilter", L.schoolId() || "");
       return loadYears()

@@ -45,6 +45,42 @@ const photoUploadLimiter = rateLimit({
   handler: handler("Too many photo uploads. Please try again later.")
 });
 
+const districtImportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  skip: () => process.env.NODE_ENV === "test",
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  handler: handler("Too many district import attempts. Please wait a few minutes and try again.")
+});
+
+const schoolImportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  skip: () => process.env.NODE_ENV === "test",
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  handler: handler("Too many school import attempts. Please wait a few minutes and try again.")
+});
+
+const personnelImportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  skip: () => process.env.NODE_ENV === "test",
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  handler: handler("Too many staff import attempts. Please wait a few minutes and try again.")
+});
+
+const learnerImportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  skip: () => process.env.NODE_ENV === "test",
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  handler: handler("Too many learner import attempts. Please wait a few minutes and try again.")
+});
+
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 600,
@@ -58,5 +94,9 @@ module.exports = {
   passwordResetLimiter,
   registrationLimiter,
   photoUploadLimiter,
+  districtImportLimiter,
+  schoolImportLimiter,
+  personnelImportLimiter,
+  learnerImportLimiter,
   apiLimiter
 };

@@ -405,6 +405,103 @@
     });
   }
 
+  var learnerImport = window.SpreadsheetImport.create({
+    prefix: "learnerImport",
+    triggerId: "bulkUploadLearners",
+    historyTriggerId: "learnerImportHistoryButton",
+    endpoints: {
+      preview: "/api/learners/imports/preview",
+      history: "/learners/imports",
+      template: "/api/learners/imports/template",
+      commit: function (id) {
+        return "/learners/imports/" + id + "/commit";
+      },
+      report: function (id) {
+        return "/api/learners/imports/" + id + "/errors.xlsx";
+      }
+    },
+    templateName: "learner-import-template.xlsx",
+    canImport: function () {
+      return Boolean(window.LearnerUI.permission("canManageLearners"));
+    },
+    previewColumns: [
+      {
+        label: "Learner",
+        render: function (row) {
+          return (
+            "<strong>" + window.UI.escapeHtml(row.fullName) + "</strong>" +
+            '<div class="cell-muted">Born ' + window.UI.escapeHtml(row.birthDate) + "</div>"
+          );
+        }
+      },
+      {
+        label: "LRN",
+        render: function (row) {
+          return window.UI.escapeHtml(row.lrn);
+        }
+      },
+      {
+        label: "Sex",
+        render: function (row) {
+          return window.UI.escapeHtml(window.UI.titleCase(row.sex || ""));
+        }
+      },
+      {
+        label: "School",
+        render: function (row) {
+          return window.UI.escapeHtml(row.school) +
+            '<div class="cell-muted">' + window.UI.escapeHtml(row.schoolCode) + "</div>";
+        }
+      },
+      {
+        label: "Source",
+        render: function (row) {
+          return '<span class="cell-muted">' + window.UI.escapeHtml(row.file) +
+            " · row " + window.UI.number(row.row) + "</span>";
+        }
+      }
+    ],
+    previewEmpty: "No learner profiles are ready to import.",
+    resultNoun: "learner profile",
+    resultHeading: "Imported learners",
+    resultSuccessCopy:
+      "The validated learner profiles were saved in one transaction. No enrollment, guardian, grade, attendance, or health record was created; add those from the learner record after import.",
+    resultWarningCopy:
+      "Every row was a duplicate or was rejected. Review the report and correct the source file.",
+    resultColumns: [
+      {
+        label: "LRN",
+        render: function (item) {
+          return window.UI.escapeHtml(item.lrn);
+        }
+      },
+      {
+        label: "Learner",
+        render: function (item) {
+          return "<strong>" + window.UI.escapeHtml(item.fullName) + "</strong>" +
+            '<div class="cell-muted">Born ' + window.UI.escapeHtml(item.birthDate) + "</div>";
+        }
+      },
+      {
+        label: "School",
+        render: function (item) {
+          return window.UI.escapeHtml(item.school) +
+            '<div class="cell-muted">' + window.UI.escapeHtml(item.schoolCode) + "</div>";
+        }
+      },
+      {
+        label: "Record ID",
+        render: function (item) {
+          return '<span class="cell-muted">#' + window.UI.number(item.id) + "</span>";
+        }
+      }
+    ],
+    credentials: false,
+    confirmMessage:
+      "This writes the server-validated learner profiles in one transaction. Existing LRNs are skipped and reported. No enrollment, guardian, grade, or health record is created.",
+    toastTitle: "Learner import complete"
+  });
+
   function init() {
     window.AppShell.init({
       page: "learners",
@@ -418,6 +515,11 @@
         el("newLearnerButton").classList.remove("d-none");
         el("newLearnerButton").addEventListener("click", openCreate);
       }
+      learnerImport.init(session, {
+        onImported: function () {
+          refreshAll();
+        }
+      });
       var searchParam = new URLSearchParams(window.location.search).get("search");
       if (searchParam) {
         state.search = searchParam;

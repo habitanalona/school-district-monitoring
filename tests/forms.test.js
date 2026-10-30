@@ -67,14 +67,16 @@ function messages(validation, key) {
 }
 
 before(async () => {
+  // Anchor the fixture to the seeded school head's school. Picking the first
+  // school in the database is unreliable on a development database that also
+  // contains newly added schools without enrollments yet.
   const school = await pool.query(
-    `SELECT s.id
-     FROM schools s
-     JOIN sections sec ON sec.school_id = s.id
-     ORDER BY s.id, sec.id
+    `SELECT u.school_id AS id
+     FROM users u
+     WHERE u.username = 'northhead' AND u.school_id IS NOT NULL
      LIMIT 1`
   );
-  assert.ok(school.rows[0], "the database must be seeded before running tests (npm run db:init)");
+  assert.ok(school.rows[0], "the demo school head account must be seeded (npm run db:init)");
   schoolId = Number(school.rows[0].id);
 
   const year = await pool.query(`SELECT id FROM school_years WHERE is_current ORDER BY id LIMIT 1`);

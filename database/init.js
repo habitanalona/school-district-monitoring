@@ -32,6 +32,48 @@ async function main() {
     console.log("Applying Class Record and SF 9 workflow schema...");
     await client.query(classRecordSchema);
 
+    const districtImportSchema = fs.readFileSync(
+      path.join(__dirname, "schema-districts.sql"),
+      "utf8"
+    );
+    console.log("Applying secure district import schema...");
+    await client.query(districtImportSchema);
+
+    const schoolImportSchema = fs.readFileSync(
+      path.join(__dirname, "schema-school-imports.sql"),
+      "utf8"
+    );
+    console.log("Applying secure school import schema...");
+    await client.query(schoolImportSchema);
+
+    const personnelImportSchema = fs.readFileSync(
+      path.join(__dirname, "schema-personnel-imports.sql"),
+      "utf8"
+    );
+    console.log("Applying secure staff import schema...");
+    await client.query(personnelImportSchema);
+
+    const learnerImportSchema = fs.readFileSync(
+      path.join(__dirname, "schema-learner-imports.sql"),
+      "utf8"
+    );
+    console.log("Applying secure learner import schema...");
+    await client.query(learnerImportSchema);
+
+    const gradeLevelOptionsSchema = fs.readFileSync(
+      path.join(__dirname, "schema-grade-level-options.sql"),
+      "utf8"
+    );
+    console.log("Applying administrator-managed grade level options...");
+    await client.query(gradeLevelOptionsSchema);
+
+    const subjectOptionsSchema = fs.readFileSync(
+      path.join(__dirname, "schema-subject-options.sql"),
+      "utf8"
+    );
+    console.log("Applying administrator-managed subject options...");
+    await client.query(subjectOptionsSchema);
+
     const seed = fs.readFileSync(path.join(__dirname, "seed.sql"), "utf8");
     console.log("Loading demonstration data...");
     await client.query(seed);

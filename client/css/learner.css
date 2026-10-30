@@ -151,6 +151,14 @@
   display: none !important;
 }
 
+/* Administrator catalogue shown above the school's own records. */
+.general-catalog {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid rgba(10, 35, 66, 0.12);
+}
+
+
 .panel-heading {
   display: flex;
   align-items: flex-start;

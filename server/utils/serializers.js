@@ -372,6 +372,36 @@ function serializeGradeLevel(row) {
   };
 }
 
+function serializeGradeLevelOption(row) {
+  if (!row) {
+    return null;
+  }
+  return {
+    id: Number(row.id),
+    name: row.name,
+    sortOrder: Number(row.sort_order || 0),
+    isActive: Boolean(row.is_active),
+    usageCount: countOrNull(row.usage_count),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function serializeSubjectOption(row) {
+  if (!row) {
+    return null;
+  }
+  return {
+    id: Number(row.id),
+    name: row.name,
+    sortOrder: Number(row.sort_order || 0),
+    isActive: Boolean(row.is_active),
+    usageCount: countOrNull(row.usage_count),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
 function serializeSection(row) {
   if (!row) {
     return null;
@@ -546,8 +576,10 @@ module.exports = {
   serializeEnrollment,
   serializeSchoolYear,
   serializeGradeLevel,
+  serializeGradeLevelOption,
   serializeSection,
   serializeSubject,
+  serializeSubjectOption,
   serializeTeacherAssignment,
   serializeClassSchedule,
   serializeActivity,

@@ -11,6 +11,7 @@
     subjectGradeId: "",
     subjectSearch: "",
     subjects: [],
+    subjectOptions: [],
     assignmentYearId: "",
     assignmentSectionId: "",
     assignmentTeacherId: "",
@@ -21,6 +22,7 @@
     timetableSectionId: "",
     timetable: null
   };
+  var formCounter = 0;
 
   function el(id) {
     return document.getElementById(id);
@@ -28,6 +30,74 @@
 
   function canManage() {
     return Boolean(state.session && state.session.permissions.canManageAcademics);
+  }
+
+  function canManageOptions() {
+    return Boolean(state.session && state.session.user.role === "system_admin");
+  }
+
+  // Dynamic dialogs are removed after closing so a repeated open cannot
+  // leave duplicate form IDs behind in this Bootstrap build.
+  function ensureModalRemoval(dialog, onHidden) {
+    var element = dialog.element;
+    var scheduled = false;
+    var wasVisible = false;
+
+    function remove() {
+      if (scheduled) {
+        return;
+      }
+      scheduled = true;
+      window.setTimeout(function () {
+        if (element.parentNode) {
+          element.parentNode.removeChild(element);
+        }
+        if (typeof onHidden === "function") {
+          onHidden();
+        }
+      }, 350);
+    }
+
+    function isHidden() {
+      return (
+        element.getAttribute("aria-hidden") === "true" ||
+        window.getComputedStyle(element).display === "none"
+      );
+    }
+
+    element.addEventListener("hidden.bs.modal", remove);
+
+    if (typeof window.MutationObserver !== "function") {
+      return;
+    }
+
+    window.setTimeout(function () {
+      if (!element.parentNode) {
+        return;
+      }
+      if (!isHidden()) {
+        wasVisible = true;
+      }
+      var observer = new window.MutationObserver(function () {
+        if (!isHidden()) {
+          wasVisible = true;
+          return;
+        }
+        if (wasVisible) {
+          observer.disconnect();
+          remove();
+        }
+      });
+      observer.observe(element, {
+        attributes: true,
+        attributeFilter: ["aria-hidden", "class", "style"]
+      });
+    }, 0);
+  }
+
+  function nextFormKey(prefix) {
+    formCounter += 1;
+    return prefix + String(formCounter);
   }
 
   function fixedSchool() {
@@ -40,6 +110,127 @@
       section.name +
       (section.schoolName && !fixedSchool() ? " (" + section.schoolName + ")" : "")
     );
+  }
+
+  /* Subject options (system administrator catalog) ------------------------- */
+
+  function activeSubjectOptions() {
+    return state.subjectOptions.filter(function (option) {
+      return option.isActive;
+    });
+  }
+
+  function findSubjectOption(id) {
+    return state.subjectOptions.find(function (option) {
+      return String(option.id) === String(id);
+    });
+  }
+
+  function loadSubjectOptions(includeInactive) {
+    return L.apiGet(
+      "/academic/subject-options",
+      includeInactive ? { includeInactive: true } : undefined
+    ).then(function (list) {
+      state.subjectOptions = list || [];
+      return state.subjectOptions;
+    });
+  }
+
+  function ensureSubjectOptions() {
+    if (state.subjectOptions.length) {
+      return Promise.resolve(state.subjectOptions);
+    }
+    return loadSubjectOptions(false);
+  }
+
+  function visibleSubjectOptions() {
+    var query = state.subjectSearch.trim().toLowerCase();
+    if (!query) {
+      return state.subjectOptions;
+    }
+    return state.subjectOptions.filter(function (option) {
+      return String(option.name).toLowerCase().indexOf(query) !== -1;
+    });
+  }
+
+  function nextSubjectOptionOrder() {
+    if (!state.subjectOptions.length) {
+      return 0;
+    }
+    return Math.min(
+      100,
+      state.subjectOptions.reduce(function (max, option) {
+        return Math.max(max, Number(option.sortOrder) || 0);
+      }, 0) + 1
+    );
+  }
+
+  function suggestSubjectCode(name) {
+    return String(name || "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 32);
+  }
+
+  function renderGeneralSubjects() {
+    if (!canManageOptions()) {
+      return;
+    }
+    var body = el("generalSubjectTableBody");
+    if (!body) {
+      return;
+    }
+    var rows = visibleSubjectOptions();
+    if (!rows.length) {
+      body.innerHTML =
+        '<tr><td colspan="4" class="empty-cell">' +
+        (state.subjectSearch
+          ? "No general subject matches your search."
+          : "No general subjects yet. Use New subject to add the first one.") +
+        "</td></tr>";
+    } else {
+      body.innerHTML = rows
+        .map(function (option) {
+          return (
+            "<tr><td><strong>" +
+            L.esc(option.name) +
+            '</strong></td><td class="text-right">' +
+            option.sortOrder +
+            '</td><td class="text-right">' +
+            window.UI.number(option.usageCount) +
+            "</td><td>" +
+            window.UI.pillarBadge(
+              option.isActive ? "Active" : "Inactive",
+              option.isActive ? "success" : "neutral"
+            ) +
+            "</td></tr>"
+          );
+        })
+        .join("");
+    }
+    el("generalSubjectMeta").textContent =
+      rows.length +
+      " general subject" +
+      (rows.length === 1 ? "" : "s") +
+      (state.subjectSearch ? " matching your search" : " in the catalogue");
+  }
+
+  function refreshGeneralSubjects() {
+    return loadSubjectOptions(true)
+      .then(function () {
+        renderGeneralSubjects();
+      })
+      .catch(function (error) {
+        if (error.status === 401) {
+          return;
+        }
+        el("generalSubjectTableBody").innerHTML =
+          '<tr><td colspan="4" class="empty-cell">' +
+          L.esc(L.friendlyError(error)) +
+          "</td></tr>";
+        el("generalSubjectMeta").textContent = "General subjects could not be loaded.";
+      });
   }
 
   /* Tabs ------------------------------------------------------------------ */
@@ -172,99 +363,201 @@
     });
   }
 
-  function subjectModal(subject) {
-    var editing = Boolean(subject);
-    var data = subject || {};
-    var dialog = L.modal({
-      title: editing ? "Edit subject" : "New subject",
-      eyebrow: "Subject catalog",
-      body:
-        '<form id="subjectForm" novalidate>' +
-        '<div id="subjectFormAlert" class="d-none mb-3" role="alert"></div>' +
-        (editing
-          ? '<div class="form-group"><label>School</label><input class="form-control" value="' +
-            L.esc(data.schoolName || "") +
-            '" readonly></div>'
-          : L.schoolFieldHtml(state.schoolId)) +
-        '<div class="form-row">' +
-        '<div class="col-sm-4"><div class="form-group"><label for="subjectCode">Subject code <span class="required-mark">*</span></label>' +
-        '<input class="form-control text-uppercase" id="subjectCode" name="code" required maxlength="32" placeholder="MATH7" value="' +
-        L.esc(data.code || "") +
-        '"><span class="field-hint">Letters, numbers, dots, underscores, hyphens.</span><span class="field-error"></span></div></div>' +
-        '<div class="col-sm-8"><div class="form-group"><label for="subjectName">Subject name <span class="required-mark">*</span></label>' +
-        '<input class="form-control" id="subjectName" name="name" required maxlength="160" placeholder="Mathematics 7" value="' +
-        L.esc(data.name || "") +
-        '"><span class="field-error"></span></div></div>' +
-        '<div class="col-sm-6"><div class="form-group"><label for="subjectGrade">Grade level</label>' +
-        '<select class="custom-select" id="subjectGrade" name="gradeLevelId"><option value="">All grade levels</option></select>' +
-        '<span class="field-hint">Leave blank if the subject applies to several grades.</span><span class="field-error"></span></div></div>' +
-        "</div></form>",
-      footer:
-        '<button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>' +
-        '<button type="submit" form="subjectForm" class="btn btn-primary" id="saveSubjectButton">' +
-        (editing ? "Save subject" : "Create subject") +
-        "</button>"
-    });
-    var form = dialog.element.querySelector("#subjectForm");
-    var button = dialog.element.querySelector("#saveSubjectButton");
-    var alertBox = dialog.element.querySelector("#subjectFormAlert");
-    var schoolSelect = form.querySelector("[data-school-select]");
-    var gradeSelect = form.querySelector("#subjectGrade");
-
-    if (schoolSelect) {
-      L.fillSchoolSelect(schoolSelect, state.schoolId);
+  // Builds the administrator-managed subject dropdown. A legacy subject name
+  // (predating the catalog or whose option was deactivated) stays selectable
+  // and is marked "(current)" so an ordinary edit never forces a rename.
+  function subjectNameFieldHtml(currentName, selectedName, selectId) {
+    var id = selectId || "subjectName";
+    var list = activeSubjectOptions().slice();
+    if (
+      currentName &&
+      !list.some(function (option) {
+        return String(option.name).toLowerCase() === String(currentName).toLowerCase();
+      })
+    ) {
+      list.unshift({ name: currentName, legacy: true });
     }
-    function loadGrades() {
-      var school = schoolSelect ? schoolSelect.value : String(data.schoolId || fixedSchool());
-      if (!school) {
-        gradeSelect.innerHTML = '<option value="">Select a school first</option>';
-        return;
-      }
-      L.grades(school).then(function (grades) {
-        gradeSelect.innerHTML = L.gradeOptions(grades, data.gradeLevelId, "All grade levels");
-      });
-    }
-    if (schoolSelect) {
-      schoolSelect.addEventListener("change", loadGrades);
-    }
-    loadGrades();
-
-    form.addEventListener("submit", function (event) {
-      event.preventDefault();
-      var values = L.formValues(form);
-      values.code = values.code.trim().toUpperCase();
-      values.name = values.name.trim();
-      if (!values.code || !values.name) {
-        window.UI.showAlert(alertBox, "warning", "Enter the subject code and name.", "Missing details");
-        return;
-      }
-      if (!editing && !values.schoolId) {
-        window.UI.fieldError(form.querySelector("[name=schoolId]"), "Choose the school for this subject.");
-        return;
-      }
-      var payload = {
-        schoolId: values.schoolId,
-        code: values.code,
-        name: values.name,
-        gradeLevelId: values.gradeLevelId || null
-      };
-      L.submit(
-        form,
-        button,
-        alertBox,
-        function () {
-          return editing
-            ? API.put("/academic/subjects/" + subject.id, payload)
-            : API.post("/academic/subjects", payload);
-        },
-        function () {
-          dialog.close();
-          L.clearCache();
-          window.UI.toast(editing ? "Subject updated" : "Subject created", values.code + " · " + values.name, "success");
-          loadSubjects();
-        }
+    if (!list.length) {
+      return (
+        '<select class="custom-select" id="' +
+        id +
+        '" name="name" disabled>' +
+        '<option value="">No options available</option></select>' +
+        '<span class="field-hint">The system administrator has not prepared any subject options yet.</span>'
       );
+    }
+    var html =
+      '<select class="custom-select" id="' +
+      id +
+      '" name="name" required>' +
+      '<option value="">Select subject</option>';
+    list.forEach(function (option) {
+      html +=
+        '<option value="' +
+        L.esc(option.name) +
+        '"' +
+        (String(option.name).toLowerCase() === String(selectedName).toLowerCase()
+          ? " selected"
+          : "") +
+        ">" +
+        L.esc(option.name) +
+        (option.legacy ? " (current)" : "") +
+        "</option>";
     });
+    return (
+      html +
+      '</select><span class="field-hint">Options are maintained by the system administrator.</span>'
+    );
+  }
+
+  function subjectModal(subject) {
+    ensureSubjectOptions()
+      .catch(function () {
+        return state.subjectOptions;
+      })
+      .then(function () {
+        var editing = Boolean(subject);
+        var data = subject || {};
+        var selectedName = editing ? data.name : "";
+        var available = activeSubjectOptions();
+        var formId = nextFormKey("subjectForm");
+        var alertId = nextFormKey("subjectFormAlert");
+        var codeId = nextFormKey("subjectCode");
+        var nameId = nextFormKey("subjectName");
+        var gradeId = nextFormKey("subjectGrade");
+        var buttonId = nextFormKey("saveSubjectButton");
+        var dialog = L.modal({
+          title: editing ? "Edit subject" : "New subject",
+          eyebrow: "Subject catalog",
+          body:
+            '<form id="' +
+            formId +
+            '" novalidate>' +
+            '<div id="' +
+            alertId +
+            '" class="d-none mb-3" role="alert"></div>' +
+            (editing
+              ? '<div class="form-group"><label>School</label><input class="form-control" value="' +
+                L.esc(data.schoolName || "") +
+                '" readonly></div>'
+              : L.schoolFieldHtml(state.schoolId)) +
+            '<div class="form-row">' +
+            '<div class="col-sm-4"><div class="form-group"><label for="' +
+            codeId +
+            '">Subject code <span class="required-mark">*</span></label>' +
+            '<input class="form-control text-uppercase" id="' +
+            codeId +
+            '" name="code" required maxlength="32" placeholder="MATH7" value="' +
+            L.esc(data.code || "") +
+            '"><span class="field-hint">Letters, numbers, dots, underscores, hyphens.</span><span class="field-error"></span></div></div>' +
+            '<div class="col-sm-8"><div class="form-group"><label for="' +
+            nameId +
+            '">Subject <span class="required-mark">*</span></label>' +
+            subjectNameFieldHtml(selectedName, selectedName, nameId) +
+            '<span class="field-error"></span></div></div>' +
+            '<div class="col-sm-6"><div class="form-group"><label for="' +
+            gradeId +
+            '">Grade level</label>' +
+            '<select class="custom-select" id="' +
+            gradeId +
+            '" name="gradeLevelId"><option value="">All grade levels</option></select>' +
+            '<span class="field-hint">Leave blank if the subject applies to several grades.</span><span class="field-error"></span></div></div>' +
+            "</div></form>",
+          footer:
+            '<button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>' +
+            '<button type="submit" form="' +
+            formId +
+            '" class="btn btn-primary" id="' +
+            buttonId +
+            '">' +
+            (editing ? "Save subject" : "Create subject") +
+            "</button>"
+        });
+        ensureModalRemoval(dialog);
+        var form = dialog.element.querySelector("#" + formId);
+        var button = dialog.element.querySelector("#" + buttonId);
+        var alertBox = dialog.element.querySelector("#" + alertId);
+        var schoolSelect = form.querySelector("[data-school-select]");
+        var codeInput = form.querySelector("#" + codeId);
+        var nameSelect = form.querySelector("#" + nameId);
+        var gradeSelect = form.querySelector("#" + gradeId);
+
+        if (!available.length) {
+          button.disabled = true;
+        }
+        if (nameSelect && !nameSelect.disabled) {
+          nameSelect.addEventListener("change", function () {
+            if (!codeInput.value.trim()) {
+              codeInput.value = suggestSubjectCode(nameSelect.value);
+            }
+          });
+        }
+        if (schoolSelect) {
+          L.fillSchoolSelect(schoolSelect, state.schoolId);
+        }
+        function loadGrades() {
+          var school = schoolSelect ? schoolSelect.value : String(data.schoolId || fixedSchool());
+          if (!school) {
+            gradeSelect.innerHTML = '<option value="">Select a school first</option>';
+            return;
+          }
+          L.grades(school).then(function (grades) {
+            gradeSelect.innerHTML = L.gradeOptions(grades, data.gradeLevelId, "All grade levels");
+          });
+        }
+        if (schoolSelect) {
+          schoolSelect.addEventListener("change", loadGrades);
+        }
+        loadGrades();
+
+        form.addEventListener("submit", function (event) {
+          event.preventDefault();
+          var values = L.formValues(form);
+          values.code = values.code.trim().toUpperCase();
+          values.name = String(values.name || "").trim();
+          if (!values.name) {
+            window.UI.fieldError(nameSelect, "Choose a subject from the list.");
+            return;
+          }
+          if (!values.code) {
+            window.UI.showAlert(alertBox, "warning", "Enter the subject code.", "Missing details");
+            return;
+          }
+          if (!editing && !values.schoolId) {
+            window.UI.fieldError(form.querySelector("[name=schoolId]"), "Choose the school for this subject.");
+            return;
+          }
+          var payload = {
+            schoolId: values.schoolId,
+            code: values.code,
+            name: values.name,
+            gradeLevelId: values.gradeLevelId || null
+          };
+          L.submit(
+            form,
+            button,
+            alertBox,
+            function () {
+              return editing
+                ? API.put("/academic/subjects/" + subject.id, payload)
+                : API.post("/academic/subjects", payload);
+            },
+            function () {
+              dialog.close();
+              L.clearCache();
+              window.UI.toast(
+                editing ? "Subject updated" : "Subject created",
+                values.code + " · " + values.name,
+                "success"
+              );
+              loadSubjects();
+              if (canManageOptions()) {
+                refreshGeneralSubjects();
+              }
+            }
+          );
+        });
+      });
   }
 
   function removeSubject(subject) {
@@ -286,6 +579,344 @@
           window.UI.showAlert(el("subjectPageAlert"), "danger", L.friendlyError(error), "Could not remove the subject");
         });
     });
+  }
+
+  // System administrators maintain the system-wide list. A general subject
+  // has no school and no grade level: schools select it later from their own
+  // subject form.
+  function generalSubjectModal() {
+    var formId = nextFormKey("generalSubjectForm");
+    var alertId = nextFormKey("generalSubjectAlert");
+    var nameId = nextFormKey("generalSubjectName");
+    var orderId = nextFormKey("generalSubjectOrder");
+    var buttonId = nextFormKey("saveGeneralSubjectButton");
+    var dialog = L.modal({
+      title: "New subject",
+      eyebrow: "System administration",
+      subtitle:
+        "This creates a general subject. No school and no grade level are assigned here; schools select it from their dropdown when they add their own subject.",
+      body:
+        '<form id="' +
+        formId +
+        '" novalidate>' +
+        '<div id="' +
+        alertId +
+        '" class="d-none mb-3" role="alert"></div>' +
+        '<div class="form-row">' +
+        '<div class="col-sm-8"><div class="form-group"><label for="' +
+        nameId +
+        '">Subject name <span class="required-mark">*</span></label>' +
+        '<input class="form-control" id="' +
+        nameId +
+        '" name="name" required maxlength="160" placeholder="Mathematics">' +
+        '<span class="field-hint">Examples: Mathematics, Araling Panlipunan, General Chemistry 1.</span><span class="field-error"></span></div></div>' +
+        '<div class="col-sm-4"><div class="form-group"><label for="' +
+        orderId +
+        '">Sort order</label>' +
+        '<input type="number" class="form-control" id="' +
+        orderId +
+        '" name="sortOrder" min="0" max="100" step="1" value="' +
+        nextSubjectOptionOrder() +
+        '"><span class="field-hint">Lower numbers appear first.</span><span class="field-error"></span></div></div>' +
+        "</div></form>",
+      footer:
+        '<button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>' +
+        '<button type="submit" form="' +
+        formId +
+        '" class="btn btn-primary" id="' +
+        buttonId +
+        '">Create subject</button>'
+    });
+    ensureModalRemoval(dialog);
+    var form = dialog.element.querySelector("#" + formId);
+    var button = dialog.element.querySelector("#" + buttonId);
+    var alertBox = dialog.element.querySelector("#" + alertId);
+    var nameInput = form.querySelector("#" + nameId);
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var values = L.formValues(form);
+      var name = String(values.name || "").trim();
+      if (!name) {
+        window.UI.fieldError(nameInput, "Enter a subject name.");
+        return;
+      }
+      L.submit(
+        form,
+        button,
+        alertBox,
+        function () {
+          return API.post("/academic/subject-options", {
+            name: name,
+            sortOrder: Number(values.sortOrder || 0),
+            isActive: true
+          });
+        },
+        function () {
+          dialog.close();
+          window.UI.toast("General subject added", name, "success");
+          refreshGeneralSubjects();
+        }
+      );
+    });
+  }
+
+  function openSubjectOptionsManager() {
+    loadSubjectOptions(true)
+      .then(function () {
+        var alertId = nextFormKey("subjectManagerAlert");
+        var formId = nextFormKey("subjectOptionForm");
+        var nameId = nextFormKey("subjectOptionName");
+        var orderId = nextFormKey("subjectOptionOrder");
+        var buttonId = nextFormKey("saveSubjectOptionButton");
+        var cancelId = nextFormKey("cancelSubjectOptionEdit");
+        var tableId = nextFormKey("subjectOptionTableBody");
+        var dialog = L.modal({
+          title: "Subject options",
+          eyebrow: "System administration",
+          subtitle:
+            "Schools choose from these options when adding a subject. Renaming an option never changes or removes subjects that schools already configured.",
+          size: "modal-lg",
+          body:
+            '<div id="' +
+            alertId +
+            '" class="d-none mb-3" role="alert"></div>' +
+            '<form id="' +
+            formId +
+            '" class="form-row align-items-start" novalidate>' +
+            '<div class="col-sm-6"><div class="form-group"><label for="' +
+            nameId +
+            '">Subject name <span class="required-mark">*</span></label>' +
+            '<input class="form-control" id="' +
+            nameId +
+            '" name="name" required maxlength="160" placeholder="Mathematics">' +
+            '<span class="field-error"></span></div></div>' +
+            '<div class="col-sm-3"><div class="form-group"><label for="' +
+            orderId +
+            '">Sort order</label>' +
+            '<input type="number" class="form-control" id="' +
+            orderId +
+            '" name="sortOrder" min="0" max="100" step="1" value="0">' +
+            '<span class="field-error"></span></div></div>' +
+            '<div class="col-sm-3"><div class="form-group"><label class="d-none d-sm-block">&nbsp;</label>' +
+            '<button type="submit" class="btn btn-primary btn-block" id="' +
+            buttonId +
+            '">Add subject</button>' +
+            '<button type="button" class="btn btn-link btn-sm btn-block d-none" id="' +
+            cancelId +
+            '">Cancel edit</button>' +
+            "</div></div></form>" +
+            '<div class="table-responsive"><table class="app-table" aria-label="Subject options">' +
+            '<thead><tr><th scope="col">Subject</th><th scope="col" class="text-right">Order</th>' +
+            '<th scope="col" class="text-right">Used by</th><th scope="col">Status</th>' +
+            '<th scope="col" class="text-right">Actions</th></tr></thead>' +
+            '<tbody id="' +
+            tableId +
+            '"></tbody></table></div>' +
+            '<p class="field-hint mt-2 mb-0">Deactivate an option to keep it out of school dropdowns without affecting existing records. Options used by a school subject cannot be removed.</p>',
+          footer: '<button type="button" class="btn btn-light" data-dismiss="modal">Close</button>'
+        });
+        ensureModalRemoval(dialog, function () {
+          refreshGeneralSubjects();
+          loadSubjects();
+        });
+
+        var form = dialog.element.querySelector("#" + formId);
+        var tableBody = dialog.element.querySelector("#" + tableId);
+        var alertBox = dialog.element.querySelector("#" + alertId);
+        var nameInput = dialog.element.querySelector("#" + nameId);
+        var orderInput = dialog.element.querySelector("#" + orderId);
+        var saveButton = dialog.element.querySelector("#" + buttonId);
+        var cancelEdit = dialog.element.querySelector("#" + cancelId);
+        var editingOptionId = null;
+
+        function refresh() {
+          return loadSubjectOptions(true).then(function () {
+            renderOptions();
+          });
+        }
+
+        function resetForm() {
+          editingOptionId = null;
+          form.reset();
+          orderInput.value = 0;
+          saveButton.textContent = "Add subject";
+          cancelEdit.classList.add("d-none");
+          window.UI.clearFieldErrors(form);
+        }
+
+        function startEdit(option) {
+          editingOptionId = option.id;
+          nameInput.value = option.name;
+          orderInput.value = option.sortOrder;
+          saveButton.textContent = "Save changes";
+          cancelEdit.classList.remove("d-none");
+          window.UI.clearFieldErrors(form);
+          nameInput.focus();
+          dialog.body.scrollTop = 0;
+        }
+
+        function renderOptions() {
+          if (!state.subjectOptions.length) {
+            tableBody.innerHTML =
+              '<tr><td colspan="5" class="empty-cell">No options yet. Add the first subject option above.</td></tr>';
+            return;
+          }
+          tableBody.innerHTML = state.subjectOptions
+            .map(function (option) {
+              var inUse = Number(option.usageCount) > 0;
+              return (
+                "<tr><td><strong>" +
+                L.esc(option.name) +
+                '</strong></td><td class="text-right">' +
+                option.sortOrder +
+                '</td><td class="text-right">' +
+                window.UI.number(option.usageCount) +
+                "</td><td>" +
+                window.UI.pillarBadge(
+                  option.isActive ? "Active" : "Inactive",
+                  option.isActive ? "success" : "neutral"
+                ) +
+                '</td><td><div class="row-actions">' +
+                '<button type="button" class="btn btn-light" data-subject-option-edit="' +
+                option.id +
+                '" title="Edit option"><i class="bi bi-pencil-square" aria-hidden="true"></i></button>' +
+                '<button type="button" class="btn btn-light" data-subject-option-toggle="' +
+                option.id +
+                '" title="' +
+                (option.isActive ? "Deactivate option" : "Reactivate option") +
+                '"><i class="bi ' +
+                (option.isActive ? "bi-pause-circle" : "bi-play-circle") +
+                '" aria-hidden="true"></i></button>' +
+                '<button type="button" class="btn btn-light" data-subject-option-remove="' +
+                option.id +
+                '" title="' +
+                (inUse ? "Used by a school subject" : "Remove option") +
+                '"' +
+                (inUse ? " disabled" : "") +
+                '><i class="bi bi-trash" aria-hidden="true"></i></button>' +
+                "</div></td></tr>"
+              );
+            })
+            .join("");
+        }
+
+        cancelEdit.addEventListener("click", resetForm);
+
+        form.addEventListener("submit", function (event) {
+          event.preventDefault();
+          var values = L.formValues(form);
+          var name = String(values.name || "").trim();
+          var sortOrder = Number(values.sortOrder || 0);
+          if (!name) {
+            window.UI.fieldError(nameInput, "Enter a subject option name.");
+            return;
+          }
+          var editing = editingOptionId ? findSubjectOption(editingOptionId) : null;
+          var payload = {
+            name: name,
+            sortOrder: sortOrder,
+            isActive: editing ? editing.isActive : true
+          };
+          L.submit(
+            form,
+            saveButton,
+            alertBox,
+            function () {
+              return editingOptionId
+                ? API.put("/academic/subject-options/" + editingOptionId, payload)
+                : API.post("/academic/subject-options", payload);
+            },
+            function () {
+              window.UI.toast(
+                editingOptionId ? "Subject option updated" : "Subject option added",
+                name,
+                "success"
+              );
+              resetForm();
+              refresh().then(function () {
+                loadSubjects();
+              });
+            }
+          );
+        });
+
+        tableBody.addEventListener("click", function (event) {
+          var edit = event.target.closest("[data-subject-option-edit]");
+          if (edit) {
+            var option = findSubjectOption(edit.dataset.subjectOptionEdit);
+            if (option) {
+              startEdit(option);
+            }
+            return;
+          }
+          var toggle = event.target.closest("[data-subject-option-toggle]");
+          if (toggle) {
+            var target = findSubjectOption(toggle.dataset.subjectOptionToggle);
+            if (!target) {
+              return;
+            }
+            API.put("/academic/subject-options/" + target.id, {
+              name: target.name,
+              sortOrder: target.sortOrder,
+              isActive: !target.isActive
+            })
+              .then(function () {
+                window.UI.toast(
+                  target.isActive ? "Subject option deactivated" : "Subject option reactivated",
+                  target.name,
+                  "success"
+                );
+                if (editingOptionId && String(editingOptionId) === String(target.id)) {
+                  resetForm();
+                }
+                refresh();
+              })
+              .catch(function (error) {
+                window.UI.showAlert(alertBox, "danger", L.friendlyError(error), "Could not update the option");
+              });
+            return;
+          }
+          var remove = event.target.closest("[data-subject-option-remove]");
+          if (remove) {
+            var removable = findSubjectOption(remove.dataset.subjectOptionRemove);
+            if (!removable) {
+              return;
+            }
+            window.UI.confirm({
+              title: "Remove " + removable.name + "?",
+              message:
+                "Removing an option only affects future dropdown choices. Options used by a school subject cannot be removed; deactivate them instead.",
+              confirmLabel: "Remove option",
+              tone: "danger"
+            }).then(function (confirmed) {
+              if (!confirmed) {
+                return;
+              }
+              API.delete("/academic/subject-options/" + removable.id)
+                .then(function () {
+                  window.UI.toast("Subject option removed", removable.name, "success");
+                  if (editingOptionId && String(editingOptionId) === String(removable.id)) {
+                    resetForm();
+                  }
+                  refresh();
+                })
+                .catch(function (error) {
+                  window.UI.showAlert(alertBox, "danger", L.friendlyError(error), "Could not remove the option");
+                });
+            });
+          }
+        });
+
+        renderOptions();
+      })
+      .catch(function (error) {
+        window.UI.showAlert(
+          el("subjectPageAlert"),
+          "danger",
+          L.friendlyError(error),
+          "Could not load subject options"
+        );
+      });
   }
 
   /* Teaching assignments --------------------------------------------------- */
@@ -922,6 +1553,7 @@
       window.UI.debounce(function () {
         state.subjectSearch = search.value;
         renderSubjects();
+        renderGeneralSubjects();
       }, 160)
     );
     el("subjectGradeFilter").addEventListener("change", function (event) {
@@ -934,6 +1566,7 @@
       search.value = "";
       populateSubjectGrades();
       loadSubjects();
+      renderGeneralSubjects();
     });
     var schoolFilter = el("subjectSchoolFilter");
     if (schoolFilter) {
@@ -1094,10 +1727,23 @@
         el("newSubjectButton").classList.remove("d-none");
         el("newAssignmentButton").classList.remove("d-none");
         el("newSubjectButton").addEventListener("click", function () {
-          subjectModal(null);
+          if (canManageOptions()) {
+            generalSubjectModal();
+          } else {
+            subjectModal(null);
+          }
         });
         el("newAssignmentButton").addEventListener("click", function () {
           assignmentModal(null);
+        });
+      }
+      if (canManageOptions()) {
+        el("generalSubjectCard").classList.remove("d-none");
+        el("manageSubjectOptionsButton").addEventListener("click", openSubjectOptionsManager);
+        refreshGeneralSubjects();
+      } else {
+        ensureSubjectOptions().catch(function () {
+          return null;
         });
       }
       wireTabs();

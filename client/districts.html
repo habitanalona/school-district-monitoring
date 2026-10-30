@@ -38,6 +38,14 @@
               <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
               <span>Refresh</span>
             </button>
+            <button type="button" class="btn btn-light" id="districtImportHistoryButton">
+              <i class="bi bi-clock-history" aria-hidden="true"></i>
+              <span>Import history</span>
+            </button>
+            <button type="button" class="btn btn-light" id="bulkUploadDistricts">
+              <i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i>
+              <span>Bulk upload</span>
+            </button>
             <button type="button" class="btn btn-primary" id="addDistrictButton">
               <i class="bi bi-plus-lg" aria-hidden="true"></i>
               <span>Add district</span>
@@ -230,6 +238,148 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="districtImportModal" tabindex="-1" role="dialog" aria-labelledby="districtImportTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <p class="modal-eyebrow">Secure spreadsheet import</p>
+            <h2 class="modal-title" id="districtImportTitle">Bulk upload districts</h2>
+            <p class="modal-subtitle" id="districtImportSubtitle">Upload .xlsx, .xls, or .csv files, preview the server-validated records, then confirm the import.</p>
+          </div>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="modal-body">
+          <div id="districtImportAlert" class="d-none mb-3" role="alert"></div>
+
+          <ol class="import-steps" id="districtImportSteps" aria-label="Import progress">
+            <li class="is-active" data-import-step="select"><span>1</span> Select files</li>
+            <li data-import-step="review"><span>2</span> Review</li>
+            <li data-import-step="done"><span>3</span> Confirm</li>
+          </ol>
+
+          <section id="districtImportSelectStep" aria-labelledby="districtImportSelectHeading">
+            <h3 class="sr-only" id="districtImportSelectHeading">Select spreadsheet files</h3>
+            <div class="import-dropzone" id="districtDropzone" role="button" tabindex="0" aria-label="Choose or drop spreadsheet files">
+              <span class="import-dropzone__icon"><i class="bi bi-cloud-arrow-up" aria-hidden="true"></i></span>
+              <p class="import-dropzone__title">Drop spreadsheets here or choose files</p>
+              <p class="import-dropzone__hint">Up to 5 files · 5 MB each · 15 MB total · 1,000 rows per sheet</p>
+              <span class="btn btn-primary btn-sm">Choose files</span>
+              <input type="file" id="districtImportInput" class="sr-only" accept=".xlsx,.xls,.csv" multiple>
+            </div>
+
+            <div class="import-file-list" id="districtImportFileList" aria-live="polite"></div>
+
+            <div class="import-assist">
+              <p class="form-note mb-0">
+                <i class="bi bi-shield-check" aria-hidden="true"></i>
+                Files are checked for type, size, macros, embedded objects, formulas, and zip bombs. Nothing is saved until you confirm.
+              </p>
+              <button type="button" class="btn btn-ghost btn-sm" id="districtTemplateButton">
+                <i class="bi bi-download" aria-hidden="true"></i> Excel template
+              </button>
+            </div>
+
+            <div class="import-progress d-none" id="districtImportProgress" aria-live="polite">
+              <div class="import-progress__head">
+                <span id="districtImportProgressLabel">Uploading…</span>
+                <span id="districtImportProgressValue">0%</span>
+              </div>
+              <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="districtImportProgressBar">
+                <div class="progress-bar" id="districtImportProgressFill" style="width: 0%"></div>
+              </div>
+            </div>
+          </section>
+
+          <section id="districtImportPreviewStep" class="d-none" aria-labelledby="districtImportPreviewHeading">
+            <h3 class="sr-only" id="districtImportPreviewHeading">Review validated records</h3>
+            <div class="import-summary" id="districtImportSummary"></div>
+            <div class="import-file-results" id="districtImportFileResults"></div>
+
+            <div class="import-block" id="districtImportPreviewBlock">
+              <div class="import-block__head">
+                <h4>Valid records</h4>
+                <span class="import-block__meta" id="districtImportPreviewMeta"></span>
+              </div>
+              <div class="table-responsive">
+                <table class="app-table app-table--compact">
+                  <caption class="sr-only">Server-validated district records that will be imported</caption>
+                  <thead><tr><th scope="col">District</th><th scope="col">Code</th><th scope="col">PSDS</th><th scope="col">Source</th></tr></thead>
+                  <tbody id="districtImportPreviewBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="import-block d-none" id="districtImportIssuesBlock">
+              <div class="import-block__head">
+                <h4>Rejected and duplicate records</h4>
+                <span class="import-block__meta" id="districtImportIssuesMeta"></span>
+              </div>
+              <div class="table-responsive">
+                <table class="app-table app-table--compact">
+                  <caption class="sr-only">Rows that will not be imported</caption>
+                  <thead><tr><th scope="col">Type</th><th scope="col">File</th><th scope="col">Sheet / row</th><th scope="col">Column</th><th scope="col">Reason</th></tr></thead>
+                  <tbody id="districtImportIssuesBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <p class="import-expiry" id="districtImportExpiry"></p>
+          </section>
+
+          <section id="districtImportResultStep" class="d-none" aria-labelledby="districtImportResultHeading">
+            <div class="import-result" id="districtImportResult"></div>
+          </section>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-dismiss="modal" id="districtImportCloseButton">Close</button>
+          <button type="button" class="btn btn-light d-none" id="districtImportBackButton">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i> Back to files
+          </button>
+          <button type="button" class="btn btn-light d-none" id="districtImportReportButton">
+            <i class="bi bi-download" aria-hidden="true"></i> Error report
+          </button>
+          <button type="button" class="btn btn-primary" id="districtImportPreviewButton" disabled>
+            <i class="bi bi-search" aria-hidden="true"></i> <span>Validate &amp; preview</span>
+          </button>
+          <button type="button" class="btn btn-primary d-none" id="districtImportConfirmButton">
+            <i class="bi bi-database-add" aria-hidden="true"></i> <span>Confirm import</span>
+          </button>
+          <button type="button" class="btn btn-primary d-none" id="districtImportDoneButton" data-dismiss="modal">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="districtImportHistoryModal" tabindex="-1" role="dialog" aria-labelledby="districtImportHistoryTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <p class="modal-eyebrow">Audit trail</p>
+            <h2 class="modal-title" id="districtImportHistoryTitle">Import history</h2>
+            <p class="modal-subtitle">Previewed, committed, and expired import batches for your account.</p>
+          </div>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <div class="modal-body">
+          <div id="districtImportHistoryAlert" class="d-none mb-3" role="alert"></div>
+          <div class="table-responsive">
+            <table class="app-table app-table--compact">
+              <caption class="sr-only">Recent district import batches</caption>
+              <thead><tr><th scope="col">Import</th><th scope="col">Files</th><th scope="col">Records</th><th scope="col">Status</th><th scope="col" class="text-right">Report</th></tr></thead>
+              <tbody id="districtImportHistoryBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" id="districtImportHistoryRefresh"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh</button>
+          <button type="button" class="btn btn-light" data-dismiss="modal">Close</button>
+        </div>
       </div>
     </div>
   </div>

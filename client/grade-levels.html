@@ -32,7 +32,7 @@
           <div class="page-header__copy">
             <p class="page-eyebrow">Academic structure</p>
             <h1>Grade levels</h1>
-            <p class="page-subtitle">Grade levels are configured per school so each campus can follow its own offered levels and ordering.</p>
+            <p class="page-subtitle">The system administrator maintains the general grade levels; each school then selects the levels it offers from that list.</p>
           </div>
           <div class="page-header__actions">
             <button type="button" class="btn btn-primary d-none" id="newGradeButton">
@@ -44,11 +44,44 @@
 
         <div id="gradePageAlert" class="d-none mb-3" role="alert"></div>
 
+        <section class="surface-card table-card d-none" id="generalGradeCard" aria-labelledby="generalGradeHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="generalGradeHeading">General grade levels</h2>
+              <p>System-wide levels that every school can select, such as Kindergarten through Grade 12. Adding one here does not assign it to a school.</p>
+            </div>
+            <button type="button" class="btn btn-light btn-sm" id="manageOptionsButton">
+              <i class="bi bi-sliders" aria-hidden="true"></i>
+              <span>Manage</span>
+            </button>
+          </header>
+
+          <div class="table-responsive">
+            <table class="app-table" id="generalGradeTable">
+              <caption class="sr-only">General grade levels maintained by the system administrator</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Grade level</th>
+                  <th scope="col" class="text-right">Sort order</th>
+                  <th scope="col" class="text-right">Schools using it</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody id="generalGradeTableBody">
+                <tr class="skeleton-row"><td colspan="4"><span class="skeleton skeleton-block"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <p class="table-footer__meta" id="generalGradeMeta">Loading general grade levels…</p>
+          </div>
+        </section>
+
         <section class="surface-card table-card" aria-labelledby="gradeTableHeading">
           <header class="table-card__head">
             <div>
-              <h2 id="gradeTableHeading">Configured grade levels</h2>
-              <p>Sections and learner counts help you spot grades that still need class offerings.</p>
+              <h2 id="gradeTableHeading">School grade levels</h2>
+              <p>Levels each school has added from the general list, with section and learner counts.</p>
             </div>
           </header>
 

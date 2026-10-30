@@ -128,6 +128,38 @@
     {
       "key": "gradeLevelId",
       "value": ""
+    },
+    {
+      "key": "districtImportId",
+      "value": ""
+    },
+    {
+      "key": "districtImportToken",
+      "value": ""
+    },
+    {
+      "key": "schoolImportId",
+      "value": ""
+    },
+    {
+      "key": "schoolImportToken",
+      "value": ""
+    },
+    {
+      "key": "personnelImportId",
+      "value": ""
+    },
+    {
+      "key": "personnelImportToken",
+      "value": ""
+    },
+    {
+      "key": "learnerImportId",
+      "value": ""
+    },
+    {
+      "key": "learnerImportToken",
+      "value": ""
     }
   ],
   "item": [
@@ -592,6 +624,150 @@
           ]
         },
         {
+          "name": "Download district import template",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/districts/imports/template",
+            "description": "Downloads the .xlsx template whose header row matches the district schema. The Header sheet is empty and a separate Example sheet holds sample rows. Requires a system administrator with districts/add."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Workbook returned', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('spreadsheetml'));",
+                  "pm.test('Download is an attachment', () => pm.expect(pm.response.headers.get('Content-Disposition') || '').to.include('attachment'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Preview district import",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/districts/imports/preview",
+            "description": "Uploads postman/sample-districts.csv for server-side validation without writing districts. The sample row repeats the seeded NVD district, so it is reported as a duplicate and the commit writes nothing. Stores the batch ID and confirmation token for the following requests. Run Newman from the repository root so the relative sample path resolves.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "postman/sample-districts.csv"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Preview accepted', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json().data;",
+                  "pm.collectionVariables.set('districtImportId', body.importId);",
+                  "pm.collectionVariables.set('districtImportToken', body.token);",
+                  "pm.test('Preview awaits confirmation', () => pm.expect(body.status).to.eql('previewed'));",
+                  "pm.test('One file detected', () => pm.expect(body.summary.files).to.eql(1));",
+                  "pm.test('Duplicate is reported', () => pm.expect(body.summary.duplicates).to.be.at.least(1));",
+                  "pm.test('No row is rejected', () => pm.expect(body.summary.rejected).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "District import history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/districts/imports?limit=10",
+            "description": "Recent import batches belonging to the signed-in administrator. Tokens and staged rows are never returned. Requires a system administrator with districts/add."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json().data;",
+                  "pm.test('History array returned', () => pm.expect(rows).to.be.an('array'));",
+                  "pm.test('Previewed batch is listed', () => {",
+                  "  const id = Number(pm.collectionVariables.get('districtImportId'));",
+                  "  pm.expect(rows.some((row) => Number(row.id) === id)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Commit district import",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/districts/imports/{{districtImportId}}/commit",
+            "description": "Commits the preview with its one-time token. The seeded NVD code is skipped as a duplicate, so this request imports zero districts and changes no district data. A replay returns 409 IMPORT_NOT_PENDING.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{districtImportToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Commit completed', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json().data;",
+                  "pm.test('Batch is committed', () => pm.expect(body.status).to.eql('committed'));",
+                  "pm.test('Duplicate row was skipped', () => pm.expect(body.duplicates).to.be.at.least(1));",
+                  "pm.test('No district was inserted', () => pm.expect(body.imported).to.have.lengthOf(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Download district import error report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/districts/imports/{{districtImportId}}/errors.xlsx",
+            "description": "Downloads the Summary, Files, and Issues workbook for the committed batch. Duplicate and rejected rows list the filename, worksheet, Excel row, column, and reason."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Workbook returned', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('spreadsheetml'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Delete district",
           "request": {
             "method": "DELETE",
@@ -797,6 +973,448 @@
                 "exec": [
                   "pm.test('School restored', () => pm.response.to.have.status(200));",
                   "pm.test('Status is active', () => pm.expect(pm.response.json().data.status).to.eql('active'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Download school import template",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/schools/imports/template",
+            "description": "Downloads the .xlsx template whose header row matches the school schema. The Schools sheet is empty; Example and Instructions are reference sheets. Requires an administrator with schools/add."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Workbook returned', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('spreadsheetml'));",
+                  "pm.test('Download is an attachment', () => pm.expect(pm.response.headers.get('Content-Disposition') || '').to.include('attachment'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Preview school import",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/schools/imports/preview",
+            "description": "Uploads postman/sample-schools.csv for server-side validation without writing schools. The sample row repeats the seeded 114534 school, so it is reported as a duplicate and the commit writes nothing. Stores the batch ID and confirmation token for the following requests. Run Newman from the repository root so the relative sample path resolves.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "postman/sample-schools.csv"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Preview accepted', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json().data;",
+                  "pm.collectionVariables.set('schoolImportId', body.importId);",
+                  "pm.collectionVariables.set('schoolImportToken', body.token);",
+                  "pm.test('Preview awaits confirmation', () => pm.expect(body.status).to.eql('previewed'));",
+                  "pm.test('One file detected', () => pm.expect(body.summary.files).to.eql(1));",
+                  "pm.test('Duplicate is reported', () => pm.expect(body.summary.duplicates).to.be.at.least(1));",
+                  "pm.test('No row is rejected', () => pm.expect(body.summary.rejected).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "School import history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/schools/imports?limit=10",
+            "description": "Recent school import batches belonging to the signed-in administrator. Tokens and staged rows are never returned. Requires an administrator with schools/add."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json().data;",
+                  "pm.test('History array returned', () => pm.expect(rows).to.be.an('array'));",
+                  "pm.test('Previewed batch is listed', () => {",
+                  "  const id = Number(pm.collectionVariables.get('schoolImportId'));",
+                  "  pm.expect(rows.some((row) => Number(row.id) === id)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Commit school import",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/schools/imports/{{schoolImportId}}/commit",
+            "description": "Commits the preview with its one-time token. The seeded 114534 code is skipped as a duplicate, so this request imports zero schools and changes no school data. A replay returns 409 IMPORT_NOT_PENDING.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{schoolImportToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Commit completed', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json().data;",
+                  "pm.test('Batch is committed', () => pm.expect(body.status).to.eql('committed'));",
+                  "pm.test('Duplicate row was skipped', () => pm.expect(body.duplicates).to.be.at.least(1));",
+                  "pm.test('No school was inserted', () => pm.expect(body.imported).to.have.lengthOf(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Download school import error report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/schools/imports/{{schoolImportId}}/errors.xlsx",
+            "description": "Downloads the Summary, Files, and Issues workbook for the committed school batch. Duplicate and rejected rows list the filename, worksheet, Excel row, column, and reason."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Workbook returned', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('spreadsheetml'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Personnel import",
+      "item": [
+        {
+          "name": "Download personnel import template",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/personnel/imports/template",
+            "description": "Requires an administrator with personnel/add and users/add. Downloads the .xlsx template whose header row matches the staff import schema. The main sheet is empty; Example and Instructions are reference sheets."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Workbook returned', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('spreadsheetml'));",
+                  "pm.test('Download is an attachment', () => pm.expect(pm.response.headers.get('Content-Disposition') || '').to.include('attachment'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Preview personnel import",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/personnel/imports/preview",
+            "description": "Requires an administrator with personnel/add and users/add. Uploads postman/sample-staff.csv for server-side validation without writing records. The sample row duplicates the seeded demonstration data, so it is reported as a duplicate and the commit imports nothing. Stores the batch ID and confirmation token for the following requests. Run Newman from the repository root so the relative sample path resolves.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "postman/sample-staff.csv"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Preview accepted', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json().data;",
+                  "pm.collectionVariables.set('personnelImportId', body.importId);",
+                  "pm.collectionVariables.set('personnelImportToken', body.token);",
+                  "pm.test('Preview awaits confirmation', () => pm.expect(body.status).to.eql('previewed'));",
+                  "pm.test('One file detected', () => pm.expect(body.summary.files).to.eql(1));",
+                  "pm.test('Duplicate is reported', () => pm.expect(body.summary.duplicates).to.be.at.least(1));",
+                  "pm.test('No row is rejected', () => pm.expect(body.summary.rejected).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Personnel import history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/personnel/imports?limit=10",
+            "description": "Recent staff import batches belonging to the signed-in user. Tokens, credentials, and staged rows are never returned."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json().data;",
+                  "pm.test('History array returned', () => pm.expect(rows).to.be.an('array'));",
+                  "pm.test('Previewed batch is listed', () => {",
+                  "  const id = Number(pm.collectionVariables.get('personnelImportId'));",
+                  "  pm.expect(rows.some((row) => Number(row.id) === id)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Commit personnel import",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/personnel/imports/{{personnelImportId}}/commit",
+            "description": "Requires an administrator with personnel/add and users/add. Commits the preview with its one-time token. The seeded demonstration row is skipped as a duplicate, so this request imports zero records and changes no existing data. A replay returns 409 IMPORT_NOT_PENDING.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{personnelImportToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Commit completed', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json().data;",
+                  "pm.test('Batch is committed', () => pm.expect(body.status).to.eql('committed'));",
+                  "pm.test('Duplicate row was skipped', () => pm.expect(body.duplicates).to.be.at.least(1));",
+                  "pm.test('No record was inserted', () => pm.expect(body.imported).to.have.lengthOf(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Download personnel import error report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/personnel/imports/{{personnelImportId}}/errors.xlsx",
+            "description": "Downloads the Summary, Files, and Issues workbook for the committed staff batch. Duplicate and rejected rows list the filename, worksheet, Excel row, column, and reason."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Workbook returned', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('spreadsheetml'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Learner import",
+      "item": [
+        {
+          "name": "Download learner import template",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/learners/imports/template",
+            "description": "Requires learners/add. Downloads the .xlsx template whose header row matches the learner profile import schema. The main sheet is empty; Example and Instructions are reference sheets."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Workbook returned', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('spreadsheetml'));",
+                  "pm.test('Download is an attachment', () => pm.expect(pm.response.headers.get('Content-Disposition') || '').to.include('attachment'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Preview learner import",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/learners/imports/preview",
+            "description": "Requires learners/add. Uploads postman/sample-learners.csv for server-side validation without writing records. The sample row duplicates the seeded demonstration data, so it is reported as a duplicate and the commit imports nothing. Stores the batch ID and confirmation token for the following requests. Run Newman from the repository root so the relative sample path resolves.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": "postman/sample-learners.csv"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Preview accepted', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json().data;",
+                  "pm.collectionVariables.set('learnerImportId', body.importId);",
+                  "pm.collectionVariables.set('learnerImportToken', body.token);",
+                  "pm.test('Preview awaits confirmation', () => pm.expect(body.status).to.eql('previewed'));",
+                  "pm.test('One file detected', () => pm.expect(body.summary.files).to.eql(1));",
+                  "pm.test('Duplicate is reported', () => pm.expect(body.summary.duplicates).to.be.at.least(1));",
+                  "pm.test('No row is rejected', () => pm.expect(body.summary.rejected).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Learner import history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/learners/imports?limit=10",
+            "description": "Recent learner profile import batches belonging to the signed-in user. Tokens, credentials, and staged rows are never returned."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json().data;",
+                  "pm.test('History array returned', () => pm.expect(rows).to.be.an('array'));",
+                  "pm.test('Previewed batch is listed', () => {",
+                  "  const id = Number(pm.collectionVariables.get('learnerImportId'));",
+                  "  pm.expect(rows.some((row) => Number(row.id) === id)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Commit learner import",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/learners/imports/{{learnerImportId}}/commit",
+            "description": "Requires learners/add. Commits the preview with its one-time token. The seeded demonstration row is skipped as a duplicate, so this request imports zero records and changes no existing data. A replay returns 409 IMPORT_NOT_PENDING.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{learnerImportToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Commit completed', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json().data;",
+                  "pm.test('Batch is committed', () => pm.expect(body.status).to.eql('committed'));",
+                  "pm.test('Duplicate row was skipped', () => pm.expect(body.duplicates).to.be.at.least(1));",
+                  "pm.test('No record was inserted', () => pm.expect(body.imported).to.have.lengthOf(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Download learner import error report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/learners/imports/{{learnerImportId}}/errors.xlsx",
+            "description": "Downloads the Summary, Files, and Issues workbook for the committed learner profile batch. Duplicate and rejected rows list the filename, worksheet, Excel row, column, and reason."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Workbook returned', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('spreadsheetml'));"
                 ]
               }
             }

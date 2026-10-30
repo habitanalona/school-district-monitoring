@@ -1,0 +1,2 @@
+personnel_type,school_code,employee_no,last_name,first_name,middle_name,suffix,position,employment_type,employment_status,specialization,designation,contact_number,email,username,date_hired,qualifications
+teacher,NES-001,API-DEMO-001,Rivera,Paolo,G.,,Teacher III,plantilla,active,Mathematics,,+63 917 555 0199,paolo.rivera@example.com,,2018-06-04,Bachelor of Secondary Education

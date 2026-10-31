@@ -1,0 +1,431 @@
+/* School District Monitoring System — Helpdesk content administration */
+
+.helpdesk-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.helpdesk-stat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.helpdesk-stat__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--info-bg);
+  color: var(--info);
+  font-size: 1.15rem;
+}
+
+.helpdesk-stat__icon--teal {
+  background: var(--teal-bg);
+  color: var(--teal);
+}
+
+.helpdesk-stat__icon--amber {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.helpdesk-stat__value {
+  margin: 0;
+  color: var(--ink-900);
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.helpdesk-stat__label {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.helpdesk-admin-card {
+  margin-bottom: 18px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.helpdesk-admin-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.helpdesk-admin-card__head h2 {
+  margin: 0 0 3px;
+  color: var(--ink-900);
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.helpdesk-admin-card__head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.helpdesk-admin-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.helpdesk-admin-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+.helpdesk-admin-field--grow {
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+
+.helpdesk-admin-field > .bi-search {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted-light);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.helpdesk-admin-field input,
+.helpdesk-admin-field select {
+  width: 100%;
+  height: 38px;
+  padding: 7px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink-900);
+  font-family: inherit;
+  font-size: 0.82rem;
+}
+
+.helpdesk-admin-field input[type="search"] {
+  padding-left: 34px;
+}
+
+.helpdesk-admin-field select {
+  min-width: 160px;
+  padding-right: 30px;
+}
+
+.helpdesk-admin-field input:focus,
+.helpdesk-admin-field select:focus {
+  border-color: var(--royal-600);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(29, 95, 191, 0.12);
+}
+
+.helpdesk-admin-table {
+  margin: 0;
+}
+
+.helpdesk-admin-table th {
+  padding: 10px 16px;
+  white-space: nowrap;
+}
+
+.helpdesk-admin-table td {
+  padding: 11px 16px;
+  vertical-align: middle;
+}
+
+.helpdesk-admin-table td:last-child,
+.helpdesk-admin-table th:last-child {
+  text-align: right;
+}
+
+.helpdesk-admin-title {
+  display: block;
+  max-width: 360px;
+  color: var(--ink-900);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.helpdesk-admin-slug {
+  display: block;
+  margin-top: 1px;
+  color: var(--muted-light);
+  font-size: 0.68rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.helpdesk-admin-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: flex-end;
+}
+
+.helpdesk-admin-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink-700);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+}
+
+.helpdesk-admin-icon-btn:hover,
+.helpdesk-admin-icon-btn:focus-visible {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+  color: var(--royal-600);
+  outline: none;
+}
+
+.helpdesk-admin-icon-btn--danger:hover,
+.helpdesk-admin-icon-btn--danger:focus-visible {
+  border-color: rgba(178, 58, 68, 0.35);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.helpdesk-admin-empty {
+  padding: 26px 16px !important;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.helpdesk-admin-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 11px 20px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.helpdesk-admin-foot p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.helpdesk-admin-pager {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.helpdesk-admin-pager button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink-700);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.helpdesk-admin-pager button:hover:not(:disabled),
+.helpdesk-admin-pager button:focus-visible {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+  outline: none;
+}
+
+.helpdesk-admin-pager button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.helpdesk-admin-pager span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.helpdesk-category-list {
+  display: grid;
+}
+
+.helpdesk-category-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.helpdesk-category-row:last-child {
+  border-bottom: 0;
+}
+
+.helpdesk-category-row__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--surface-3);
+  color: var(--royal-600);
+  font-size: 0.95rem;
+}
+
+.helpdesk-category-row__copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.helpdesk-category-row__copy strong {
+  display: block;
+  color: var(--ink-900);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.helpdesk-category-row__copy small {
+  display: block;
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.helpdesk-category-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.helpdesk-admin-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--success-bg);
+  color: var(--success);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.helpdesk-admin-badge--muted {
+  background: var(--surface-3);
+  color: var(--muted);
+}
+
+.helpdesk-admin-badge--warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.helpdesk-admin-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 11px 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.helpdesk-admin-note .bi {
+  color: var(--royal-600);
+}
+
+.helpdesk-admin-counter {
+  margin-top: 3px;
+  color: var(--muted-light);
+  font-size: 0.68rem;
+  text-align: right;
+}
+
+#helpdeskArticlePages {
+  height: auto;
+  min-height: 120px;
+  padding: 5px;
+}
+
+#helpdeskArticlePages option {
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
+@media (max-width: 767.98px) {
+  .helpdesk-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .helpdesk-admin-card__head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .helpdesk-admin-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .helpdesk-admin-field,
+  .helpdesk-admin-field--grow {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .helpdesk-admin-field select {
+    width: 100%;
+  }
+
+  .helpdesk-category-row {
+    flex-wrap: wrap;
+  }
+
+  .helpdesk-category-row__meta {
+    width: 100%;
+    padding-left: 46px;
+  }
+}

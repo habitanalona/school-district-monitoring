@@ -6,6 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const { Client } = require("pg");
 const { ensurePermissionCatalog } = require("../server/services/permissionService");
+const { seedHelpdesk } = require("../server/services/helpdeskSeedService");
 
 async function main() {
   if (!process.env.DATABASE_URL) {
@@ -74,9 +75,22 @@ async function main() {
     console.log("Applying administrator-managed subject options...");
     await client.query(subjectOptionsSchema);
 
+    const helpdeskSchema = fs.readFileSync(
+      path.join(__dirname, "schema-helpdesk.sql"),
+      "utf8"
+    );
+    console.log("Applying Helpdesk knowledge base schema...");
+    await client.query(helpdeskSchema);
+
     const seed = fs.readFileSync(path.join(__dirname, "seed.sql"), "utf8");
     console.log("Loading demonstration data...");
     await client.query(seed);
+
+    console.log("Loading starter Helpdesk content...");
+    const helpdesk = await seedHelpdesk(client);
+    console.log(
+      `Helpdesk content ready: ${helpdesk.categories} new categor(ies), ${helpdesk.articles} new article(s).`
+    );
 
     console.log("Synchronising permission catalog and role defaults...");
     await ensurePermissionCatalog(client);

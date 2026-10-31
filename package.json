@@ -17,6 +17,7 @@
     "db:migrate:learner-imports": "node scripts/migrate-learner-imports.js",
     "db:migrate:grade-level-options": "node scripts/migrate-grade-level-options.js",
     "db:migrate:subject-options": "node scripts/migrate-subject-options.js",
+    "db:migrate:helpdesk": "node scripts/migrate-helpdesk.js",
     "db:hash": "node scripts/hash-password.js",
     "test": "node --test --test-concurrency=1"
   },

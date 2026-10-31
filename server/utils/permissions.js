@@ -106,6 +106,11 @@ function permissionsFor(user) {
       ["system_admin", "district_admin"].indexOf(user.role) !== -1,
     canViewMonitoring: allows(matrix, "monitoring", "access"),
     canViewPermanentRecords: allows(matrix, "permanent_records", "access"),
+    canManageHelpdesk:
+      allows(matrix, "helpdesk", "access") &&
+      (allows(matrix, "helpdesk", "add") ||
+        allows(matrix, "helpdesk", "edit") ||
+        allows(matrix, "helpdesk", "delete")),
     modules: matrix || {}
   };
 }

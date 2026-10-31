@@ -11,6 +11,7 @@ A full-stack web application for district administrators to manage enrolled scho
 - Self-service account creation from the sign-in page: applicants choose their role, district, and school, then wait for confirmation by their immediate superior before they can sign in.
 - Role-based access control for **system administrators**, **district administrators**, **PSDS**, **school heads**, **teachers**, **coordinators**, **non-teaching personnel**, **class advisers**, **learners**, and **authorized staff**, enforced on every API route and page.
 - User rights and permissions console for system administrators: search accounts, compare inherited role defaults with per-user overrides, grant or revoke **Access / Add / Edit / Delete** per installed module, reset to role defaults, and review who changed what and when. The matrix is enforced by the API and page guards, not only by hidden buttons.
+- Built-in Helpdesk on every page: a floating **Helpdesk** button opens a searchable knowledge base of guides, FAQs, procedures, and reference articles grounded in the installed modules. Search runs locally over the published catalogue without an AI service, and results prioritise help for the page the user is on. System administrators manage articles and categories from **Helpdesk Content**; every other account has read-only access.
 - District scoping: district administrators and staff only see schools, reports, announcements, and users inside their own district.
 - Account approvals queue: PSDS registrations are confirmed by the district administrator, school heads by the PSDS, teachers/NT/advisers by the school head, and learners by the class adviser. System administrators can confirm any registration.
 - School Division Office hierarchy in the sidebar: expandable districts, their two PSDS (Public Schools District Supervisors), nested schools, live search, and deep links into the school registry.
@@ -62,7 +63,11 @@ school-district-monitoring/
 ├── client/                 Static frontend (served by Express)
 │   ├── css/style.css
 │   ├── css/user-rights.css
+│   ├── css/helpdesk.css
+│   ├── css/helpdesk-admin.css
 │   ├── js/                 API helper, UI helpers, page controllers
+│   ├── js/helpdesk.js      Floating Helpdesk widget and local search
+│   ├── js/helpdesk-admin.js  Helpdesk Content administration screen
 │   ├── index.html          Landing page and sign-in
 │   ├── dashboard.html
 │   ├── districts.html      District and PSDS management
@@ -70,6 +75,7 @@ school-district-monitoring/
 │   ├── reports.html
 │   ├── users.html
 │   ├── user-rights.html    Permission matrix console (system admin)
+│   ├── helpdesk-admin.html Helpdesk articles and categories (system admin)
 │   ├── announcements.html
 │   ├── audit-logs.html
 │   ├── settings.html
@@ -107,6 +113,7 @@ school-district-monitoring/
 │   ├── schema-learner-imports.sql  Server-side learner import previews and history
 │   ├── schema-grade-level-options.sql  Administrator-managed grade level catalogue
 │   ├── schema-subject-options.sql  Administrator-managed general subject catalogue
+│   ├── schema-helpdesk.sql Helpdesk categories, articles, and published content
 │   ├── seed.sql            Fictional demonstration data
 │   └── init.js             Applies the schemas + seed
 ├── postman/
@@ -127,6 +134,7 @@ school-district-monitoring/
 │   ├── migrate-learner-imports.js  Additive learner import upgrade
 │   ├── migrate-grade-level-options.js  Additive grade level catalogue upgrade
 │   ├── migrate-subject-options.js  Additive general subject catalogue upgrade
+│   ├── migrate-helpdesk.js  Additive Helpdesk schema and starter content
 │   ├── smoke-forms.js      End-to-end forms smoke test
 │   ├── smoke-classrecords.js  End-to-end class record to SF 9 smoke test
 │   └── verify-academic-tabs.js  Learner academic endpoint check
@@ -134,6 +142,7 @@ school-district-monitoring/
 │   ├── app.js              Middleware, security, static pages, routes
 │   ├── server.js           Startup and graceful shutdown
 │   ├── config/             Environment and PostgreSQL pool
+│   ├── data/               Seed content, including the installed-module Helpdesk catalogue
 │   ├── controllers/        HTTP handlers
 │   ├── middleware/         Auth, RBAC, CSRF, rate limits, errors
 │   ├── routes/             API route definitions
@@ -149,7 +158,8 @@ school-district-monitoring/
 │   ├── personnelImport.test.js  Staff import, account creation, activation, and scope tests
 │   ├── learnerImport.test.js  Learner profile import, duplicate, and scope tests
 │   ├── gradeLevelOptions.test.js  Administrator catalogue, dropdown enforcement, and preservation tests
-│   └── subjectOptions.test.js  General subject catalogue, dropdown enforcement, and preservation tests
+│   ├── subjectOptions.test.js  General subject catalogue, dropdown enforcement, and preservation tests
+│   └── helpdesk.test.js     Widget inclusion, public catalogue, RBAC, CRUD, and audit tests
 ├── .env.example
 ├── .gitignore
 └── package.json
@@ -285,6 +295,14 @@ npm run db:migrate:subject-options
 
 It creates `subject_options`, the catalogue that feeds the subject name dropdown on the school pages. Existing distinct subject names are copied into it once with `ON CONFLICT DO NOTHING`, so no school subject, teacher assignment, schedule, class record, or grade is changed or removed. Names are unique case-insensitively, and each option has an order and an active flag. The migration is additive and idempotent; a fresh `npm run db:init` seeds 50 standard learning areas from Kindergarten through Grade 12, and an empty catalogue receives the same starter list so the administrator edits rather than starts blank. A catalogue that already has entries is left alone, apart from adding any missing standard names. The subject catalogue is independent of the grade level one, so run both after upgrading. After upgrading, sign in as the system administrator and review **Subjects → Manage** before schools add new subjects. Back up the database first.
 
+The Helpdesk release adds `database/schema-helpdesk.sql` and its starter catalogue:
+
+```bash
+npm run db:migrate:helpdesk
+```
+
+It creates only `helpdesk_categories` and `helpdesk_articles`, plus their indexes and `updated_at` triggers, and then inserts the starter articles with `ON CONFLICT DO NOTHING`. It does not alter any existing table, permission, learner, form, or audit row. The migration is additive and idempotent; `npm run db:init` applies the same schema and seed. Re-running it never overwrites content an administrator has edited, and rows deleted in **Helpdesk Content** are soft-deleted so a later migration cannot recreate them. Back up the database first.
+
 ## Run the application
 
 ```bash
@@ -341,6 +359,7 @@ The table below lists the **default** policy shipped in the seed. Administrators
 | Confirm self-registered accounts | Any registration | PSDS in own district | School heads in own district | Teachers, NT, advisers, coordinators in own school; learners (adviser only) | No |
 | Publish announcements | Yes | Yes | No | No | No |
 | View audit logs | Yes | No | No | No | No |
+| Manage Helpdesk articles and categories | Yes | No | No | No | No |
 | Select another district | Yes | No | No | No | No |
 | Maintain own subject class record | Yes | Yes | No | School head: view and submit | Assigned teacher only; advisers read for review |
 | Return or accept submitted quarterly grades | Yes | Yes | No | School head and section adviser in scope | No |
@@ -361,6 +380,16 @@ Read-only staff still see only published announcements for their district or sys
 - **Audit trail.** A save writes `user.permissions_updated` to `audit_logs` with the administrator, target account, module, action, previous value, new value, and timestamp. The editor shows the most recent change and a per-account history; the audit log remains system-administrator only and never records passwords or secrets.
 
 Existing accounts inherit role defaults when the module is first installed. Nothing is granted **Add**, **Edit**, or **Delete** merely because a module exists.
+
+## Helpdesk and knowledge base
+
+Every page served by the application, including the signed-out landing page, registration, reset-password, access-denied, and not-found pages, includes a floating **Helpdesk** button at the bottom-right. It opens a responsive panel with a welcome view, category shortcuts, suggested questions, search, article detail, numbered steps, reminders, and related topics. The widget is additive: it reads no form fields, changes no page markup, and does not alter any existing module, route, permission, record, or calculation.
+
+- **Content source.** Articles live in `helpdesk_articles` and are grouped by `helpdesk_categories`. Only active categories and published, non-deleted articles are exposed by the public `GET /api/helpdesk/content` endpoint. The starter catalogue in `server/data/helpdeskContent.js` documents the modules that are actually installed, including field meanings, status indicators, role boundaries, workflows, and what the system deliberately does not do. It is seeded once and never overwrites administrator edits.
+- **Context-aware help.** The widget reads the page's `data-page` attribute (or the request pathname for public pages) and promotes articles tagged with that page before general results. This changes ordering only; search still covers the whole published catalogue.
+- **Search without AI.** Queries are scored in the browser against article titles, summaries, keywords, categories, page tags, and body text. Phrase matches and the current page increase the score. Every result is an authored article; the widget does not generate answers or infer capabilities that the system does not have.
+- **Administration.** **Helpdesk Content** (`helpdesk-admin.html`) is available to accounts whose role or override grants the `helpdesk` module. It lists published/draft counts, searches and filters articles, creates and edits articles (title, slug, category, type, summary, body, steps, notes, keywords, page tags, sort order, featured), publishes or unpublishes them, hides or shows categories, and soft-deletes articles or unused categories. Each write is permission-checked on the server and recorded in `audit_logs`.
+- **Safety.** Article slugs are unique case-insensitively, page tags are restricted to known application pages, deletes are soft so a later seed cannot resurrect removed content, and category deletion is refused while any non-deleted article still belongs to it. No learner, health, grade, or personnel record is read by the public content endpoint.
 
 ## Learner records and DepEd School Forms
 
@@ -922,6 +951,17 @@ Single resources use `{ "data": { ... } }`. Errors use:
 | GET | `/user-rights/users/:id` | Effective matrix, role defaults, overrides, and last change (system admin only) |
 | GET | `/user-rights/users/:id/history` | Audited permission changes for one account (system admin only) |
 | PUT | `/user-rights/users/:id` | Replace the account's matrix; stores only differences from role defaults (system admin only) |
+| GET | `/helpdesk/content` | Public, published Helpdesk categories and articles (no learner or health data) |
+| GET | `/helpdesk/admin/meta` | Known page keys and article types (`helpdesk/access`) |
+| GET | `/helpdesk/admin/articles` | Paginated article list with search, category, and publication filters |
+| GET | `/helpdesk/admin/articles/:id` | Article detail for editing |
+| POST | `/helpdesk/admin/articles` | Create an article (`helpdesk/add`) |
+| PUT | `/helpdesk/admin/articles/:id` | Update, publish, or unpublish an article (`helpdesk/edit`) |
+| DELETE | `/helpdesk/admin/articles/:id` | Soft-delete an article (`helpdesk/delete`) |
+| GET | `/helpdesk/admin/categories`, `/:id` | Category list with article counts, or one category |
+| POST | `/helpdesk/admin/categories` | Create a category (`helpdesk/add`) |
+| PUT | `/helpdesk/admin/categories/:id` | Update, show, or hide a category (`helpdesk/edit`) |
+| DELETE | `/helpdesk/admin/categories/:id` | Soft-delete an unused category; in-use categories return `409` (`helpdesk/delete`) |
 | GET | `/learners` | Paginated learner directory with search and academic filters |
 | POST | `/learners` | Create a learner profile; duplicate LRN returns `409 LRN_IN_USE` |
 | GET | `/learners/:id` | Full learner profile, enrollments, guardians, documents, and academic summary |
@@ -1105,9 +1145,10 @@ The suite uses `node:test` and `supertest`, starts the Express app in test mode,
 - Learner profile bulk import: `learners/add` gating (teacher denied), schema-matched template, preview that writes no learner rows, commit that creates profiles only with no enrollment or guardian rows, token-protected single-use commit, duplicate LRN detection in the upload and against PostgreSQL without overwriting, district and school scoping (blank school code resolving to the actor's school), invalid-row evidence and error workbook, corrupt and formula files isolated from valid ones, UTF-8 CSV dates and numbers kept as typed, and scoped history and reports
 - Grade level options: system-administrator-only creation and management, case-insensitive duplicate rejection, active options visible to schools, free-text grade level names rejected with `GRADE_LEVEL_OPTION_REQUIRED`, deactivated options hidden from schools and rejected with `GRADE_LEVEL_OPTION_INACTIVE`, canonical option name and order applied to the new school grade level, a legacy school grade level that predates the catalogue still editable, in-use option deletion blocked, unused option add/remove, audit entries, and schools denied the management endpoints
 - Subject options: the seeded Kindergarten to Grade 12 starter catalogue, system-administrator-only creation and management, case-insensitive duplicate rejection, active options visible to schools, free-text subject names rejected with `SUBJECT_OPTION_REQUIRED`, deactivated options hidden from schools and rejected with `SUBJECT_OPTION_INACTIVE`, an existing school subject keeping its name, in-use option deletion blocked with `SUBJECT_OPTION_IN_USE`, unused option add/remove with `subject_option.*` audit entries, and schools denied the management endpoints
+- Helpdesk: the public catalogue is readable without a session and contains only published, non-deleted articles; every application page includes the widget stylesheet and script; the administration page and API reject anonymous and district-administrator access; a system administrator can create, edit, publish, unpublish, hide, show, and soft-delete articles and categories with audit entries; invalid input and duplicate slugs are rejected without changing existing content
 - Notifications, malformed JSON, and no stack-trace leakage
 
-The suite runs 136 tests across `api.test.js`, `permissions.test.js`, `forms.test.js`, `classrecords.test.js`, `districtImport.test.js`, `schoolImport.test.js`, `personnelImport.test.js`, `learnerImport.test.js`, `gradeLevelOptions.test.js`, and `subjectOptions.test.js`. Tests create data prefixed `TST-` or `RUN-` and remove it in `after()`, and `tests/classrecords.test.js` restores the shared class record template it edits. Run them against a disposable development database, not production. The suite requires the seed accounts and the forms, class record, district import, school import, personnel import, learner import, grade level option, and subject option schemas to exist.
+The suite runs 143 tests across `api.test.js`, `permissions.test.js`, `forms.test.js`, `classrecords.test.js`, `districtImport.test.js`, `schoolImport.test.js`, `personnelImport.test.js`, `learnerImport.test.js`, `gradeLevelOptions.test.js`, `subjectOptions.test.js`, and `helpdesk.test.js`. Tests create data prefixed `TST-` or `RUN-` and remove it in `after()`, and `tests/classrecords.test.js` restores the shared class record template it edits. Run them against a disposable development database, not production. The suite requires the seed accounts and the forms, class record, district import, school import, personnel import, learner import, grade level option, subject option, and Helpdesk schemas to exist.
 
 ## Security notes
 
@@ -1123,6 +1164,7 @@ The suite runs 136 tests across `api.test.js`, `permissions.test.js`, `forms.tes
 - Helmet restricts scripts to same-origin and disables framing. Inline styles are allowed because Bootstrap utilities and chart sizing rely on them.
 - In production, `NODE_ENV=production` enables HSTS and secure cookies, and error responses omit stack traces and database details.
 - Sensitive administrative actions (login, logout, self-registration, account approval/rejection, district/school/user/announcement changes, reports, password reset requests, profile and photo changes, and permission updates) are written to `audit_logs`.
+- Helpdesk content is public but deliberately limited: the public endpoint returns only published articles in active categories and never reads learner, health, grade, personnel, or account records. Article bodies are rendered as text, not HTML, and only a `helpdesk`-permitted account can create or change content; every article and category write is audited.
 - Module permissions are enforced by middleware on every protected API route and by page guards before a protected HTML file is served. Effective rights are reloaded from PostgreSQL on each authenticated request, so revocation does not wait for a new login or a cache expiry. System administrators are immutable, and no one can change their own rights.
 - Health records are served only through the `health` module. The learner profile hides the tab and the API returns `403` to teachers, advisers, and learners. Health print/PDF output is part of SF 8 and is subject to the same module permission.
 - Every learner, section, school-year, attendance, grade, book, movement, personnel, form, and monitoring query is scoped by the signed-in user's school or district. Passing another school's ID does not widen access.

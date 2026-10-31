@@ -42,6 +42,7 @@ const personnelRoutes = require("./routes/personnelRoutes");
 const schoolFormsRoutes = require("./routes/schoolFormsRoutes");
 const monitoringRoutes = require("./routes/monitoringRoutes");
 const classRecordRoutes = require("./routes/classRecordRoutes");
+const helpdeskRoutes = require("./routes/helpdeskRoutes");
 
 const CLIENT_DIR = path.join(__dirname, "..", "client");
 // Each protected page maps to the permission module that owns it. Direct URL
@@ -78,7 +79,8 @@ const PAGE_MODULES = {
   monitoring: "monitoring",
   "class-records": "class_records",
   "adviser-consolidation": "grade_submissions",
-  "report-cards": "report_cards"
+  "report-cards": "report_cards",
+  "helpdesk-admin": "helpdesk"
 };
 const PROTECTED_PAGES = Object.keys(PAGE_MODULES);
 
@@ -207,6 +209,7 @@ app.use("/api/personnel", personnelRoutes);
 app.use("/api/school-forms", schoolFormsRoutes);
 app.use("/api/monitoring", monitoringRoutes);
 app.use("/api/class-records", classRecordRoutes);
+app.use("/api/helpdesk", helpdeskRoutes);
 app.use("/api", apiNotFound);
 
 app.use(

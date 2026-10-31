@@ -544,6 +544,25 @@ const MODULE_DEFINITIONS = [
     }
   },
   {
+    key: "helpdesk",
+    label: "Helpdesk Content",
+    group: "Administration",
+    description: "Built-in help articles, FAQs, procedures, and knowledge-base categories.",
+    actions: ["access", "add", "edit", "delete"],
+    defaults: {
+      access: ["system_admin"],
+      add: ["system_admin"],
+      edit: ["system_admin"],
+      delete: ["system_admin"]
+    },
+    grantRoles: {
+      access: ["system_admin"],
+      add: ["system_admin"],
+      edit: ["system_admin"],
+      delete: ["system_admin"]
+    }
+  },
+  {
     key: "settings",
     label: "Settings and Profile",
     group: "System",

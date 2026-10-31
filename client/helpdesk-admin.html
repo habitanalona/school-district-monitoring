@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Helpdesk Content · School District Monitoring System</title>
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/helpdesk.css">
+  <link rel="stylesheet" href="css/helpdesk-admin.css">
+</head>
+<body class="app-body" data-page="helpdesk-admin">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-life-preserver"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading helpdesk content…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Administration</p>
+            <h1>Helpdesk content</h1>
+            <p class="page-subtitle">Maintain the built-in help articles, FAQs, and procedures that appear in the floating Helpdesk on every page. Published entries are read-only for everyone else.</p>
+          </div>
+          <div class="page-header__actions">
+            <button type="button" class="btn btn-light" id="helpdeskRefresh">
+              <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+              <span>Refresh</span>
+            </button>
+            <button type="button" class="btn btn-primary" id="helpdeskNewArticle">
+              <i class="bi bi-plus-lg" aria-hidden="true"></i>
+              <span>New article</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="helpdeskPageAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="helpdesk-stats" aria-label="Helpdesk summary">
+          <article class="helpdesk-stat">
+            <span class="helpdesk-stat__icon"><i class="bi bi-collection" aria-hidden="true"></i></span>
+            <div>
+              <p class="helpdesk-stat__value" id="helpdeskStatCategories">—</p>
+              <p class="helpdesk-stat__label">Categories</p>
+            </div>
+          </article>
+          <article class="helpdesk-stat">
+            <span class="helpdesk-stat__icon helpdesk-stat__icon--teal"><i class="bi bi-journal-check" aria-hidden="true"></i></span>
+            <div>
+              <p class="helpdesk-stat__value" id="helpdeskStatPublished">—</p>
+              <p class="helpdesk-stat__label">Published articles</p>
+            </div>
+          </article>
+          <article class="helpdesk-stat">
+            <span class="helpdesk-stat__icon helpdesk-stat__icon--amber"><i class="bi bi-pencil-square" aria-hidden="true"></i></span>
+            <div>
+              <p class="helpdesk-stat__value" id="helpdeskStatDrafts">—</p>
+              <p class="helpdesk-stat__label">Drafts</p>
+            </div>
+          </article>
+        </section>
+
+        <section class="surface-card helpdesk-admin-card" aria-labelledby="helpdeskArticlesHeading">
+          <header class="helpdesk-admin-card__head">
+            <div>
+              <h2 id="helpdeskArticlesHeading">Help articles</h2>
+              <p>Search, filter, and maintain every knowledge-base entry.</p>
+            </div>
+          </header>
+
+          <div class="helpdesk-admin-toolbar">
+            <label class="helpdesk-admin-field helpdesk-admin-field--grow">
+              <span class="sr-only">Search articles</span>
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <input type="search" id="helpdeskSearch" placeholder="Search title, summary, or body" autocomplete="off">
+            </label>
+            <label class="helpdesk-admin-field">
+              <span class="sr-only">Filter by category</span>
+              <select id="helpdeskCategoryFilter">
+                <option value="">All categories</option>
+              </select>
+            </label>
+            <label class="helpdesk-admin-field">
+              <span class="sr-only">Filter by status</span>
+              <select id="helpdeskStatusFilter">
+                <option value="all">All statuses</option>
+                <option value="published">Published</option>
+                <option value="draft">Drafts</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="table-responsive">
+            <table class="app-table helpdesk-admin-table">
+              <caption class="sr-only">Helpdesk knowledge-base articles</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Article</th>
+                  <th scope="col">Category</th>
+                  <th scope="col">Type</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Updated</th>
+                  <th scope="col" class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="helpdeskArticleRows">
+                <tr>
+                  <td colspan="6" class="helpdesk-admin-empty">Loading articles…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <footer class="helpdesk-admin-foot">
+            <p id="helpdeskArticleMeta">Loading…</p>
+            <div class="helpdesk-admin-pager" id="helpdeskArticlePager"></div>
+          </footer>
+        </section>
+
+        <section class="surface-card helpdesk-admin-card" aria-labelledby="helpdeskCategoriesHeading">
+          <header class="helpdesk-admin-card__head">
+            <div>
+              <h2 id="helpdeskCategoriesHeading">Categories</h2>
+              <p>Group articles so users can browse related guidance together.</p>
+            </div>
+            <button type="button" class="btn btn-light btn-sm" id="helpdeskNewCategory">
+              <i class="bi bi-plus-lg" aria-hidden="true"></i>
+              <span>New category</span>
+            </button>
+          </header>
+          <div class="helpdesk-category-list" id="helpdeskCategoryList">
+            <p class="helpdesk-admin-empty">Loading categories…</p>
+          </div>
+        </section>
+
+        <p class="helpdesk-admin-note">
+          <i class="bi bi-shield-lock" aria-hidden="true"></i>
+          Only accounts with the Helpdesk Content permission can change this knowledge base. Every create, update, and delete is written to the audit log.
+        </p>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 North Valley Unified School District</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+        <span class="app-footer__right" id="footerUpdated"></span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="modal fade" id="helpdeskArticleModal" tabindex="-1" role="dialog" aria-labelledby="helpdeskArticleModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+      <div class="modal-content">
+        <form id="helpdeskArticleForm" novalidate>
+          <div class="modal-header">
+            <h2 class="modal-title h5" id="helpdeskArticleModalTitle">New help article</h2>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div id="helpdeskArticleAlert" class="d-none" role="alert"></div>
+
+            <div class="form-row">
+              <div class="form-group col-md-8">
+                <label for="helpdeskArticleTitle">Title <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="helpdeskArticleTitle" maxlength="140" required>
+                <span class="field-error" id="helpdeskArticleTitleError" aria-live="polite"></span>
+              </div>
+              <div class="form-group col-md-4">
+                <label for="helpdeskArticleCategory">Category <span class="text-danger">*</span></label>
+                <select class="form-control" id="helpdeskArticleCategory" required></select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group col-md-8">
+                <label for="helpdeskArticleSlug">Slug</label>
+                <input type="text" class="form-control" id="helpdeskArticleSlug" maxlength="100" placeholder="Leave blank to derive from the title">
+                <small class="form-text text-muted">Lowercase letters, numbers, and hyphens. Existing links use this value.</small>
+              </div>
+              <div class="form-group col-md-4">
+                <label for="helpdeskArticleType">Article type</label>
+                <select class="form-control" id="helpdeskArticleType">
+                  <option value="article">Guide article</option>
+                  <option value="faq">FAQ</option>
+                  <option value="procedure">Procedure / SOP</option>
+                  <option value="reference">Reference</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="helpdeskArticleSummary">Summary <span class="text-danger">*</span></label>
+              <textarea class="form-control" id="helpdeskArticleSummary" rows="2" maxlength="300" required></textarea>
+              <div class="helpdesk-admin-counter"><span id="helpdeskSummaryCount">0</span> / 300</div>
+            </div>
+
+            <div class="form-group">
+              <label for="helpdeskArticleBody">Answer</label>
+              <textarea class="form-control" id="helpdeskArticleBody" rows="6" maxlength="50000" placeholder="Explain the answer in plain language. Separate paragraphs with a blank line."></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                <label for="helpdeskArticleSteps">Step-by-step instructions</label>
+                <textarea class="form-control" id="helpdeskArticleSteps" rows="5" placeholder="One step per line"></textarea>
+                <small class="form-text text-muted">Each line becomes a numbered step in the Helpdesk.</small>
+              </div>
+              <div class="form-group col-md-6">
+                <label for="helpdeskArticleNotes">Reminders</label>
+                <textarea class="form-control" id="helpdeskArticleNotes" rows="5" placeholder="One reminder per line"></textarea>
+                <small class="form-text text-muted">Shown as highlighted reminders below the steps.</small>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                <label for="helpdeskArticleKeywords">Search keywords</label>
+                <input type="text" class="form-control" id="helpdeskArticleKeywords" placeholder="Comma separated, for example: learner, LRN, enrollment">
+              </div>
+              <div class="form-group col-md-6">
+                <label for="helpdeskArticlePages">Related pages (context help)</label>
+                <select class="form-control" id="helpdeskArticlePages" multiple size="5" aria-describedby="helpdeskPagesHelp"></select>
+                <small class="form-text text-muted" id="helpdeskPagesHelp">Hold Ctrl (Command on Mac) to choose more than one page.</small>
+              </div>
+            </div>
+
+            <div class="form-row align-items-end">
+              <div class="form-group col-md-4">
+                <label for="helpdeskArticleSort">Sort order</label>
+                <input type="number" class="form-control" id="helpdeskArticleSort" min="0" max="999" value="0">
+              </div>
+              <div class="form-group col-md-8">
+                <div class="custom-control custom-checkbox mb-2">
+                  <input type="checkbox" class="custom-control-input" id="helpdeskArticleFeatured">
+                  <label class="custom-control-label" for="helpdeskArticleFeatured">Feature as a suggested question</label>
+                </div>
+                <div class="custom-control custom-checkbox">
+                  <input type="checkbox" class="custom-control-input" id="helpdeskArticlePublished" checked>
+                  <label class="custom-control-label" for="helpdeskArticlePublished">Published (visible to users)</label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="helpdeskArticleSave">Save article</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="helpdeskCategoryModal" tabindex="-1" role="dialog" aria-labelledby="helpdeskCategoryModalTitle" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <form id="helpdeskCategoryForm" novalidate>
+          <div class="modal-header">
+            <h2 class="modal-title h5" id="helpdeskCategoryModalTitle">New category</h2>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div id="helpdeskCategoryAlert" class="d-none" role="alert"></div>
+            <div class="form-row">
+              <div class="form-group col-md-8">
+                <label for="helpdeskCategoryTitle">Title <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="helpdeskCategoryTitle" maxlength="120" required>
+                <span class="field-error" id="helpdeskCategoryTitleError" aria-live="polite"></span>
+              </div>
+              <div class="form-group col-md-4">
+                <label for="helpdeskCategorySort">Sort order</label>
+                <input type="number" class="form-control" id="helpdeskCategorySort" min="0" max="999" value="0">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="helpdeskCategorySlug">Slug</label>
+              <input type="text" class="form-control" id="helpdeskCategorySlug" maxlength="80" placeholder="Leave blank to derive from the title">
+            </div>
+            <div class="form-group">
+              <label for="helpdeskCategoryDescription">Description</label>
+              <textarea class="form-control" id="helpdeskCategoryDescription" rows="2" maxlength="400"></textarea>
+            </div>
+            <div class="form-group">
+              <label for="helpdeskCategoryIcon">Bootstrap icon class</label>
+              <input type="text" class="form-control" id="helpdeskCategoryIcon" maxlength="40" value="bi-question-circle">
+              <small class="form-text text-muted">Example: bi-question-circle, bi-person-vcard, bi-graph-up.</small>
+            </div>
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="helpdeskCategoryActive" checked>
+              <label class="custom-control-label" for="helpdeskCategoryActive">Active (visible in the Helpdesk)</label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="helpdeskCategorySave">Save category</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/helpdesk-admin.js"></script>
+  <script src="js/helpdesk.js"></script>
+</body>
+</html>

@@ -107,7 +107,8 @@
       showDistricts ||
       allows("users") ||
       permissions.canViewAuditLogs ||
-      permissions.canManageUserRights
+      permissions.canManageUserRights ||
+      allows("helpdesk")
     ) {
       adminLinks = '<p class="sidebar-heading">Administration</p>';
       if (allows("approvals")) {
@@ -124,6 +125,9 @@
       }
       if (permissions.canViewAuditLogs) {
         adminLinks += navItem("audit", "audit-logs.html", "bi-shield-check", "Audit Logs");
+      }
+      if (allows("helpdesk")) {
+        adminLinks += navItem("helpdesk-admin", "helpdesk-admin.html", "bi-life-preserver", "Helpdesk Content");
       }
     }
 

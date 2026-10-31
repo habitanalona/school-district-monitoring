@@ -8,6 +8,7 @@
 
 const { query, getClient } = require("../config/database");
 const { HttpError } = require("../utils/httpError");
+const XLSX = require("xlsx");
 const {
   fail,
   optionalEmail,
@@ -66,10 +67,30 @@ function requireLrn(value) {
   return lrn;
 }
 
+// Excel stores a typed date as a serial number (for example 2013-12-15 is
+// 41623), and some CSV exports use a full ISO timestamp. Convert both to a
+// plain calendar date before the strict YYYY-MM-DD check. XLSX.SSF keeps the
+// conversion timezone-independent, unlike Date.toISOString().
+const EXCEL_DATE_SERIAL = /^\d{5}(?:\.\d+)?$/;
+
+function normalizeBirthDate(value) {
+  const text = requireString(value, "Birth date", { min: 1, max: 40 });
+  if (EXCEL_DATE_SERIAL.test(text)) {
+    const parsed = XLSX.SSF.parse_date_code(Number(text));
+    if (parsed && parsed.y && parsed.m && parsed.d) {
+      return `${parsed.y}-${String(parsed.m).padStart(2, "0")}-${String(parsed.d).padStart(2, "0")}`;
+    }
+  }
+  const iso = /^(\d{4}-\d{2}-\d{2})(?:[T ].*)?$/.exec(text);
+  return iso ? iso[1] : text;
+}
+
 function requireBirthDate(value) {
-  const text = requireString(value, "Birth date", { min: 10, max: 10 });
+  const text = normalizeBirthDate(value);
   if (!DATE_PATTERN.test(text)) {
-    fail("Birth date must use the YYYY-MM-DD format.", { field: "birth_date" });
+    fail("Birth date must be a real date in YYYY-MM-DD format, for example 2013-12-15.", {
+      field: "birth_date"
+    });
   }
   const parsed = new Date(`${text}T00:00:00Z`);
   if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== text) {

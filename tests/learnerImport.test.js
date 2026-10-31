@@ -695,6 +695,78 @@ test("a UTF-8 CSV keeps typed dates and numbers", async () => {
   assert.equal(Number(stored.rows[0].height_cm), 141);
 });
 
+test("typed Excel date cells and ISO timestamps normalize to calendar dates", async () => {
+  const file = learnerFile([
+    learnerRow({
+      lrn: altLrn(3),
+      last_name: "Serial",
+      first_name: "Date",
+      // Excel writes a typed date cell as a serial number (41623).
+      birth_date: new Date(2013, 11, 15),
+      sex: "female",
+      school_code: school.school_code
+    }),
+    learnerRow({
+      lrn: altLrn(4),
+      last_name: "Timestamp",
+      first_name: "Iso",
+      birth_date: "2012-01-30T00:00:00.000Z",
+      sex: "male",
+      school_code: school.school_code
+    }),
+    learnerRow({
+      lrn: altLrn(5),
+      last_name: "Plain",
+      first_name: "Text",
+      birth_date: "2014-05-18",
+      sex: "female",
+      school_code: school.school_code
+    }),
+    learnerRow({
+      lrn: altLrn(6),
+      last_name: "Ambiguous",
+      first_name: "Day",
+      birth_date: "15/12/2013",
+      sex: "male",
+      school_code: school.school_code
+    })
+  ]);
+
+  const preview = await previewUpload(admin, [
+    { name: `${LRN_ALT}-dates.xlsx`, buffer: file }
+  ]);
+  assert.equal(preview.status, 200, JSON.stringify(preview.body));
+  const data = preview.body.data;
+
+  assert.equal(data.summary.validRecords, 3, JSON.stringify(data.issues));
+  assert.equal(data.summary.rejected, 1);
+  assert.equal(data.summary.duplicates, 0);
+  assert.deepEqual(
+    data.preview.map((row) => row.birthDate).sort(),
+    ["2012-01-30", "2013-12-15", "2014-05-18"]
+  );
+
+  const rejected = data.issues.find((issue) => issue.column === "birth_date");
+  assert.ok(rejected, "an ambiguous date is rejected");
+  assert.match(rejected.reason, /YYYY-MM-DD/);
+
+  const commit = await commitImport(admin, data);
+  assert.equal(commit.status, 200, JSON.stringify(commit.body));
+  assert.equal(commit.body.data.imported.length, 3);
+  assert.equal(await learnerByLrn(altLrn(6)), null);
+
+  const stored = await pool.query(
+    `SELECT lrn, to_char(birth_date, 'YYYY-MM-DD') AS birthday
+       FROM learners WHERE lrn = ANY($1::text[]) ORDER BY lrn`,
+    [[altLrn(3), altLrn(4), altLrn(5)]]
+  );
+  assert.deepEqual(stored.rows, [
+    { lrn: altLrn(3), birthday: "2013-12-15" },
+    { lrn: altLrn(4), birthday: "2012-01-30" },
+    { lrn: altLrn(5), birthday: "2014-05-18" }
+  ]);
+});
+
 test("history and error reports stay scoped to the importing account", async () => {
   const history = await admin.agent.get("/api/learners/imports?limit=20");
   assert.equal(history.status, 200);

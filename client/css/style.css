@@ -849,9 +849,15 @@ textarea.form-control {
   flex: 0 0 auto;
 }
 
-.brand-mark svg {
+.brand-mark img {
   width: 30px;
   height: 30px;
+}
+
+.brand-mark img {
+  display: block;
+  object-fit: contain;
+  border-radius: 50%;
 }
 
 .brand-mark--hero {
@@ -1368,7 +1374,7 @@ textarea.form-control {
   color: var(--royal-600);
 }
 
-.brand-mark--compact svg {
+.brand-mark--compact img {
   width: 25px;
   height: 25px;
 }
@@ -2023,7 +2029,7 @@ textarea.form-control {
   box-shadow: var(--shadow-card);
 }
 
-.brand-mark--loader svg {
+.brand-mark--loader img {
   width: 38px;
   height: 38px;
 }
@@ -2149,7 +2155,7 @@ textarea.form-control {
   color: var(--sky-300);
 }
 
-.brand--sidebar .brand-mark svg {
+.brand--sidebar .brand-mark img {
   width: 27px;
   height: 27px;
 }
@@ -6797,7 +6803,7 @@ textarea.form-control {
   color: var(--sky-300);
 }
 
-.reset-brand .brand-mark svg {
+.reset-brand .brand-mark img {
   width: 30px;
   height: 30px;
 }

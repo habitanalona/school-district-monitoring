@@ -3,12 +3,7 @@
   "use strict";
 
   var SVG_MARK =
-    '<svg viewBox="0 0 40 40" role="img" aria-hidden="true" focusable="false">' +
-    '<path d="M20 3.5 34.5 9v10.2c0 8.1-5.6 14.5-14.5 17.3C11.1 33.7 5.5 27.3 5.5 19.2V9L20 3.5Z" fill="rgba(124,194,232,.16)" stroke="currentColor" stroke-width="1.6"/>' +
-    '<path d="M20 9.5 28.8 13v6.3c0 5.2-3.5 9.4-8.8 11.3-5.3-1.9-8.8-6.1-8.8-11.3V13L20 9.5Z" fill="currentColor" opacity=".92"/>' +
-    '<path d="m20 14.3 5.1 2v3.1c0 2.9-2 5.3-5.1 6.4-3.1-1.1-5.1-3.5-5.1-6.4v-3.1l5.1-2Z" fill="#0b2340"/>' +
-    '<path d="M15.8 25.3h8.4M20 19.5v5.8" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>' +
-    "</svg>";
+    '<img src="assets/images/division-seal.png" alt="" aria-hidden="true">';
 
   var state = {
     session: null,

@@ -1,5 +1,7 @@
+.gitignore
 node_modules/
 .env
+.env.example
 .env.*
 !.env.example
 *.log
@@ -11,4 +13,6 @@ Thumbs.db
 read.txt
 read1.txt
 backups/
+docs/
 School_form.txt
+structure.txt

@@ -12,10 +12,15 @@ const morgan = require("morgan");
 const config = require("./config/env");
 const { pool } = require("./config/database");
 const { loadUser, requirePageAuth } = require("./middleware/authMiddleware");
+const { loadSuperAdmin } = require("./middleware/superAdminMiddleware");
 const { csrfProtection } = require("./middleware/csrfMiddleware");
 const { requirePageModule } = require("./middleware/permissionMiddleware");
 const { apiLimiter } = require("./middleware/rateLimiters");
 const { apiNotFound, errorHandler } = require("./middleware/errorHandler");
+const { maintenanceMode } = require("./middleware/maintenanceMiddleware");
+const { intrusionDetection } = require("./middleware/intrusionMiddleware");
+const { uploadSecurityObserver } = require("./services/security/uploadSecurityService");
+const guardState = require("./services/security/guardState");
 
 const authRoutes = require("./routes/authRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
@@ -43,6 +48,7 @@ const schoolFormsRoutes = require("./routes/schoolFormsRoutes");
 const monitoringRoutes = require("./routes/monitoringRoutes");
 const classRecordRoutes = require("./routes/classRecordRoutes");
 const helpdeskRoutes = require("./routes/helpdeskRoutes");
+const securityRoutes = require("./routes/securityRoutes");
 
 const CLIENT_DIR = path.join(__dirname, "..", "client");
 // Each protected page maps to the permission module that owns it. Direct URL
@@ -163,11 +169,24 @@ app.use(
   })
 );
 
+// Maintenance mode restriction runs before any protected page or module route
+// so direct URL visits cannot bypass it. Static assets still pass through so
+// the Under Maintenance notice renders correctly.
+app.use(maintenanceMode);
+
 PROTECTED_PAGES.forEach((page) => {
   app.get([`/${page}`, `/${page}.html`], loadUser, requirePageAuth, requirePageModule(PAGE_MODULES[page]), (req, res) => {
     res.set("Cache-Control", "no-store");
     res.sendFile(path.join(CLIENT_DIR, `${page}.html`));
   });
+});
+
+// Security Firewall console. The page shell itself is reachable so the
+// SuperAdmin sign-in form can render; every data endpoint behind it requires a
+// SuperAdmin session, and ordinary users/admins see only the sign-in prompt.
+app.get(["/security-firewall", "/security-firewall.html"], loadUser, (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.sendFile(path.join(CLIENT_DIR, "security-firewall.html"));
 });
 
 app.get(["/", "/index.html"], loadUser, (req, res) => {
@@ -183,7 +202,27 @@ app.use("/api", apiLimiter, (req, res, next) => {
   // from a cache after a deploy or sign-out.
   res.set("Cache-Control", "no-store");
   next();
-}, csrfProtection, loadUser);
+}, csrfProtection, intrusionDetection, uploadSecurityObserver, loadUser);
+
+// Tag every request with its database-guard execution context: who is running
+// SQL below this point. Anonymous requests carry authenticated=false so the
+// write guard can reject anonymous writes when DATABASE WRITE PROTECTION is on.
+app.use((req, res, next) => {
+  const isSuperadmin = Boolean(req.session && req.session.superadminId);
+  guardState.runWithContext(
+    {
+      source: "application",
+      authenticated: Boolean((req.session && req.session.userId) || isSuperadmin),
+      actor: req.user ? req.user.username : isSuperadmin ? "superadmin" : "anonymous",
+      ip: req.ip
+    },
+    next
+  );
+});
+
+// Maintenance mode is enforced above (before page routes); SuperAdmin session
+// loading must complete before the security API routes are mounted.
+app.use(loadSuperAdmin);
 app.use("/api/auth", authRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/schools", schoolRoutes);
@@ -210,6 +249,7 @@ app.use("/api/school-forms", schoolFormsRoutes);
 app.use("/api/monitoring", monitoringRoutes);
 app.use("/api/class-records", classRecordRoutes);
 app.use("/api/helpdesk", helpdeskRoutes);
+app.use("/api/security", securityRoutes);
 app.use("/api", apiNotFound);
 
 app.use(

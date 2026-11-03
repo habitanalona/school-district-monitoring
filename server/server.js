@@ -2,8 +2,10 @@
 
 const app = require("./app");
 const config = require("./config/env");
-const { pool } = require("./config/database");
+const { pool, runSecurityWrite } = require("./config/database");
 const { ensurePermissionCatalog } = require("./services/permissionService");
+const firewallService = require("./services/security/firewallService");
+const monitoringWorker = require("./services/security/monitoringWorker");
 
 let server;
 
@@ -12,7 +14,9 @@ async function start() {
     await pool.query("SELECT 1");
     // Keeps the permission catalog and role defaults in sync without touching
     // administrator-made overrides (ON CONFLICT DO NOTHING for role defaults).
-    await ensurePermissionCatalog();
+    // Boot-time maintenance runs in the security execution context so schema
+    // housekeeping is not mistaken for an application write.
+    await runSecurityWrite(() => ensurePermissionCatalog());
   } catch (error) {
     console.error("Unable to prepare PostgreSQL:", error.message);
     console.error("Check DATABASE_URL in .env and run `npm run db:init` to apply the schema.");
@@ -32,6 +36,11 @@ async function start() {
     console.log(`Server running at http://localhost:${config.port}`);
     console.log(`Environment: ${config.nodeEnv}`);
   });
+
+  // Security module warm-up: load switch state, then start the 24/7
+  // monitoring worker (health probes, code integrity scans, retention).
+  await firewallService.refreshCache();
+  monitoringWorker.start();
 }
 
 async function shutdown(signal) {

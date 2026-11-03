@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#050b16">
+  <title>Security Firewall · School District Monitoring System</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="assets/images/favicon.png">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/security.css">
+</head>
+<body class="sec-body" data-page="security-firewall">
+
+  <!-- SuperAdmin sign-in -->
+  <section class="sec-login" id="secLogin" hidden>
+    <div class="sec-login__card">
+      <div class="sec-login__brand">
+        <span class="brand-mark"><img src="assets/images/division-seal.png" alt="" aria-hidden="true"></span>
+        <div>
+          <strong>SDMS Security Firewall</strong>
+          <small>SuperAdmin · System Security Controller</small>
+        </div>
+      </div>
+      <p class="sec-login__note">
+        This console is separate from the administrator dashboard. Sign in with your SuperAdmin
+        credentials and authenticator code.
+      </p>
+      <div class="sec-alert sec-alert--danger" id="secLoginAlert" hidden></div>
+      <form id="secLoginForm" autocomplete="off">
+        <label class="sec-field">
+          <span>SuperAdmin username</span>
+          <input type="text" id="secUsername" name="username" required autocomplete="username">
+        </label>
+        <label class="sec-field">
+          <span>Password</span>
+          <input type="password" id="secPassword" name="password" required autocomplete="current-password">
+        </label>
+        <label class="sec-field">
+          <span>Authenticator code (6 digits)</span>
+          <input type="text" id="secTotp" name="totp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code">
+        </label>
+        <button type="submit" class="sec-btn sec-btn--primary sec-btn--block" id="secLoginSubmit">
+          <i class="bi bi-shield-lock" aria-hidden="true"></i> Authenticate
+        </button>
+      </form>
+      <p class="sec-login__foot">
+        <a href="/dashboard.html">Return to SDMS dashboard</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- Firewall console -->
+  <div class="sec-app" id="secApp" hidden>
+    <header class="sec-topbar">
+      <div class="sec-topbar__brand">
+        <span class="brand-mark brand-mark--compact"><img src="assets/images/division-seal.png" alt="" aria-hidden="true"></span>
+        <div>
+          <strong>Security Firewall</strong>
+          <small id="secWho">SuperAdmin</small>
+        </div>
+      </div>
+      <div class="sec-topbar__actions">
+        <span class="sec-pill" id="secModePill">Loading…</span>
+        <button type="button" class="sec-icon-btn" id="secAlertBtn" title="Security alerts">
+          <i class="bi bi-bell" aria-hidden="true"></i><span class="sec-badge" id="secAlertCount" hidden>0</span>
+        </button>
+        <button type="button" class="sec-icon-btn" id="secLogoutBtn" title="Sign out of the firewall console">
+          <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="sec-layout">
+      <nav class="sec-nav" id="secNav" aria-label="Security console sections">
+        <button type="button" class="sec-nav__item" data-view="overview"><i class="bi bi-speedometer2"></i><span>Security Overview</span></button>
+        <button type="button" class="sec-nav__item" data-view="control"><i class="bi bi-toggles"></i><span>Firewall Control Center</span></button>
+        <button type="button" class="sec-nav__item" data-view="database"><i class="bi bi-database-lock"></i><span>Database Protection</span></button>
+        <button type="button" class="sec-nav__item" data-view="code"><i class="bi bi-file-earmark-code"></i><span>Code Integrity</span></button>
+        <button type="button" class="sec-nav__item" data-view="live"><i class="bi bi-activity"></i><span>Real-Time Activity</span></button>
+        <button type="button" class="sec-nav__item" data-view="intrusion"><i class="bi bi-radar"></i><span>Intrusion Detection</span></button>
+        <button type="button" class="sec-nav__item" data-view="incidents"><i class="bi bi-exclamation-octagon"></i><span>Incident Management</span></button>
+        <button type="button" class="sec-nav__item" data-view="uploads"><i class="bi bi-cloud-arrow-up"></i><span>Upload Security</span></button>
+        <button type="button" class="sec-nav__item" data-view="audit"><i class="bi bi-journal-check"></i><span>Security Audit Logs</span></button>
+        <button type="button" class="sec-nav__item" data-view="dbhealth"><i class="bi bi-database-check"></i><span>Database Health</span></button>
+        <button type="button" class="sec-nav__item" data-view="apphealth"><i class="bi bi-heart-pulse"></i><span>Application Health</span></button>
+        <button type="button" class="sec-nav__item" data-view="backup"><i class="bi bi-hdd-stack"></i><span>Backup &amp; Recovery</span></button>
+        <button type="button" class="sec-nav__item" data-view="recovery"><i class="bi bi-life-preserver"></i><span>Emergency Recovery</span></button>
+        <button type="button" class="sec-nav__item" data-view="config"><i class="bi bi-sliders2"></i><span>Security Configuration</span></button>
+        <button type="button" class="sec-nav__item" data-view="accounts"><i class="bi bi-person-gear"></i><span>SuperAdmin Accounts</span></button>
+      </nav>
+
+      <main class="sec-main" id="secMain">
+        <div class="sec-view-head">
+          <div>
+            <p class="sec-eyebrow" id="secViewEyebrow">Security Operations</p>
+            <h1 id="secViewTitle">Security Overview</h1>
+          </div>
+          <div class="sec-view-head__actions">
+            <button type="button" class="sec-btn sec-btn--ghost" id="secRefreshBtn"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+            <a class="sec-btn sec-btn--ghost" href="/dashboard.html"><i class="bi bi-grid-1x2"></i> SDMS</a>
+          </div>
+        </div>
+
+        <div class="sec-alert" id="secAlert" hidden></div>
+        <div id="secView"></div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Confirm modal -->
+  <div class="sec-modal" id="secModal" hidden>
+    <div class="sec-modal__panel" role="dialog" aria-modal="true" aria-labelledby="secModalTitle">
+      <h2 id="secModalTitle">Confirm action</h2>
+      <p id="secModalText" class="sec-modal__text"></p>
+      <div class="sec-modal__field" id="secModalField" hidden>
+        <label for="secModalInput" id="secModalLabel">Reason</label>
+        <input type="text" id="secModalInput" maxlength="300" autocomplete="off">
+      </div>
+      <div class="sec-modal__actions">
+        <button type="button" class="sec-btn sec-btn--ghost" id="secModalCancel">Cancel</button>
+        <button type="button" class="sec-btn sec-btn--danger" id="secModalConfirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-toast-stack" id="secToasts" aria-live="polite"></div>
+
+  <script src="js/security-firewall.js"></script>
+</body>
+</html>

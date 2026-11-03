@@ -132,6 +132,7 @@ async function me(req, res) {
       user: req.user,
       permissions: permissionsFor(req.user),
       districts,
+      superadmin: req.superadmin ? { username: req.superadmin.username, fullName: req.superadmin.fullName } : null,
       csrfToken: ensureCsrfToken(req)
     }
   });

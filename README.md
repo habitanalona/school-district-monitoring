@@ -206,6 +206,12 @@ cp .env.example .env
 | `TRUST_PROXY` | `1` only behind a trusted HTTPS reverse proxy; required for secure cookies to work there. |
 | `CORS_ORIGIN` | Leave blank for same-origin. If set, allow a single trusted origin. |
 | `APP_NAME`, `APP_VERSION` | Displayed in the UI and startup log. |
+| `SECURITY_BOOTSTRAP_TOKEN` | One-time secret (16+ characters) that authorises creating the first SuperAdmin. Remove it after provisioning. |
+| `SECURITY_BACKUP_DIR` | Directory for security backups and forensic evidence exports. Default `backups/security`; keep it outside `client/` and on persistent storage. |
+| `SECURITY_HEALTH_INTERVAL_MS` | Monitoring worker health-probe interval. Default `30000`. |
+| `SECURITY_CODE_SCAN_INTERVAL_MS` | Code-integrity re-scan interval. Default `300000`. |
+| `SECURITY_RETENTION_DAYS` | Retention for high-volume operational tables (activity, health, uploads). Default `30`; audit, incident, backup, and recovery records are kept. |
+| `SECURITY_ALERT_EMAIL` | Shown in the console configuration view. Email delivery is not implemented; forward alerts externally (see `docs/security-module/REQUIREMENTS.md`). |
 
 Never commit `.env`. `.gitignore` already excludes it, dependencies, logs, and coverage output.
 
@@ -301,7 +307,15 @@ The Helpdesk release adds `database/schema-helpdesk.sql` and its starter catalog
 npm run db:migrate:helpdesk
 ```
 
-It creates only `helpdesk_categories` and `helpdesk_articles`, plus their indexes and `updated_at` triggers, and then inserts the starter articles with `ON CONFLICT DO NOTHING`. It does not alter any existing table, permission, learner, form, or audit row. The migration is additive and idempotent; `npm run db:init` applies the same schema and seed. Re-running it never overwrites content an administrator has edited, and rows deleted in **Helpdesk Content** are soft-deleted so a later migration cannot recreate them. Back up the database first.
+It creates only `helpdesk_categories` and `helpdesk_articles`, plus their indexes and `updated_at` triggers, and then inserts the starter articles with `ON CONFLICT DO NOTHING`. It does not alter any existing table, permission, learner, form, or audit row. The migration is additive and idempotent; `npm run db:init` applies the same schema and seed. Re-running it never overwrites content an administrator has edited, and rows deleted in **Helpdesk Content** are soft-deleted so a later migration cannot recreate them. Back up the database first. The Security Firewall tables are added separately with `npm run db:migrate:security` (see above).
+
+The Security Firewall and Recovery Center adds `database/schema-security.sql`:
+
+```bash
+npm run db:migrate:security
+```
+
+It creates the module's 15 tables (`superadmin_users`, `firewall_settings`, `firewall_control_history`, `security_events`, `security_incidents`, `security_audit_logs`, `database_activity_logs`, `code_integrity_records`, `security_baselines`, `file_upload_security_logs`, `system_health_records`, `security_alerts`, `backup_records`, `recovery_sessions`, `approved_maintenance_sessions`) and applies idempotent column patches. It never modifies an existing SDMS table, user, permission, learner, grade, form, or `audit_logs` row, and it prints the verified table count and current switch state. `npm run db:migrate:security:rollback` drops only those tables (export the audit CSV first — module data is destroyed). After migrating, bootstrap the first SuperAdmin with `SECURITY_BOOTSTRAP_TOKEN` and `npm run security:bootstrap-superadmin`; see `docs/security-module/OPERATIONS.md`.
 
 ## Run the application
 
@@ -1147,8 +1161,56 @@ The suite uses `node:test` and `supertest`, starts the Express app in test mode,
 - Subject options: the seeded Kindergarten to Grade 12 starter catalogue, system-administrator-only creation and management, case-insensitive duplicate rejection, active options visible to schools, free-text subject names rejected with `SUBJECT_OPTION_REQUIRED`, deactivated options hidden from schools and rejected with `SUBJECT_OPTION_INACTIVE`, an existing school subject keeping its name, in-use option deletion blocked with `SUBJECT_OPTION_IN_USE`, unused option add/remove with `subject_option.*` audit entries, and schools denied the management endpoints
 - Helpdesk: the public catalogue is readable without a session and contains only published, non-deleted articles; every application page includes the widget stylesheet and script; the administration page and API reject anonymous and district-administrator access; a system administrator can create, edit, publish, unpublish, hide, show, and soft-delete articles and categories with audit entries; invalid input and duplicate slugs are rejected without changing existing content
 - Notifications, malformed JSON, and no stack-trace leakage
+- Security firewall: SuperAdmin separation (wrong password, wrong TOTP, ordinary administrator refused, anonymous/non-SuperAdmin API denial), the four independent switches with required reasons, anonymous-write protection, DDL and security-table denial, lockdown, maintenance-mode redirect and `503` responses, code-integrity baseline detection, executable upload rejection, SQL-injection indicator recording, automatic incident and alert creation for CRITICAL events, validated incident transitions, hash-chain verification and SuperAdmin-only CSV export, fail-closed guard behaviour, monitoring without a browser, self-deactivation refusal, and regression of existing modules for ordinary users. The suite creates and removes its own SuperAdmin and ordinary-administrator fixtures.
 
-The suite runs 143 tests across `api.test.js`, `permissions.test.js`, `forms.test.js`, `classrecords.test.js`, `districtImport.test.js`, `schoolImport.test.js`, `personnelImport.test.js`, `learnerImport.test.js`, `gradeLevelOptions.test.js`, `subjectOptions.test.js`, and `helpdesk.test.js`. Tests create data prefixed `TST-` or `RUN-` and remove it in `after()`, and `tests/classrecords.test.js` restores the shared class record template it edits. Run them against a disposable development database, not production. The suite requires the seed accounts and the forms, class record, district import, school import, personnel import, learner import, grade level option, subject option, and Helpdesk schemas to exist.
+The suite runs the API, permissions, forms, class record, import, catalogue, Helpdesk, and security suites across `api.test.js`, `permissions.test.js`, `forms.test.js`, `classrecords.test.js`, `districtImport.test.js`, `schoolImport.test.js`, `personnelImport.test.js`, `learnerImport.test.js`, `gradeLevelOptions.test.js`, `subjectOptions.test.js`, `helpdesk.test.js`, and `security.test.js`. Tests create data prefixed `TST-` or `RUN-` and remove it in `after()`, and `tests/classrecords.test.js` restores the shared class record template it edits. Run them against a disposable development database, not production. The suite requires the seed accounts and the forms, class record, district import, school import, personnel import, learner import, grade level option, subject option, Helpdesk, and security schemas to exist.
+
+## Security firewall and recovery center
+
+An additive, server-enforced security layer is available at `/security-firewall.html`
+for a separate **SuperAdmin (System Security Controller)** identity. It does not
+change any existing role, permission, table, or workflow, and ordinary administrators
+cannot reach it or promote themselves.
+
+- **Separate identity.** `superadmin_users` has its own bcrypt password, TOTP secret,
+  lockout counters, and session key. Provision the first account from the server with
+  `SECURITY_BOOTSTRAP_TOKEN` and `npm run security:bootstrap-superadmin`; further
+  accounts are created inside the console and show their TOTP secret once.
+- **Four independent master switches**, all enforced on the server: DATABASE WRITE
+  PROTECTION (anonymous writes rejected, authenticated writes recorded), APPLICATION
+  CODE WRITE PROTECTION (SHA-256 baseline violations raise a CRITICAL event and
+  incident), SYSTEM MAINTENANCE MODE (ordinary users see `/under-maintenance.html`;
+  ordinary APIs return `503`), and SECURITY LOCKDOWN (all application writes frozen).
+  Authentication, authorization, CSRF, rate limiting, intrusion detection, and audit
+  logging stay active in every state. DDL and writes to the module's own tables are
+  rejected for application code in every state; if switch state cannot be confirmed,
+  writes fail closed.
+- **Database guard.** Every SQL statement from every service passes through one choke
+  point that classifies it, decides against the switches, and records allowed and
+  rejected statements in `database_activity_logs` (table names only, never parameter
+  values).
+- **Monitoring and detection.** An in-process worker probes the database every 30 s,
+  re-verifies code hashes every 5 minutes, prunes operational tables daily, and streams
+  events over Server-Sent Events — no browser is required. Intrusion detection records
+  SQL-injection/XSS indicators, failed sign-ins, and blocked writes with
+  INFORMATIONAL → CRITICAL severities; CRITICAL events open incidents
+  (`new → investigating → contained → recovery_in_progress → resolved → closed`) and
+  alerts.
+- **Uploads.** Extension allow-listing, declared-MIME and magic-byte verification, size
+  limits, random stored names, content screening, isolation from `client/`, and a
+  per-file log visible in the console.
+- **Audit.** A hash-chained, append-only SuperAdmin audit trail with filters, CSV
+  export, chain verification, and a documented repair command
+  (`npm run security:reseal-audit`).
+- **Backups and emergency recovery.** `pg_dump` custom-format backups, `pg_restore`
+  verification, and an eight-step recovery session (DETECT → CONTAIN → PRESERVE →
+  ASSESS → VERIFY BACKUP → RESTORE → VERIFY INTEGRITY → REACTIVATE). Restore requires a
+  verified backup, the typed phrase `DEFINITELY-RESTORE`, and the SuperAdmin's current
+  password; forensic evidence is exported before anything is replaced.
+
+Design, external infrastructure requirements, the operational runbook, and the Phase 11
+test evidence are in `docs/security-module/ARCHITECTURE.md`, `REQUIREMENTS.md`,
+`OPERATIONS.md`, and `TEST-REPORT.md`.
 
 ## Security notes
 
@@ -1179,10 +1241,11 @@ The suite runs 143 tests across `api.test.js`, `permissions.test.js`, `forms.tes
 1. Set `NODE_ENV=production`, `TRUST_PROXY=1` behind an HTTPS terminator, and a strong `SESSION_SECRET`.
 2. Set `DATABASE_SSL=true` if your PostgreSQL provider requires TLS.
 3. Serve the app over HTTPS only. Cookies are marked `Secure` in production, so plain HTTP will not keep a session.
-4. For a database that already holds real data, run `npm run db:migrate` to add the rights tables and synchronise the catalogue without touching existing records, then `npm run db:migrate:forms` to add the learner/forms tables and the per-learner submission scope, then `npm run db:migrate:classrecords` to add the class record, submission, and SF 9 snapshot schema, then `npm run db:migrate:districts` to add the district import batch table, then `npm run db:migrate:school-imports` to add the school import batch table, then `npm run db:migrate:personnel-imports` and `npm run db:migrate:learner-imports` to add the staff and learner import batch tables, then `npm run db:migrate:grade-level-options` to create the administrator grade level catalogue and copy existing grade level names into it, then `npm run db:migrate:subject-options` to create the general subject catalogue and copy existing subject names into it. For a fresh installation, run `npm run db:init`, then replace or remove the demonstration accounts. Rerun the appropriate scripts after every release that changes `database/schema.sql`, `database/schema-forms.sql`, `database/schema-classrecords.sql`, `database/schema-districts.sql`, `database/schema-school-imports.sql`, `database/schema-personnel-imports.sql`, `database/schema-learner-imports.sql`, `database/schema-grade-level-options.sql`, or `database/schema-subject-options.sql`; all are idempotent and only add tables, columns, constraints, and indexes.
+4. For a database that already holds real data, run `npm run db:migrate` to add the rights tables and synchronise the catalogue without touching existing records, then `npm run db:migrate:forms` to add the learner/forms tables and the per-learner submission scope, then `npm run db:migrate:classrecords` to add the class record, submission, and SF 9 snapshot schema, then `npm run db:migrate:districts` to add the district import batch table, then `npm run db:migrate:school-imports` to add the school import batch table, then `npm run db:migrate:personnel-imports` and `npm run db:migrate:learner-imports` to add the staff and learner import batch tables, then `npm run db:migrate:grade-level-options` to create the administrator grade level catalogue and copy existing grade level names into it, then `npm run db:migrate:subject-options` to create the general subject catalogue and copy existing subject names into it, then `npm run db:migrate:security` to add the security module's tables. For a fresh installation, run `npm run db:init`, then replace or remove the demonstration accounts. Rerun the appropriate scripts after every release that changes `database/schema.sql`, `database/schema-forms.sql`, `database/schema-classrecords.sql`, `database/schema-districts.sql`, `database/schema-school-imports.sql`, `database/schema-personnel-imports.sql`, `database/schema-learner-imports.sql`, `database/schema-grade-level-options.sql`, `database/schema-subject-options.sql`, or `database/schema-security.sql`; all are idempotent and only add tables, columns, constraints, and indexes.
 5. Obtain and load the current official DepEd form layouts through the Templates console before using generated output for official submission. Review a printed proof of every form for school identity, multipage headers, clipped names, and signature space.
 6. Use a process manager (systemd, PM2, or a container orchestrator) and run the app as an unprivileged user.
 7. Back up PostgreSQL and monitor the `audit_logs` and `session` tables for growth. Learner forms, health measurements, and permanent academic records are covered by the same backup policy; never delete permanent records during routine cleanup.
+8. Provision the first System Security Controller. Generate a strong `SECURITY_BOOTSTRAP_TOKEN`, expose it only for the bootstrap command, and run `npm run security:bootstrap-superadmin -- --username <name> --password <password> --name "<full name>"`. The script prints the TOTP secret once and refuses to run while an active SuperAdmin exists (deactivated test fixtures do not block it); remove `SECURITY_BOOTSTRAP_TOKEN` from the environment and hosting dashboard immediately afterwards. Then sign in to `/security-firewall`, replace the TOTP secret into your authenticator, create a code-integrity baseline, and create and verify one backup before relying on the module. Review `docs/security-module/REQUIREMENTS.md` for the external infrastructure the module does not provide (AV engine, off-host backup, OS-level immutability, alert delivery) and `docs/security-module/OPERATIONS.md` for switch semantics, the recovery drill, and the release procedure.
 
 ## Troubleshooting
 
@@ -1218,6 +1281,11 @@ The suite runs 143 tests across `api.test.js`, `permissions.test.js`, `forms.tes
 | Creating a subject returns `SUBJECT_OPTION_REQUIRED` or `SUBJECT_OPTION_INACTIVE` | The submitted name is not an active catalogue option. Pick a name from the dropdown instead of typing one, or ask the system administrator to add or reactivate it. |
 | Removing a subject option returns `SUBJECT_OPTION_IN_USE` | One or more school subjects use the option. Deactivate it instead of removing it; existing assignments, schedules, and grades keep their subject. |
 | An older subject cannot be edited after the upgrade | The name predates the catalogue or its option was deactivated. The edit form shows it as `(current)` and keeps it selectable for that record; choose an active option only when you intend to rename the subject. |
+| Ordinary writes return `403 SECURITY_WRITE_REJECTED` | A security switch is on, the statement is DDL, or it targets the security module's own tables. Check **Security Firewall → Database activity** for the recorded reason. DDL must be applied with the migration scripts. |
+| Writes return `GUARD_STATE_UNAVAILABLE` | The database guard could not confirm switch state (usually the database was unreachable at startup). Restore connectivity and restart the app; writes fail closed until then. |
+| Every page redirects to `/under-maintenance.html` | SYSTEM MAINTENANCE MODE is enabled. Disable it in the Security Firewall console; the notice page returns to the app within 90 seconds. |
+| Security backup reports `pg_dump`/`pg_restore` missing or fails | Install the PostgreSQL client tools on the host, put them on `PATH`, and confirm `DATABASE_URL` is reachable. A `BACKUP_FAILED` event is recorded. |
+| SuperAdmin TOTP codes are rejected | The host clock drifted. Sync NTP; the validator tolerates ±30 seconds. |
 
 ## Scripts
 
@@ -1235,8 +1303,12 @@ The suite runs 143 tests across `api.test.js`, `permissions.test.js`, `forms.tes
 | `npm run db:migrate:learner-imports` | Add the learner import batch table without reseeding |
 | `npm run db:migrate:grade-level-options` | Add the administrator grade level catalogue and backfill existing names without reseeding |
 | `npm run db:migrate:subject-options` | Add the general subject catalogue, backfill existing subject names, and seed the standard Kindergarten to Grade 12 list without reseeding |
+| `npm run db:migrate:security` | Add the Security Firewall module's 15 tables and column patches without reseeding |
+| `npm run db:migrate:security:rollback` | Drop only the Security Firewall module's tables (destroys module data; export the audit CSV first) |
+| `npm run security:bootstrap-superadmin` | Create the first SuperAdmin (requires `SECURITY_BOOTSTRAP_TOKEN`); prints the TOTP secret once |
+| `npm run security:reseal-audit` | Verify and repair broken hash links in the SuperAdmin audit chain |
 | `npm run db:hash` | Generate a bcrypt hash for a new password |
-| `npm test` | Run the automated API, permissions, School Forms, class record, district, school, staff, learner, grade level, and subject option suites |
+| `npm test` | Run the automated API, permissions, School Forms, class record, district, school, staff, learner, grade level, subject option, Helpdesk, and Security Firewall suites |
 | `node scripts/smoke-forms.js` | Signed-in end-to-end check of the forms and operations APIs |
 | `node scripts/smoke-classrecords.js` | Signed-in end-to-end check of the class record, adviser, and SF 9 APIs |
 | `node scripts/verify-academic-tabs.js` | Check the learner attendance, grades, books, health, forms, and SF 10 endpoints |

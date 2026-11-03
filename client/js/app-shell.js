@@ -211,6 +211,10 @@
     var settingsLink = allows("settings")
       ? navItem("settings", "settings.html", "bi-sliders", "Settings")
       : "";
+    var securityLink = session.superadmin
+      ? '<p class="sidebar-heading">Security</p>' +
+        navItem("security-firewall", "security-firewall.html", "bi-shield-lock-fill", "Security Firewall")
+      : "";
 
     mount.innerHTML =
       '<div class="sidebar-brand">' +
@@ -245,6 +249,7 @@
       announcementLink +
       adminLinks +
       (settingsLink ? '<p class="sidebar-heading">System</p>' + settingsLink : "") +
+      securityLink +
       "</nav>" +
       "</div>" +
       '<div class="sidebar-footer">' +

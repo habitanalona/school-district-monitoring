@@ -18,6 +18,7 @@ const {
   schoolScopeSql
 } = require("../utils/formsAccess");
 const formDataService = require("./formDataService");
+const subjectAttendanceService = require("./subjectAttendanceService");
 const formRenderer = require("./formRenderer");
 const auditService = require("./auditService");
 
@@ -409,10 +410,73 @@ async function generate(actor, code, params = {}, meta = {}) {
     }
   });
   const saved = await query(`${SUBMISSION_SELECT} WHERE fs.id = $1`, [submissionId]);
+  await recordAttendanceSnapshots(actor, definition.code, ctx, data);
   return {
     submission: serializeSubmission(saved.rows[0]),
     data
   };
+}
+
+// SF 2, SF 9, and SF 10 freeze attendance totals at generation time so later
+// calendar corrections cannot rewrite a form that was already reviewed.
+async function recordAttendanceSnapshots(actor, code, ctx, data) {
+  try {
+    if (code === "sf2" && ctx.section) {
+      const table = data.tables.find((entry) => entry.key === "attendance") || null;
+      await subjectAttendanceService.recordSummarySnapshot(actor, {
+        scope: "sf2_month",
+        schoolId: ctx.school.id,
+        schoolYearId: ctx.year.id,
+        sectionId: ctx.section.id,
+        periodKey: ctx.month,
+        payload: { month: ctx.month, term: data.term || null, summary: data.summary, table }
+      });
+      return;
+    }
+    if ((code === "sf9" || code === "sf10") && ctx.learner) {
+      const enrollment = await query(
+        "SELECT id, section_id FROM enrollments WHERE learner_id = $1 AND school_year_id = $2 LIMIT 1",
+        [ctx.learner.id, ctx.year.id]
+      );
+      const row = enrollment.rows[0];
+      if (!row) return;
+      if (code === "sf9") {
+        const terms = data.tables.find((entry) => entry.key === "attendance-terms");
+        if (!terms) return;
+        for (const term of terms.rows) {
+          await subjectAttendanceService.recordSummarySnapshot(actor, {
+            scope: "sf9_term",
+            schoolId: ctx.school.id,
+            schoolYearId: ctx.year.id,
+            sectionId: row.section_id,
+            enrollmentId: row.id,
+            periodKey: `T${term.termNo}`,
+            payload: term
+          });
+        }
+        return;
+      }
+      const attendance = row.section_id
+        ? await subjectAttendanceService.attendanceTermsForEnrollment(
+            ctx.school.id,
+            ctx.year.id,
+            row.id,
+            row.section_id
+          )
+        : [];
+      await subjectAttendanceService.recordSummarySnapshot(actor, {
+        scope: "sf10_history",
+        schoolId: ctx.school.id,
+        schoolYearId: ctx.year.id,
+        sectionId: row.section_id,
+        enrollmentId: row.id,
+        periodKey: "history",
+        payload: { attendance, generatedAt: data.generatedAt }
+      });
+    }
+  } catch (error) {
+    console.error("Attendance snapshot could not be recorded:", error.message);
+  }
 }
 
 async function listSubmissions(actor, filters = {}) {

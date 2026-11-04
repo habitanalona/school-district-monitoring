@@ -48,6 +48,7 @@ const schoolFormsRoutes = require("./routes/schoolFormsRoutes");
 const monitoringRoutes = require("./routes/monitoringRoutes");
 const classRecordRoutes = require("./routes/classRecordRoutes");
 const helpdeskRoutes = require("./routes/helpdeskRoutes");
+const databaseBackupRoutes = require("./routes/databaseBackupRoutes");
 const securityRoutes = require("./routes/securityRoutes");
 
 const CLIENT_DIR = path.join(__dirname, "..", "client");
@@ -181,6 +182,17 @@ PROTECTED_PAGES.forEach((page) => {
   });
 });
 
+// Database backup is a system-administrator page. The matching API enforces the
+// same role, so hiding the sidebar link is never the only protection.
+app.get(["/database-backup", "/database-backup.html"], loadUser, requirePageAuth, (req, res) => {
+  if (req.user.role !== "system_admin") {
+    res.status(403);
+    return res.sendFile(path.join(CLIENT_DIR, "403.html"));
+  }
+  res.set("Cache-Control", "no-store");
+  return res.sendFile(path.join(CLIENT_DIR, "database-backup.html"));
+});
+
 // Security Firewall console. The page shell itself is reachable so the
 // SuperAdmin sign-in form can render; every data endpoint behind it requires a
 // SuperAdmin session, and ordinary users/admins see only the sign-in prompt.
@@ -249,6 +261,7 @@ app.use("/api/school-forms", schoolFormsRoutes);
 app.use("/api/monitoring", monitoringRoutes);
 app.use("/api/class-records", classRecordRoutes);
 app.use("/api/helpdesk", helpdeskRoutes);
+app.use("/api/database-backup", databaseBackupRoutes);
 app.use("/api/security", securityRoutes);
 app.use("/api", apiNotFound);
 

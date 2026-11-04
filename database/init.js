@@ -82,6 +82,20 @@ async function main() {
     console.log("Applying Helpdesk knowledge base schema...");
     await client.query(helpdeskSchema);
 
+    const schoolLogoSchema = fs.readFileSync(
+      path.join(__dirname, "schema-school-logos.sql"),
+      "utf8"
+    );
+    console.log("Applying school logo schema...");
+    await client.query(schoolLogoSchema);
+
+    const subjectAttendanceSchema = fs.readFileSync(
+      path.join(__dirname, "schema-subject-attendance.sql"),
+      "utf8"
+    );
+    console.log("Applying subject-period attendance schema...");
+    await client.query(subjectAttendanceSchema);
+
     const seed = fs.readFileSync(path.join(__dirname, "seed.sql"), "utf8");
     console.log("Loading demonstration data...");
     await client.query(seed);

@@ -3,11 +3,13 @@
 const express = require("express");
 const schoolController = require("../controllers/schoolController");
 const schoolImportController = require("../controllers/schoolImportController");
+const schoolLogoController = require("../controllers/schoolLogoController");
 const { requireAuth } = require("../middleware/authMiddleware");
 const { requireAdmin } = require("../middleware/roleMiddleware");
 const { requireModule } = require("../middleware/permissionMiddleware");
 const { schoolImportUpload } = require("../middleware/schoolImportUpload");
-const { schoolImportLimiter } = require("../middleware/rateLimiters");
+const { schoolLogoUpload } = require("../middleware/schoolLogoUpload");
+const { schoolImportLimiter, schoolLogoLimiter } = require("../middleware/rateLimiters");
 const { asyncHandler } = require("../utils/asyncHandler");
 
 const router = express.Router();
@@ -50,6 +52,23 @@ router.post(
   requireAdmin,
   requireModule("schools", "add"),
   asyncHandler(schoolImportController.commit)
+);
+
+router.get("/:id/logo", asyncHandler(schoolLogoController.serve));
+router.post(
+  "/:id/logo",
+  requireAdmin,
+  requireModule("schools", "edit"),
+  schoolLogoLimiter,
+  schoolLogoUpload,
+  asyncHandler(schoolLogoController.upload)
+);
+router.delete(
+  "/:id/logo",
+  requireAdmin,
+  requireModule("schools", "edit"),
+  schoolLogoLimiter,
+  asyncHandler(schoolLogoController.remove)
 );
 
 router.get("/:id", asyncHandler(schoolController.detail));

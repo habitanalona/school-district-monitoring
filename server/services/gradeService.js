@@ -19,6 +19,7 @@ const {
   schoolScopeSql
 } = require("../utils/formsAccess");
 const auditService = require("./auditService");
+const subjectAttendanceService = require("./subjectAttendanceService");
 const { calculateAge } = require("../utils/age");
 
 const PERIODS = ["q1", "q2", "q3", "q4"];
@@ -1040,14 +1041,35 @@ async function reportCardData(enrollmentId, runner = { query }) {
     : null;
   const finalized = eligibleSubjects;
   const attendance = await (runner || { query }).query(
-    `SELECT status, COUNT(*)::int AS count FROM attendance_records
-     WHERE enrollment_id = $1 GROUP BY status`,
-    [enrollmentId]
+    `SELECT merged.status, COUNT(*)::int AS count
+     FROM (
+       SELECT aa.status
+       FROM adviser_attendance aa
+       WHERE aa.enrollment_id = $1 AND aa.school_year_id = $2
+       UNION ALL
+       SELECT ar.status
+       FROM attendance_records ar
+       WHERE ar.enrollment_id = $1 AND ar.school_year_id = $2
+         AND NOT EXISTS (
+           SELECT 1 FROM adviser_attendance aa2
+           WHERE aa2.enrollment_id = ar.enrollment_id
+             AND aa2.attendance_date = ar.attendance_date
+         )
+     ) merged
+     GROUP BY merged.status`,
+    [enrollmentId, row.school_year_id]
   );
   const attendanceCounts = { present: 0, absent: 0, tardy: 0, excused: 0, half_day: 0 };
   attendance.rows.forEach((a) => {
     attendanceCounts[a.status] = Number(a.count);
   });
+  const attendanceTerms = await subjectAttendanceService.attendanceTermsForEnrollment(
+    row.school_id,
+    row.school_year_id,
+    enrollmentId,
+    row.section_id,
+    runner || { query }
+  );
   const promotion = await (runner || { query }).query(
     "SELECT * FROM promotion_decisions WHERE enrollment_id = $1",
     [enrollmentId]
@@ -1089,6 +1111,7 @@ async function reportCardData(enrollmentId, runner = { query }) {
         status: subject.status
       })),
     attendance: attendanceCounts,
+    attendanceTerms,
     promotion: promotion.rows[0]
       ? {
           decision: promotion.rows[0].decision,

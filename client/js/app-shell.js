@@ -96,6 +96,7 @@
     }
 
     var adminLinks = "";
+    var isSystemAdmin = session.user.role === "system_admin";
     var showDistricts = permissions.canManageDistricts;
     if (
       allows("approvals") ||
@@ -103,7 +104,8 @@
       allows("users") ||
       permissions.canViewAuditLogs ||
       permissions.canManageUserRights ||
-      allows("helpdesk")
+      allows("helpdesk") ||
+      isSystemAdmin
     ) {
       adminLinks = '<p class="sidebar-heading">Administration</p>';
       if (allows("approvals")) {
@@ -120,6 +122,14 @@
       }
       if (permissions.canViewAuditLogs) {
         adminLinks += navItem("audit", "audit-logs.html", "bi-shield-check", "Audit Logs");
+      }
+      if (isSystemAdmin) {
+        adminLinks += navItem(
+          "database-backup",
+          "database-backup.html",
+          "bi-database-down",
+          "Database Backup"
+        );
       }
       if (allows("helpdesk")) {
         adminLinks += navItem("helpdesk-admin", "helpdesk-admin.html", "bi-life-preserver", "Helpdesk Content");
@@ -144,6 +154,9 @@
 
     var operationsItems =
       (allows("attendance") ? navItem("attendance", "attendance.html", "bi-calendar2-check", "Attendance") : "") +
+      (allows("attendance") && permissions.canValidateAttendance
+        ? navItem("adviser-attendance", "adviser-attendance.html", "bi-clipboard2-check", "Adviser Attendance")
+        : "") +
       (allows("grades") ? navItem("grades", "grades.html", "bi-journal-check", "Grades & Promotion") : "") +
       (allows("books") ? navItem("books", "books.html", "bi-book", "Books & Materials") : "") +
       (allows("movements") ? navItem("movements", "movements.html", "bi-arrow-left-right", "Learner Movements") : "") +

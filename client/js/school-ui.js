@@ -356,7 +356,13 @@
       '<div class="modal-content">' +
       '<div class="modal-header school-view-header">' +
       '<div class="school-view-identity">' +
-      '<span class="school-view-icon"><i class="bi bi-building" aria-hidden="true"></i></span>' +
+      '<span class="school-view-icon' +
+      (school.logoUrl ? " school-view-icon--logo" : "") +
+      '">' +
+      (school.logoUrl
+        ? '<img src="' + esc(school.logoUrl) + '" alt="' + esc(school.name) + ' logo">'
+        : '<i class="bi bi-building" aria-hidden="true"></i>') +
+      "</span>" +
       "<div><p class=\"modal-eyebrow\">School record · " +
       esc(school.code) +
       "</p><h2 class=\"modal-title\" id=\"" +
@@ -413,6 +419,11 @@
       "</div>" +
       '<div class="modal-footer">' +
       '<button type="button" class="btn btn-light" data-dismiss="modal">Close</button>' +
+      (settings.canManage && !archived
+        ? '<button type="button" class="btn btn-light" data-logo><i class="bi bi-image" aria-hidden="true"></i> ' +
+          (school.logoUrl ? "Change logo" : "Upload logo") +
+          "</button>"
+        : "") +
       (settings.canManage && archived
         ? '<button type="button" class="btn btn-primary" data-restore><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Restore school</button>'
         : "") +
@@ -441,6 +452,36 @@
         window.setTimeout(function () {
           restore({ school: school, onDone: settings.onChanged });
         }, 180);
+      });
+    }
+    var logoButton = element.querySelector("[data-logo]");
+    if (logoButton) {
+      logoButton.addEventListener("click", function () {
+        instance.hide();
+        window.setTimeout(function () {
+          if (!window.SchoolLogo) {
+            return;
+          }
+          window.SchoolLogo.open({
+            school: school,
+            onDone: function (updated) {
+              if (typeof settings.onChanged === "function") {
+                settings.onChanged(updated);
+              }
+            }
+          });
+        }, 180);
+      });
+    }
+    var logoImage = element.querySelector(".school-view-icon--logo img");
+    if (logoImage) {
+      logoImage.addEventListener("error", function () {
+        var frame = logoImage.closest(".school-view-icon");
+        if (!frame) {
+          return;
+        }
+        frame.classList.remove("school-view-icon--logo");
+        frame.innerHTML = '<i class="bi bi-building" aria-hidden="true"></i>';
       });
     }
     element.addEventListener("hidden.bs.modal", function () {

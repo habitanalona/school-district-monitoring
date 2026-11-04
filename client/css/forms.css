@@ -615,6 +615,339 @@
   display: inline-block;
 }
 
+/* Subject-period attendance ---------------------------------------------- */
+.subject-scope {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 18px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2, #f7f9fc);
+}
+
+.subject-scope span {
+  display: block;
+  font-size: 0.56rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.subject-scope strong {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--ink-700, #334b63);
+  font-weight: 600;
+  white-space: normal;
+}
+
+.subject-matrix-wrap {
+  max-height: 68vh;
+  overflow: auto;
+}
+
+.subject-matrix {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.66rem;
+  min-width: 100%;
+}
+
+.subject-matrix th,
+.subject-matrix td {
+  border-bottom: 1px solid var(--line);
+  padding: 4px 5px;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.subject-matrix thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-3, #eef4fb);
+  z-index: 2;
+}
+
+.subject-matrix thead tr:nth-child(2) th {
+  top: 40px;
+}
+
+.subject-matrix th.subject-learner,
+.subject-matrix td.subject-learner {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  text-align: left;
+  z-index: 1;
+  min-width: 180px;
+  max-width: 240px;
+  white-space: normal;
+}
+
+.subject-matrix thead th.subject-learner {
+  background: var(--surface-3, #eef4fb);
+  z-index: 3;
+}
+
+.subject-matrix td.subject-learner strong {
+  display: block;
+  font-weight: 600;
+}
+
+.subject-matrix td.subject-learner small {
+  color: var(--muted-light);
+  font-size: 0.6rem;
+  display: block;
+}
+
+.subject-matrix .subject-index,
+.subject-matrix .subject-index-head {
+  color: var(--muted);
+  width: 28px;
+}
+
+.subject-day-head {
+  border-left: 1px solid var(--line);
+  font-size: 0.63rem;
+}
+
+.subject-day-head .subject-day-date {
+  display: block;
+  font-weight: 700;
+}
+
+.subject-day-head small {
+  display: block;
+  font-weight: 400;
+  font-size: 0.54rem;
+  color: var(--muted);
+  white-space: normal;
+  line-height: 1.25;
+}
+
+.subject-day-head.is-weekend,
+.subject-matrix .is-weekend {
+  color: var(--muted-light);
+  background: #f7f9fc;
+}
+
+.subject-period-head {
+  font-size: 0.58rem;
+  font-weight: 600;
+  border-left: 1px solid var(--line);
+}
+
+.subject-period-head small {
+  display: block;
+  font-weight: 400;
+  font-size: 0.52rem;
+  color: var(--muted);
+}
+
+.subject-cell {
+  width: 64px;
+  height: 30px;
+  padding: 2px 4px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--ink-700, #334b63);
+  cursor: pointer;
+}
+
+.subject-cell:focus {
+  outline: 2px solid var(--primary, #0d6efd);
+  outline-offset: 1px;
+}
+
+.subject-cell:disabled {
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+.subject-cell.status-present {
+  background: var(--success-bg);
+  border-color: transparent;
+  color: var(--success);
+}
+
+.subject-cell.status-absent {
+  background: var(--danger-bg);
+  border-color: transparent;
+  color: var(--danger);
+}
+
+.subject-cell.status-tardy {
+  background: var(--warning-bg);
+  border-color: transparent;
+  color: #a06400;
+}
+
+.subject-cell.status-excused {
+  background: var(--info-bg);
+  border-color: transparent;
+  color: var(--info);
+}
+
+.subject-cell.is-dirty {
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.28);
+}
+
+.subject-matrix tfoot td {
+  background: var(--surface-3, #eef4fb);
+  font-weight: 600;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+
+.subject-matrix tfoot .subject-foot-label {
+  text-align: left;
+  padding-left: 8px;
+}
+
+.subject-matrix tfoot .subject-foot-label .field-hint {
+  display: block;
+  font-weight: 400;
+}
+
+.period-table input[type="time"] {
+  width: 110px;
+}
+
+.period-table input[data-period-field="label"] {
+  min-width: 160px;
+}
+
+.period-table .period-no {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+@media (max-width: 767.98px) {
+  .subject-scope {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 12px;
+  }
+
+  .subject-matrix th.subject-learner,
+  .subject-matrix td.subject-learner {
+    min-width: 150px;
+    max-width: 170px;
+  }
+}
+
+/* Adviser attendance monitoring ------------------------------------------ */
+.adviser-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2, #f7f9fc);
+}
+
+.adviser-chip {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.adviser-chip span {
+  display: block;
+  font-size: 0.56rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.adviser-chip strong {
+  display: block;
+  font-size: 0.78rem;
+  margin-top: 2px;
+  color: var(--ink-700, #334b63);
+}
+
+.adviser-chip--success { border-left: 3px solid var(--success); }
+.adviser-chip--warning { border-left: 3px solid var(--warning); }
+.adviser-chip--danger { border-left: 3px solid var(--danger); }
+.adviser-chip--info { border-left: 3px solid var(--info); }
+.adviser-chip--neutral { border-left: 3px solid var(--line); }
+
+.adviser-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px 8px;
+  border-top: 1px solid var(--line);
+}
+
+.adviser-section-head h3 {
+  font-size: 0.82rem;
+  margin: 0;
+  color: var(--ink-700, #334b63);
+}
+
+.adviser-section-head p {
+  margin: 0;
+  font-size: 0.64rem;
+  color: var(--muted);
+}
+
+.adviser-matrix th.subject-learner,
+.adviser-matrix td.subject-learner {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  text-align: left;
+  min-width: 180px;
+  max-width: 240px;
+  white-space: normal;
+  z-index: 1;
+}
+
+.adviser-matrix thead th.subject-learner {
+  background: var(--surface-3, #eef4fb);
+  z-index: 2;
+}
+
+.adviser-matrix td.subject-learner strong {
+  display: block;
+  font-weight: 600;
+}
+
+.adviser-matrix td.subject-learner small {
+  display: block;
+  color: var(--muted-light);
+  font-size: 0.6rem;
+}
+
+.adviser-matrix td {
+  vertical-align: middle;
+}
+
+.adviser-status-select {
+  min-width: 130px;
+  height: 30px;
+  font-size: 0.66rem;
+}
+
+.adviser-status-select.is-manual {
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+}
+
+.adviser-note-cell {
+  min-width: 200px;
+  max-width: 320px;
+  white-space: normal;
+  font-size: 0.64rem;
+}
+
 /* Grades ----------------------------------------------------------------- */
 .grade-matrix input {
   width: 64px;

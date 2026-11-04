@@ -13,6 +13,9 @@ Thumbs.db
 read.txt
 read1.txt
 backups/
+storage/
 docs/
 School_form.txt
 structure.txt
+TOTP_secret.txt
+ReadMeInstruction.md

@@ -45,6 +45,14 @@ const photoUploadLimiter = rateLimit({
   handler: handler("Too many photo uploads. Please try again later.")
 });
 
+const schoolLogoLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 40,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  handler: handler("Too many logo upload attempts. Please try again later.")
+});
+
 const districtImportLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
@@ -94,6 +102,7 @@ module.exports = {
   passwordResetLimiter,
   registrationLimiter,
   photoUploadLimiter,
+  schoolLogoLimiter,
   districtImportLimiter,
   schoolImportLimiter,
   personnelImportLimiter,

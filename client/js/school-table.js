@@ -101,6 +101,21 @@
           self.reset();
         }
       });
+      // Image error events do not bubble, so listen in the capture phase and
+      // swap a missing logo for the default building icon.
+      this.tbody.addEventListener(
+        "error",
+        function (event) {
+          var image = event.target;
+          if (!image || image.tagName !== "IMG" || !image.closest(".school-avatar--logo")) {
+            return;
+          }
+          var frame = image.closest(".school-avatar--logo");
+          frame.classList.remove("school-avatar--logo");
+          frame.innerHTML = '<i class="bi bi-building" aria-hidden="true"></i>';
+        },
+        true
+      );
     }
   };
 
@@ -260,6 +275,15 @@
       '"><i class="bi bi-eye" aria-hidden="true"></i></button>';
     if (this.options.canManage && school.status !== "archived") {
       actions +=
+        '<button type="button" class="icon-action" data-action="logo" data-id="' +
+        school.id +
+        '" title="' +
+        (school.logoUrl ? "Change logo for " : "Upload logo for ") +
+        window.UI.escapeHtml(school.name) +
+        '" aria-label="' +
+        (school.logoUrl ? "Change logo for " : "Upload logo for ") +
+        window.UI.escapeHtml(school.name) +
+        '"><i class="bi bi-image" aria-hidden="true"></i></button>' +
         '<button type="button" class="icon-action" data-action="edit" data-id="' +
         school.id +
         '" title="Edit ' +
@@ -294,7 +318,9 @@
       '<td data-label="School ID"><span class="code-chip">' +
       window.UI.escapeHtml(school.code) +
       "</span></td>" +
-      '<td data-label="School Name"><div class="school-name-cell"><span class="school-avatar"><i class="bi bi-building" aria-hidden="true"></i></span><div><strong>' +
+      '<td data-label="School Name"><div class="school-name-cell">' +
+      this.logoMarkup(school) +
+      '<div><strong>' +
       window.UI.escapeHtml(school.name) +
       "</strong><small>" +
       window.UI.escapeHtml(school.districtName || "Unassigned district") +
@@ -332,6 +358,19 @@
     );
   };
 
+  SchoolTable.prototype.logoMarkup = function (school) {
+    if (school.logoUrl) {
+      return (
+        '<span class="school-avatar school-avatar--logo"><img src="' +
+        window.UI.escapeHtml(school.logoUrl) +
+        '" alt="' +
+        window.UI.escapeHtml(school.name) +
+        ' logo" loading="lazy"></span>'
+      );
+    }
+    return '<span class="school-avatar"><i class="bi bi-building" aria-hidden="true"></i></span>';
+  };
+
   SchoolTable.prototype.findSchool = function (id) {
     return this.schools.find(function (school) {
       return Number(school.id) === Number(id);
@@ -364,6 +403,10 @@
       this.openEdit(school);
       return;
     }
+    if (action === "logo") {
+      this.openLogo(school);
+      return;
+    }
     if (action === "archive") {
       window.SchoolUI.archive({
         school: school,
@@ -381,6 +424,19 @@
         }
       });
     }
+  };
+
+  SchoolTable.prototype.openLogo = function (school) {
+    var self = this;
+    if (!window.SchoolLogo) {
+      return;
+    }
+    window.SchoolLogo.open({
+      school: school,
+      onDone: function () {
+        self.afterChange();
+      }
+    });
   };
 
   SchoolTable.prototype.openEdit = function (school) {

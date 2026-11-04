@@ -218,10 +218,10 @@ WHERE NOT EXISTS (SELECT 1 FROM audit_logs);
 -- Learner records demo data (fictional learners at Central Elementary School)
 -- ---------------------------------------------------------------------------
 
-INSERT INTO school_years (name, starts_on, ends_on, is_current)
+INSERT INTO school_years (name, starts_on, ends_on, is_current, term_model)
 VALUES
-  ('2025-2026', DATE '2025-06-02', DATE '2026-03-31', FALSE),
-  ('2026-2027', DATE '2026-06-01', DATE '2027-03-31', TRUE)
+  ('2025-2026', DATE '2025-06-02', DATE '2026-03-31', FALSE, 'four_quarter'),
+  ('2026-2027', DATE '2026-06-01', DATE '2027-03-31', TRUE, 'three_term')
 ON CONFLICT (name) DO NOTHING;
 
 -- Administrator-managed grade level options used by the school dropdown.

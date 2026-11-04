@@ -33,6 +33,15 @@ function serializeUser(row) {
   };
 }
 
+function schoolLogoUrl(row) {
+  if (!row.school_logo) {
+    return null;
+  }
+  var fileName = String(row.school_logo).split(/[\\/]/).pop() || "";
+  var version = fileName.replace(/\.[a-z0-9]+$/i, "");
+  return `/api/schools/${Number(row.id)}/logo?v=${encodeURIComponent(version)}`;
+}
+
 function serializeSchool(row) {
   if (!row) {
     return null;
@@ -53,6 +62,7 @@ function serializeSchool(row) {
     teacherCount: Number(row.teacher_count),
     performanceScore: numberOrNull(row.performance_score),
     status: row.status,
+    logoUrl: schoolLogoUrl(row),
     reportStatus: row.report_status || null,
     reportPeriod: row.report_period || null,
     submittedAt: row.report_submitted_at || null,

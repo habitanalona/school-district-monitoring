@@ -18,6 +18,8 @@
     "db:migrate:grade-level-options": "node scripts/migrate-grade-level-options.js",
     "db:migrate:subject-options": "node scripts/migrate-subject-options.js",
     "db:migrate:helpdesk": "node scripts/migrate-helpdesk.js",
+    "db:migrate:school-logos": "node scripts/migrate-school-logos.js",
+    "db:migrate:subject-attendance": "node scripts/migrate-subject-attendance.js",
     "db:migrate:security": "node scripts/migrate-security.js",
     "db:migrate:security:rollback": "node scripts/migrate-security-rollback.js",
     "security:bootstrap-superadmin": "node scripts/provision-superadmin.js",

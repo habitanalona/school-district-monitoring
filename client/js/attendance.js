@@ -59,14 +59,22 @@
         if (!list.length) {
           select.innerHTML = '<option value="">No sections for this school year</option>';
           el("attendanceMeta").textContent = "Create a section for this school year before recording attendance.";
+          notifySubjectFilters();
           return;
         }
         if (!state.sectionId) {
           state.sectionId = String(list[0].id);
           select.value = state.sectionId;
         }
+        notifySubjectFilters();
         refreshView();
       });
+  }
+
+  function notifySubjectFilters() {
+    if (window.SubjectAttendance) {
+      window.SubjectAttendance.filtersChanged(state.yearId, state.sectionId, state.schoolId);
+    }
   }
 
   function wire() {
@@ -82,6 +90,7 @@
     });
     el("attendanceSectionFilter").addEventListener("change", function (event) {
       state.sectionId = event.target.value;
+      notifySubjectFilters();
       refreshView();
     });
     el("attendanceDate").addEventListener("change", function (event) {
@@ -125,7 +134,7 @@
 
   function setTab(name) {
     state.tab = name;
-    ["daily", "monthly", "calendar"].forEach(function (key) {
+    ["daily", "subject", "monthly", "calendar", "periods", "terms"].forEach(function (key) {
       var tab = el("tab" + key.charAt(0).toUpperCase() + key.slice(1));
       var panel = el("panel" + key.charAt(0).toUpperCase() + key.slice(1));
       var active = key === name;
@@ -133,8 +142,14 @@
       panel.classList.toggle("d-none", !active);
     });
     el("attendanceDateField").classList.toggle("d-none", name !== "daily");
-    el("attendanceMonthField").classList.toggle("d-none", name === "daily");
+    el("attendanceMonthField").classList.toggle("d-none", ["monthly", "calendar"].indexOf(name) === -1);
     el("attendanceDayBadge").classList.toggle("d-none", name !== "daily");
+    if (name === "subject" || name === "periods" || name === "terms") {
+      if (window.SubjectAttendance) {
+        window.SubjectAttendance.refresh(name);
+      }
+      return;
+    }
     refreshView();
   }
 
@@ -468,10 +483,17 @@
       var params = new URLSearchParams(window.location.search);
       if (params.get("sectionId")) state.sectionId = params.get("sectionId");
       if (params.get("date")) state.date = params.get("date");
-      setupFilters().catch(function (error) {
-        if (error.status === 401) return;
-        F.pageAlert("attendanceAlert", "danger", L.friendlyError(error), "Attendance could not start");
-      });
+      setupFilters()
+        .then(function () {
+          var tab = params.get("tab");
+          if (["daily", "subject", "monthly", "calendar", "periods", "terms"].indexOf(tab) !== -1) {
+            setTab(tab);
+          }
+        })
+        .catch(function (error) {
+          if (error.status === 401) return;
+          F.pageAlert("attendanceAlert", "danger", L.friendlyError(error), "Attendance could not start");
+        });
     });
   }
 

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Adviser Attendance · DepEd Learner Records</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="assets/images/favicon.png">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/helpdesk.css">
+  <link rel="stylesheet" href="css/learner.css">
+  <link rel="stylesheet" href="css/forms.css">
+</head>
+<body class="app-body" data-page="adviser-attendance">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-clipboard2-check"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading adviser attendance…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">Class adviser monitoring</p>
+            <h1>Adviser attendance</h1>
+            <p class="page-subtitle">Review subject teacher submissions, reconcile conflicts, and validate the official daily attendance used by SF 2, SF 9, and SF 10. A single subject absence is never converted automatically into a whole-day absence.</p>
+          </div>
+        </div>
+
+        <div id="adviserAlert" class="d-none mb-3" role="alert"></div>
+
+        <section class="surface-card" aria-labelledby="adviserHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="adviserHeading">Official daily attendance</h2>
+              <p id="adviserScopeLabel">Choose a section and date to begin.</p>
+            </div>
+            <span class="status-badge status-badge--neutral" id="adviserDayBadge"><span class="status-dot"></span>School day</span>
+          </header>
+
+          <div class="ops-toolbar">
+            <div class="field d-none" id="adviserSchoolControl">
+              <label for="adviserSchoolFilter">School</label>
+              <select class="custom-select custom-select-sm" id="adviserSchoolFilter"></select>
+            </div>
+            <div class="field">
+              <label for="adviserYearFilter">School year</label>
+              <select class="custom-select custom-select-sm" id="adviserYearFilter"></select>
+            </div>
+            <div class="field">
+              <label for="adviserSectionFilter">Section</label>
+              <select class="custom-select custom-select-sm" id="adviserSectionFilter">
+                <option value="">Select a section</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="adviserDate">Date</label>
+              <input type="date" class="form-control" id="adviserDate">
+            </div>
+            <div class="toolbar-actions">
+              <button type="button" class="btn btn-light btn-sm" id="adviserRefresh">
+                <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <div class="adviser-summary d-none" id="adviserSummary"></div>
+
+          <div class="module-tabs" role="tablist" aria-label="Adviser attendance views">
+            <button type="button" role="tab" id="tabDailyValidation" aria-selected="true" aria-controls="panelDailyValidation" data-adv-tab="daily">Daily validation</button>
+            <button type="button" role="tab" id="tabCorrections" aria-selected="false" aria-controls="panelCorrections" data-adv-tab="corrections">Correction requests</button>
+            <button type="button" role="tab" id="tabTerm" aria-selected="false" aria-controls="panelTerm" data-adv-tab="term">Term summary</button>
+          </div>
+
+          <div class="tab-panel" id="panelDailyValidation" role="tabpanel" aria-labelledby="tabDailyValidation">
+            <div class="info-banner" style="margin:0 18px 12px">
+              <i class="bi bi-info-circle" aria-hidden="true"></i>
+              <div>The suggested daily status is derived from the subject records shown. Present in any subject keeps the learner present for the day; a subject absence alone does not make the whole day absent, and multiple subject absences in one day count as one day, not many. Validation is explicit and recorded in the audit trail.</div>
+            </div>
+
+            <div class="adviser-section-head">
+              <h3>Subject teacher submissions</h3>
+              <p id="adviserSubjectsMeta">Loading subject submissions…</p>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <caption class="sr-only">Subject teacher submissions for the selected day</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Subject</th>
+                    <th scope="col">Subject teacher</th>
+                    <th scope="col">Submission</th>
+                    <th scope="col">Recorded periods</th>
+                    <th scope="col">Submitted at</th>
+                    <th scope="col" class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="adviserSubjectsBody">
+                  <tr class="skeleton-row"><td colspan="6"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="adviser-section-head">
+              <h3>Learner consolidation</h3>
+              <p id="adviserLearnersMeta">Loading learner records…</p>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table adviser-matrix" id="adviserMatrix">
+                <caption class="sr-only">Learner subject attendance and official daily status</caption>
+                <thead id="adviserMatrixHead"></thead>
+                <tbody id="adviserLearnersBody">
+                  <tr class="skeleton-row"><td colspan="6"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer">
+              <p class="table-footer__meta" id="adviserValidateMeta">Select a section and date.</p>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-light btn-sm d-none" id="adviserReopenValidation">
+                  <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reopen validation
+                </button>
+                <button type="button" class="btn btn-primary btn-sm d-none" id="adviserValidateButton">
+                  <i class="bi bi-patch-check" aria-hidden="true"></i> Validate official attendance
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel d-none" id="panelCorrections" role="tabpanel" aria-labelledby="tabCorrections">
+            <div class="ops-toolbar" style="border-bottom:0">
+              <div class="field">
+                <label for="correctionStatusFilter">Status</label>
+                <select class="custom-select custom-select-sm" id="correctionStatusFilter">
+                  <option value="pending">Pending</option>
+                  <option value="">All requests</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-light btn-sm" id="correctionsRefresh">
+                  <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh
+                </button>
+              </div>
+            </div>
+            <div class="info-banner" style="margin:0 18px 12px">
+              <i class="bi bi-info-circle" aria-hidden="true"></i>
+              <div>Corrections are filed by subject teachers after the adviser has validated a day. Approving a correction updates the original subject attendance record; re-validate the day if the official summary should change.</div>
+            </div>
+            <div id="correctionsAlert" class="d-none" role="alert" style="margin:0 18px 12px"></div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <caption class="sr-only">Subject attendance correction requests</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Learner</th>
+                    <th scope="col">Subject</th>
+                    <th scope="col">Period</th>
+                    <th scope="col">Proposed</th>
+                    <th scope="col">Reason</th>
+                    <th scope="col">Requested by</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="correctionsBody">
+                  <tr class="skeleton-row"><td colspan="9"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer">
+              <p class="table-footer__meta" id="correctionsMeta">Choose a section to review correction requests.</p>
+            </div>
+          </div>
+
+          <div class="tab-panel d-none" id="panelTerm" role="tabpanel" aria-labelledby="tabTerm">
+            <div class="ops-toolbar" style="border-bottom:0">
+              <div class="field">
+                <label for="termFilter">Reporting term</label>
+                <select class="custom-select custom-select-sm" id="termFilter"></select>
+              </div>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-light btn-sm" id="termPrintButton">
+                  <i class="bi bi-printer" aria-hidden="true"></i> Print summary
+                </button>
+              </div>
+            </div>
+            <div class="info-banner d-none" id="termWarning" style="margin:0 18px 12px">
+              <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+              <div id="termWarningText"></div>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <caption class="sr-only">Term attendance summary for the selected section</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Learner</th>
+                    <th scope="col">LRN</th>
+                    <th scope="col">Sex</th>
+                    <th scope="col" title="Present">P</th>
+                    <th scope="col" title="Absent">A</th>
+                    <th scope="col" title="Tardy">T</th>
+                    <th scope="col" title="Excused">E</th>
+                    <th scope="col" title="Half day">H</th>
+                    <th scope="col">Recorded</th>
+                    <th scope="col">Missing days</th>
+                    <th scope="col">Rate</th>
+                  </tr>
+                </thead>
+                <tbody id="termBody">
+                  <tr class="skeleton-row"><td colspan="12"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer">
+              <p class="table-footer__meta" id="termMeta">Choose a section to load the term summary.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 DepEd Learner Records</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/learner-common.js"></script>
+  <script src="js/forms-common.js"></script>
+  <script src="js/adviser-attendance.js"></script>
+  <script src="js/helpdesk.js"></script>
+</body>
+</html>

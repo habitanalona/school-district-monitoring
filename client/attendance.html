@@ -81,8 +81,11 @@
 
           <div class="module-tabs" role="tablist" aria-label="Attendance views">
             <button type="button" role="tab" id="tabDaily" aria-selected="true" aria-controls="panelDaily" data-tab="daily">Daily sheet</button>
+            <button type="button" role="tab" id="tabSubject" aria-selected="false" aria-controls="panelSubject" data-tab="subject">Subject attendance</button>
             <button type="button" role="tab" id="tabMonthly" aria-selected="false" aria-controls="panelMonthly" data-tab="monthly">Monthly register</button>
             <button type="button" role="tab" id="tabCalendar" aria-selected="false" aria-controls="panelCalendar" data-tab="calendar">School calendar</button>
+            <button type="button" role="tab" id="tabPeriods" aria-selected="false" aria-controls="panelPeriods" data-tab="periods">Class periods</button>
+            <button type="button" role="tab" id="tabTerms" aria-selected="false" aria-controls="panelTerms" data-tab="terms">Reporting terms</button>
           </div>
 
           <div class="tab-panel" id="panelDaily" role="tabpanel" aria-labelledby="tabDaily">
@@ -123,6 +126,87 @@
             </div>
             <div class="table-footer">
               <p class="table-footer__meta" id="attendanceMeta">Select a section and date.</p>
+            </div>
+          </div>
+
+          <div class="tab-panel d-none" id="panelSubject" role="tabpanel" aria-labelledby="tabSubject">
+            <div class="ops-toolbar" style="border-bottom:0">
+              <div class="field" style="flex:1 1 300px">
+                <label for="subjectLoadFilter">Teaching load</label>
+                <select class="custom-select custom-select-sm" id="subjectLoadFilter">
+                  <option value="">Select a subject and section</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="subjectWeekDate">Week of</label>
+                <input type="date" class="form-control" id="subjectWeekDate">
+              </div>
+              <div class="field">
+                <label>Range</label>
+                <div class="btn-group btn-group-sm d-flex" role="group" aria-label="Attendance range">
+                  <button type="button" class="btn btn-light is-active" data-subject-mode="week">Week</button>
+                  <button type="button" class="btn btn-light" data-subject-mode="day">Day</button>
+                </div>
+              </div>
+              <div class="toolbar-actions" style="align-self:flex-end">
+                <button type="button" class="btn btn-light btn-sm" id="subjectPrev" title="Previous week" aria-label="Previous week">
+                  <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="btn btn-light btn-sm" id="subjectNext" title="Next week" aria-label="Next week">
+                  <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="subject-scope" id="subjectScope">
+              <div><span>School</span><strong id="subjectScopeSchool">—</strong></div>
+              <div><span>School year</span><strong id="subjectScopeYear">—</strong></div>
+              <div><span>Grade / Section</span><strong id="subjectScopeSection">—</strong></div>
+              <div><span>Subject</span><strong id="subjectScopeSubject">—</strong></div>
+              <div><span>Subject teacher</span><strong id="subjectScopeTeacher">—</strong></div>
+              <div><span>Term</span><strong id="subjectScopeTerm">—</strong></div>
+            </div>
+
+            <div id="subjectAlert" class="d-none" role="alert" style="margin:12px 18px 0"></div>
+            <div class="info-banner d-none" id="subjectWarning" style="margin:12px 18px 0">
+              <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+              <div id="subjectWarningText"></div>
+            </div>
+
+            <div class="ops-toolbar" style="border-bottom:0">
+              <div class="legend" style="flex:1">
+                <span><i style="background:var(--success)"></i> P — Present</span>
+                <span><i style="background:var(--danger)"></i> A — Absent</span>
+                <span><i style="background:#d39223"></i> T — Tardy</span>
+                <span><i style="background:var(--info)"></i> E — Excused</span>
+                <span><i style="background:var(--line)"></i> · — Not yet recorded</span>
+              </div>
+              <div class="toolbar-actions">
+                <span class="field-hint m-0 d-none d-lg-inline" id="subjectProgress">—</span>
+                <button type="button" class="btn btn-light btn-sm d-none" id="subjectMarkAll">
+                  <i class="bi bi-check2-all" aria-hidden="true"></i> Mark all present
+                </button>
+                <button type="button" class="btn btn-outline-primary btn-sm d-none" id="subjectSave">
+                  <i class="bi bi-save" aria-hidden="true"></i> Save draft
+                </button>
+                <button type="button" class="btn btn-primary btn-sm d-none" id="subjectSubmit">
+                  <i class="bi bi-send" aria-hidden="true"></i> Submit to adviser
+                </button>
+              </div>
+            </div>
+
+            <div class="table-responsive subject-matrix-wrap">
+              <table class="subject-matrix" id="subjectMatrix">
+                <caption class="sr-only">Subject attendance matrix for the selected teaching load</caption>
+                <thead id="subjectMatrixHead"></thead>
+                <tbody id="subjectMatrixBody">
+                  <tr class="skeleton-row"><td colspan="5"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+                <tfoot id="subjectMatrixFoot"></tfoot>
+              </table>
+            </div>
+            <div class="table-footer">
+              <p class="table-footer__meta" id="subjectMeta">Choose a teaching load to load the matrix.</p>
             </div>
           </div>
 
@@ -188,6 +272,97 @@
               </table>
             </div>
           </div>
+
+          <div class="tab-panel d-none" id="panelPeriods" role="tabpanel" aria-labelledby="tabPeriods">
+            <div class="ops-toolbar" style="border-bottom:0">
+              <div class="field">
+                <label for="periodScopeFilter">Scope</label>
+                <select class="custom-select custom-select-sm" id="periodScopeFilter"></select>
+              </div>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-light btn-sm d-none" id="periodCopyEffective">
+                  <i class="bi bi-arrow-down-square" aria-hidden="true"></i> Copy effective layout
+                </button>
+                <button type="button" class="btn btn-light btn-sm d-none" id="periodSuggested">
+                  <i class="bi bi-magic" aria-hidden="true"></i> Apply suggested layout
+                </button>
+                <button type="button" class="btn btn-light btn-sm d-none" id="periodAdd">
+                  <i class="bi bi-plus-lg" aria-hidden="true"></i> Add period
+                </button>
+                <button type="button" class="btn btn-primary btn-sm d-none" id="periodSave">
+                  <i class="bi bi-save" aria-hidden="true"></i> Save periods
+                </button>
+              </div>
+            </div>
+            <div class="info-banner" style="margin:0 18px 12px">
+              <i class="bi bi-info-circle" aria-hidden="true"></i>
+              <div>Class periods are configurable per school year and may be scoped to the whole school, a grade level, or a single section. The most specific scope wins. Suggested times are only applied when you click <strong>Apply suggested layout</strong> — nothing is hardcoded.</div>
+            </div>
+            <div id="periodAlert" class="d-none" role="alert" style="margin:0 18px 12px"></div>
+            <div class="table-responsive">
+              <table class="app-table period-table">
+                <caption class="sr-only">Configurable class periods for the selected scope</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Label</th>
+                    <th scope="col">Start</th>
+                    <th scope="col">End</th>
+                    <th scope="col" class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="periodBody">
+                  <tr class="skeleton-row"><td colspan="5"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer">
+              <p class="table-footer__meta" id="periodMeta">Select a scope to view or edit its periods.</p>
+            </div>
+          </div>
+
+          <div class="tab-panel d-none" id="panelTerms" role="tabpanel" aria-labelledby="tabTerms">
+            <div class="ops-toolbar" style="border-bottom:0">
+              <p class="field-hint m-0" style="flex:1" id="termsMeta">Configure the reporting terms for this school year.</p>
+              <div class="toolbar-actions">
+                <button type="button" class="btn btn-light btn-sm d-none" id="termsProvision">
+                  <i class="bi bi-calendar-plus" aria-hidden="true"></i> Generate terms
+                </button>
+                <button type="button" class="btn btn-light btn-sm d-none" id="termsApprove">
+                  <i class="bi bi-patch-check" aria-hidden="true"></i> Approve terms
+                </button>
+                <button type="button" class="btn btn-primary btn-sm d-none" id="termsSave">
+                  <i class="bi bi-save" aria-hidden="true"></i> Save changes
+                </button>
+              </div>
+            </div>
+            <div class="info-banner" style="margin:0 18px 12px">
+              <i class="bi bi-info-circle" aria-hidden="true"></i>
+              <div>School Year 2026–2027 uses three reporting terms. Approved terms drive term detection on attendance dates, SF 2 monthly reports, SF 9 term summaries, and SF 10 historical attendance. Changing a term resets it to draft until approved again.</div>
+            </div>
+            <div id="termsAlert" class="d-none" role="alert" style="margin:0 18px 12px"></div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <caption class="sr-only">Reporting terms for the selected school year</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Term name</th>
+                    <th scope="col">Starts</th>
+                    <th scope="col">Ends</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Approved</th>
+                  </tr>
+                </thead>
+                <tbody id="termsBody">
+                  <tr class="skeleton-row"><td colspan="6"><span class="skeleton skeleton-block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer">
+              <p class="table-footer__meta" id="termsHint">Terms are stored per school and school year, so schools may keep different calendars.</p>
+            </div>
+          </div>
         </section>
       </main>
 
@@ -209,6 +384,7 @@
   <script src="js/app-shell.js"></script>
   <script src="js/learner-common.js"></script>
   <script src="js/forms-common.js"></script>
+  <script src="js/subject-attendance.js"></script>
   <script src="js/attendance.js"></script>
   <script src="js/helpdesk.js"></script>
 </body>

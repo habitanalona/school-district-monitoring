@@ -369,6 +369,7 @@ async function restoreSchool(user, id) {
 module.exports = {
   SORT_COLUMNS,
   listSchools,
+  findSchoolRow,
   getSchool,
   sidebarSchools,
   createSchool,

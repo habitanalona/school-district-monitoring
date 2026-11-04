@@ -84,6 +84,14 @@ function permissionsFor(user) {
     canViewActivities: allows(matrix, "activities", "access"),
     canViewAttendance: allows(matrix, "attendance", "access"),
     canManageAttendance: allows(matrix, "attendance", "access") && moduleWrite("attendance"),
+    canConfigureAttendance:
+      allows(matrix, "attendance", "access") &&
+      allows(matrix, "attendance", "edit") &&
+      ["system_admin", "district_admin", "staff", "school_head"].includes(user.role),
+    canValidateAttendance:
+      allows(matrix, "attendance", "access") &&
+      allows(matrix, "attendance", "edit") &&
+      ["system_admin", "district_admin", "school_head", "adviser"].includes(user.role),
     canViewGrades: allows(matrix, "grades", "access"),
     canManageGrades: allows(matrix, "grades", "access") && moduleWrite("grades"),
     canViewBooks: allows(matrix, "books", "access"),

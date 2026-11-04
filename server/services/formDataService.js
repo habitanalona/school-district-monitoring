@@ -21,6 +21,7 @@ const {
 } = require("../utils/formsAccess");
 const { calculateAge } = require("../utils/age");
 const attendanceService = require("./attendanceService");
+const subjectAttendanceService = require("./subjectAttendanceService");
 const personnelService = require("./personnelService");
 const healthService = require("./healthService");
 const gradeService = require("./gradeService");
@@ -200,7 +201,15 @@ function addressOf(row) {
 
 function isoDate(value) {
   if (!value) return "";
-  return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return "";
+    // DATE columns arrive as local midnight. Formatting through toISOString()
+    // would shift them to the previous day in UTC+8.
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return `${value.getFullYear()}-${month}-${day}`;
+  }
+  return String(value).slice(0, 10);
 }
 
 function pct(part, total) {
@@ -556,10 +565,17 @@ async function buildSf2(ctx) {
   const data = baseData(ctx);
   const bounds = attendanceService.monthBounds(ctx.month);
   const roster = await attendanceService.roster(ctx.section, ctx.year.id);
-  const records = await query(
-    `SELECT enrollment_id, attendance_date, status FROM attendance_records
-     WHERE section_id = $1 AND school_year_id = $2 AND attendance_date BETWEEN $3 AND $4`,
-    [ctx.section.id, ctx.year.id, bounds.start, bounds.end]
+  const records = {
+    rows: await subjectAttendanceService.dailyAttendanceRows(
+      ctx.section.id,
+      ctx.year.id,
+      bounds.start,
+      bounds.end
+    )
+  };
+  const terms = await subjectAttendanceService.termsForSchool(ctx.school.id, ctx.year.id);
+  const monthTerms = terms.filter(
+    (term) => term.startsOn <= bounds.end && term.endsOn >= bounds.start
   );
   const calendar = await query(
     `SELECT calendar_date, day_type, label FROM school_calendar_days
@@ -649,6 +665,70 @@ async function buildSf2(ctx) {
   const present = rows.reduce((sum, row) => sum + row.present, 0);
   const absent = rows.reduce((sum, row) => sum + row.absent, 0);
   const tardy = rows.reduce((sum, row) => sum + row.tardy, 0);
+  const gender = {
+    male: { present: 0, absent: 0, tardy: 0, excused: 0 },
+    female: { present: 0, absent: 0, tardy: 0, excused: 0 }
+  };
+  const alerts = [];
+  roster.forEach((learner) => {
+    const bucket = gender[learner.sex];
+    let streak = 0;
+    let longest = 0;
+    let recorded = 0;
+    schoolDays.forEach((day) => {
+      const status = recordMap.get(`${learner.enrollment_id}:${day.date}`);
+      if (!status) return;
+      recorded += 1;
+      if (bucket) bucket[status] = (bucket[status] || 0) + 1;
+      if (status === "absent") {
+        streak += 1;
+        longest = Math.max(longest, streak);
+      } else {
+        streak = 0;
+      }
+    });
+    const learnerAbsent = schoolDays.reduce(
+      (sum, day) =>
+        sum + (recordMap.get(`${learner.enrollment_id}:${day.date}`) === "absent" ? 1 : 0),
+      0
+    );
+    const rate = recorded ? (learnerAbsent / recorded) * 100 : 0;
+    if (longest >= 3 || (recorded >= 5 && rate >= 20)) {
+      alerts.push({
+        lrn: learner.lrn,
+        name: fullName(learner),
+        sex: sexLabel(learner.sex),
+        recorded,
+        absent: learnerAbsent,
+        longestStreak: longest,
+        rate: Math.round(rate * 10) / 10,
+        alert:
+          longest >= 3
+            ? `${longest} consecutive absences`
+            : `${Math.round(rate)}% of recorded days absent`
+      });
+    }
+  });
+  if (alerts.length) {
+    data.tables.push({
+      key: "intervention-alerts",
+      title: "Attendance Alerts for Intervention Review",
+      note:
+        "Suggested alerts based on consecutive absences or a high absence rate. Verify each case against school policy; an alert is not a disciplinary finding.",
+      columns: [
+        { key: "lrn", label: "LRN", width: 12 },
+        { key: "name", label: "Learner Name", width: 28 },
+        { key: "sex", label: "Sex", width: 5, align: "center" },
+        { key: "recorded", label: "Days Recorded", width: 10, align: "center" },
+        { key: "absent", label: "Days Absent", width: 9, align: "center" },
+        { key: "longestStreak", label: "Longest Streak", width: 10, align: "center" },
+        { key: "rate", label: "Absence Rate", width: 9, align: "center" },
+        { key: "alert", label: "Suggested Attention", width: 22 }
+      ],
+      rows: alerts.map((alert) => ({ ...alert, rate: `${alert.rate}%` })),
+      emptyText: "No learner reached the suggested intervention threshold this month."
+    });
+  }
   const columns = [
     { key: "lrn", label: "LRN", width: 6 },
     { key: "name", label: "Learner Name", width: 15 },
@@ -669,18 +749,26 @@ async function buildSf2(ctx) {
     key: "attendance",
     title: `${ctx.month} Daily Attendance`,
     note:
-      "P = present, A = absent, T = tardy, E = excused, H = half day. Blank shaded days are non-school days. Totals are derived only from saved attendance entries.",
+      "P = present, A = absent, T = tardy, E = excused, H = half day. Blank shaded days are non-school days. Totals are derived only from adviser-validated daily attendance.",
     columns,
     rows,
     emptyText: "No attendance entries for this section and month."
   });
+  data.term = {
+    model: ctx.year.term_model || "four_quarter",
+    names: monthTerms.map((term) => term.name)
+  };
   data.summary = [
     { label: "Learners", value: roster.length },
     { label: "School days", value: schoolDays.length },
+    { label: "Reporting term", value: monthTerms.map((term) => term.name).join(", ") || "Not configured" },
     { label: "Entries saved", value: recorded },
     { label: "Present", value: present },
     { label: "Absent", value: absent },
     { label: "Tardy", value: tardy },
+    { label: "Male present / absent", value: `${gender.male.present} / ${gender.male.absent}` },
+    { label: "Female present / absent", value: `${gender.female.present} / ${gender.female.absent}` },
+    { label: "Intervention alerts", value: alerts.length },
     { label: "Attendance rate", value: `${pct(present + tardy, recorded) || 0}%` }
   ];
   data.signatures = [
@@ -688,8 +776,12 @@ async function buildSf2(ctx) {
     { name: ctx.school.school_head || "", label: "School Head" }
   ];
   data.notes.push(
+    "Totals come from adviser-validated daily attendance, which consolidates subject-period records into one official status per learner per day. Legacy daily entries are used only for dates without an adviser validation.",
+    "A single subject absence is never converted into a whole-day absence, and multiple subject absences are never counted as multiple days.",
+    `Reporting terms for this school year: ${monthTerms.map((term) => `${term.name} (${term.startsOn} to ${term.endsOn})`).join("; ") || "not configured"}.`,
     "School days come from the configured school calendar; days without a calendar entry default to Monday–Friday.",
-    "No learner is marked present automatically. A blank cell means no attendance was saved."
+    "No learner is marked present automatically. A blank cell means no attendance was saved.",
+    "Intervention alerts flag three or more consecutive absences, or at least 20% of recorded school days absent. A learner without enough recorded days is not flagged solely on a small sample."
   );
   return finalizeData(data, errors, warnings, expected);
 }
@@ -896,11 +988,25 @@ async function buildSf4(ctx) {
     gradeParams
   );
   const attendance = await query(
-    `SELECT e.grade_level_id, ar.status, COUNT(*)::int AS count
-     FROM attendance_records ar JOIN enrollments e ON e.id = ar.enrollment_id
-     WHERE ar.school_id = $1 AND ar.school_year_id = $2
-       AND ar.attendance_date BETWEEN $3 AND $4
-     GROUP BY e.grade_level_id, ar.status`,
+    `SELECT e.grade_level_id, merged.status, COUNT(*)::int AS count
+     FROM (
+       SELECT aa.enrollment_id, aa.attendance_date, aa.status
+       FROM adviser_attendance aa
+       WHERE aa.school_id = $1 AND aa.school_year_id = $2
+         AND aa.attendance_date BETWEEN $3 AND $4
+       UNION ALL
+       SELECT ar.enrollment_id, ar.attendance_date, ar.status
+       FROM attendance_records ar
+       WHERE ar.school_id = $1 AND ar.school_year_id = $2
+         AND ar.attendance_date BETWEEN $3 AND $4
+         AND NOT EXISTS (
+           SELECT 1 FROM adviser_attendance aa2
+           WHERE aa2.enrollment_id = ar.enrollment_id
+             AND aa2.attendance_date = ar.attendance_date
+         )
+     ) merged
+     JOIN enrollments e ON e.id = merged.enrollment_id
+     GROUP BY e.grade_level_id, merged.status`,
     [ctx.school.id, ctx.year.id, bounds.start, bounds.end]
   );
   const attendanceMap = new Map();
@@ -1073,7 +1179,7 @@ async function buildSf4(ctx) {
     { name: ctx.school.school_head || "", label: "School Head" }
   ];
   data.notes.push(
-    "Absences are counted from saved attendance only and are never treated as dropouts or transfers.",
+    "Absences are counted from adviser-validated daily attendance (with legacy daily entries only where no validation exists) and are never treated as dropouts or transfers.",
     discrepancy !== 0
       ? "The current enrollment and computed ending enrollment differ; correct the source enrollment or movement records before approval."
       : "Current enrollment reconciles with the movement totals."
@@ -1671,6 +1777,32 @@ async function buildSf9(ctx) {
       ],
       emptyText: "No attendance or promotion data."
     });
+    if (card.attendanceTerms && card.attendanceTerms.length) {
+      data.tables.push({
+        key: "attendance-terms",
+        title: "Attendance by Approved Reporting Term",
+        note:
+          "Daily statuses are consolidated from adviser-validated attendance. One date counts once regardless of how many subjects met that day.",
+        columns: [
+          { key: "term", label: "Reporting Period", width: 28 },
+          { key: "range", label: "Coverage", width: 30 },
+          { key: "present", label: "Present", width: 8, align: "center" },
+          { key: "absent", label: "Absent", width: 8, align: "center" },
+          { key: "tardy", label: "Tardy", width: 8, align: "center" },
+          { key: "recorded", label: "Days Recorded", width: 10, align: "center" }
+        ],
+        rows: card.attendanceTerms.map((term) => ({
+          termNo: term.termNo,
+          term: term.name,
+          range: `${term.startsOn} to ${term.endsOn}`,
+          present: term.totals.present,
+          absent: term.totals.absent,
+          tardy: term.totals.tardy,
+          recorded: term.totals.recorded
+        })),
+        emptyText: "No approved reporting terms are configured for this school year."
+      });
+    }
     data.signatures = [
       { name: card.enrollment.adviserName || "", label: "Class Adviser" },
       { name: ctx.school.school_head || "", label: "School Head" },
@@ -1678,7 +1810,8 @@ async function buildSf9(ctx) {
     ];
     data.notes.push(
       "Only finalized final grades appear on an issuable report card. Blank quarters indicate grades that were not recorded; they are never filled in automatically.",
-      "One report card is generated per learner per school year. Previously issued cards are preserved and reissues are versioned."
+      "One report card is generated per learner per school year. Previously issued cards are preserved and reissues are versioned.",
+      "Attendance follows the administrator-approved reporting terms for the school year. Subject grade columns remain the quarterly grading periods stored in the class record."
     );
     return finalizeData(
       data,
@@ -1974,6 +2107,46 @@ async function buildSf10(ctx) {
         workflow: row.workflow_status ? WORKFLOW_LABEL[row.workflow_status] || row.workflow_status : "—"
       })),
       emptyText: "No system-proposed entries are pending verification."
+    });
+  }
+  const currentEnrollment = await query(
+    `SELECT id, section_id FROM enrollments
+     WHERE learner_id = $1 AND school_year_id = $2
+     ORDER BY id DESC LIMIT 1`,
+    [learner.id, ctx.year.id]
+  );
+  const currentRow = currentEnrollment.rows[0];
+  const termAttendance = currentRow
+    ? await subjectAttendanceService.attendanceTermsForEnrollment(
+        ctx.school.id,
+        ctx.year.id,
+        currentRow.id,
+        currentRow.section_id
+      )
+    : [];
+  if (termAttendance.length) {
+    data.tables.push({
+      key: "attendance-terms",
+      title: `Attendance History by Term — ${ctx.year.name}`,
+      note:
+        "Adviser-validated daily attendance for the current school year. Earlier years remain available from their preserved form snapshots.",
+      columns: [
+        { key: "term", label: "Reporting Period", width: 30 },
+        { key: "range", label: "Coverage", width: 30 },
+        { key: "present", label: "Present", width: 8, align: "center" },
+        { key: "absent", label: "Absent", width: 8, align: "center" },
+        { key: "tardy", label: "Tardy", width: 8, align: "center" },
+        { key: "recorded", label: "Days Recorded", width: 10, align: "center" }
+      ],
+      rows: termAttendance.map((term) => ({
+        term: term.name,
+        range: `${term.startsOn} to ${term.endsOn}`,
+        present: term.totals.present,
+        absent: term.totals.absent,
+        tardy: term.totals.tardy,
+        recorded: term.totals.recorded
+      })),
+      emptyText: "No approved reporting terms are configured for this school year."
     });
   }
   data.signatures = [

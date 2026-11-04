@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="theme-color" content="#0a2342">
+  <title>Database Backup · School District Monitoring System</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="assets/images/favicon.png">
+  <link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/helpdesk.css">
+</head>
+<body class="app-body" data-page="database-backup">
+  <a class="skip-link" href="#appContent">Skip to main content</a>
+
+  <div class="app-loading" id="appLoading">
+    <div class="shell-loader">
+      <span class="shell-loader__mark" aria-hidden="true"><i class="bi bi-database-down"></i></span>
+      <span class="shell-loader__spinner" aria-hidden="true"></span>
+      <p>Loading the backup console…</p>
+    </div>
+  </div>
+
+  <div class="app-layout d-none" id="appLayout">
+    <aside class="app-sidebar" id="appSidebar" aria-label="Primary navigation"></aside>
+    <div class="app-main">
+      <header class="app-topbar" id="appTopbar"></header>
+
+      <main class="app-content" id="appContent">
+        <div class="page-header">
+          <div class="page-header__copy">
+            <p class="page-eyebrow">System administration</p>
+            <h1>Database backup</h1>
+            <p class="page-subtitle">Generate a complete plain-SQL snapshot of the database and download it to this computer.</p>
+          </div>
+          <div class="page-header__actions">
+            <button type="button" class="btn btn-primary" id="generateBackup">
+              <i class="bi bi-database-down" aria-hidden="true"></i>
+              <span>Generate &amp; Download Backup</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="backupAlert" class="d-none mb-3" role="alert"></div>
+
+        <div class="audit-banner" role="note">
+          <span class="audit-banner__icon"><i class="bi bi-shield-lock" aria-hidden="true"></i></span>
+          <div>
+            <strong>Administrator-only export</strong>
+            <p>The backup contains the full schema and data, including account records. Store the downloaded file securely, keep it out of source control, and delete copies you no longer need.</p>
+          </div>
+          <span class="audit-banner__badge"><i class="bi bi-lock-fill" aria-hidden="true"></i> Restricted</span>
+        </div>
+
+        <section class="surface-card table-card" aria-labelledby="backupHeading">
+          <header class="table-card__head">
+            <div>
+              <h2 id="backupHeading">Backup snapshot</h2>
+              <p>A single PostgreSQL dump generated on the server and streamed straight to your browser.</p>
+            </div>
+            <span class="role-policy"><i class="bi bi-server" aria-hidden="true"></i> PostgreSQL</span>
+          </header>
+
+          <div class="p-3">
+            <dl class="row mb-0">
+              <dt class="col-sm-4">Format</dt>
+              <dd class="col-sm-8">Plain SQL (<code>.sql</code>), restorable with <code>psql</code>.</dd>
+
+              <dt class="col-sm-4">Included</dt>
+              <dd class="col-sm-8">Schema, tables, indexes, constraints, sequences, views, functions, triggers, and data.</dd>
+
+              <dt class="col-sm-4">File name</dt>
+              <dd class="col-sm-8"><code>database_backup_&lt;database&gt;_YYYY-MM-DD_HHMMSS.sql</code></dd>
+
+              <dt class="col-sm-4">Storage</dt>
+              <dd class="col-sm-8">Written to a private temporary file outside the public site and deleted as soon as the download ends.</dd>
+
+              <dt class="col-sm-4">Access</dt>
+              <dd class="col-sm-8">System administrators only. Every request is authorized on the server and recorded in the audit trail.</dd>
+            </dl>
+
+            <hr>
+
+            <p class="mb-1" id="backupStatus" aria-live="polite"></p>
+            <p class="cell-muted mb-0" id="backupLastRun">No backup has been downloaded in this session.</p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>&copy; 2026 tamahome7777</span>
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span>SDMS v1.0.0</span>
+        <span class="app-footer__right" id="footerUpdated"></span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="appBackdrop" aria-hidden="true"></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="assets/vendor/jquery.slim.min.js"></script>
+  <script src="assets/vendor/bootstrap.bundle.min.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/database-backup.js"></script>
+  <script src="js/helpdesk.js"></script>
+</body>
+</html>

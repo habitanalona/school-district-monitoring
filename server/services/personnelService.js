@@ -1,6 +1,7 @@
 "use strict";
 
-const { query } = require("../config/database");
+const bcrypt = require("bcrypt");
+const { query, getClient } = require("../config/database");
 const { HttpError } = require("../utils/httpError");
 const {
   requireIdParam,
@@ -20,11 +21,14 @@ const {
   resolveSchoolYear,
   schoolScopeSql
 } = require("../utils/formsAccess");
+const { createToken } = require("../utils/tokens");
+const { BCRYPT_ROUNDS } = require("./authService");
 const auditService = require("./auditService");
 
 const EMPLOYMENT_TYPES = ["plantilla", "provisional", "contractual", "substitute", "volunteer", "other"];
 const EMPLOYMENT_STATUSES = ["active", "inactive"];
 const TEACHING_ROLES = ["teacher", "adviser", "coordinator", "school_head"];
+const STAFF_ACCOUNT_ROLES = ["teacher", "adviser", "coordinator", "school_head", "nt", "psds"];
 
 function requireDate(value, field) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -224,32 +228,120 @@ function readProfile(payload) {
   };
 }
 
-async function createProfile(actor, payload, meta) {
-  assertCan(actor, "personnel", "add");
-  const school = await resolveSchool(actor, payload.schoolId);
-  const data = readProfile(payload);
-  let userId = payload.userId ? requireIdParam(payload.userId, "User account") : null;
-  if (userId) {
-    const user = await query("SELECT id, school_id FROM users WHERE id = $1", [userId]);
-    if (!user.rows[0]) {
+function usernameBase(value, fallback) {
+  const cleaned = String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, ".")
+    .replace(/^[._-]+|[._-]+$/g, "")
+    .slice(0, 48);
+  return cleaned || fallback;
+}
+
+function syntheticEmail(school, employeeNo) {
+  const slug = String(employeeNo || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `personnel-${school.id}-${slug || "staff"}@sdms.invalid`;
+}
+
+async function uniqueUsername(client, preferred) {
+  let candidate = preferred;
+  for (let suffix = 1; suffix <= 100; suffix += 1) {
+    const taken = await client.query("SELECT 1 FROM users WHERE lower(username) = lower($1)", [candidate]);
+    if (!taken.rows[0]) {
+      return candidate;
+    }
+    candidate = `${preferred.slice(0, 55)}.${suffix + 1}`;
+  }
+  return `${preferred.slice(0, 48)}.${Date.now().toString(36)}`;
+}
+
+async function assertLinkableAccount(client, schoolId, account) {
+  if (Number(account.school_id) !== Number(schoolId)) {
+    throw new HttpError(409, "That account belongs to another school.", "USER_SCHOOL_MISMATCH");
+  }
+  const profile = await client.query("SELECT id FROM personnel_profiles WHERE user_id = $1", [account.id]);
+  if (profile.rows[0]) {
+    throw new HttpError(409, "That account already has a personnel profile.", "PROFILE_EXISTS");
+  }
+}
+
+async function findAccountByEmail(client, email) {
+  if (!email) {
+    return null;
+  }
+  const result = await client.query(
+    "SELECT id, school_id, role FROM users WHERE lower(email) = lower($1) LIMIT 1",
+    [email]
+  );
+  return result.rows[0] || null;
+}
+
+// Every personnel profile is anchored to a staff account. An explicitly chosen
+// account is validated; otherwise an unprofiled account with the same email is
+// reused, and only then is a dormant account provisioned. The dormant account
+// uses an unknowable random password and is inactive, so it never grants access
+// until an administrator sets credentials and activates it.
+async function resolveProfileAccount(client, actor, school, data, requestedUserId) {
+  if (requestedUserId) {
+    const result = await client.query("SELECT id, school_id FROM users WHERE id = $1", [requestedUserId]);
+    if (!result.rows[0]) {
       throw new HttpError(404, "User account not found.", "USER_NOT_FOUND");
     }
-    if (Number(user.rows[0].school_id) !== Number(school.id)) {
-      throw new HttpError(409, "That account belongs to another school.", "USER_SCHOOL_MISMATCH");
-    }
-    const existing = await query("SELECT id FROM personnel_profiles WHERE user_id = $1", [userId]);
-    if (existing.rows[0]) {
-      throw new HttpError(409, "That account already has a personnel profile.", "PROFILE_EXISTS");
-    }
+    await assertLinkableAccount(client, school.id, result.rows[0]);
+    return { userId: Number(result.rows[0].id), created: false };
   }
-  const duplicate = await query(
-    "SELECT id FROM personnel_profiles WHERE school_id = $1 AND employee_no = $2",
-    [school.id, data.employeeNo]
+
+  const matched = await findAccountByEmail(client, data.email);
+  if (matched) {
+    if (!STAFF_ACCOUNT_ROLES.includes(matched.role)) {
+      throw new HttpError(
+        409,
+        "That email address belongs to a non-staff account.",
+        "EMAIL_IN_USE",
+        { field: "email" }
+      );
+    }
+    await assertLinkableAccount(client, school.id, matched);
+    return { userId: Number(matched.id), created: false };
+  }
+
+  const email = data.email || syntheticEmail(school, data.employeeNo);
+  const claimed = await findAccountByEmail(client, email);
+  if (claimed) {
+    await assertLinkableAccount(client, school.id, claimed);
+    return { userId: Number(claimed.id), created: false };
+  }
+
+  const preferred = usernameBase(
+    (data.email || "").split("@")[0],
+    usernameBase(`${data.firstName}.${data.lastName}`, `staff.${data.employeeNo}`)
   );
-  if (duplicate.rows[0]) {
-    throw new HttpError(409, "That employee number is already in use.", "EMPLOYEE_NO_IN_USE");
-  }
-  const result = await query(
+  const username = await uniqueUsername(client, preferred);
+  const passwordHash = await bcrypt.hash(createToken(32), BCRYPT_ROUNDS);
+  const inserted = await client.query(
+    `INSERT INTO users (
+       full_name, username, email, password_hash, role, district_id, school_id,
+       is_active, approval_status, approved_by, approved_at
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, 'active', $8, now())
+     RETURNING id`,
+    [
+      [data.firstName, data.middleName, data.lastName, data.suffix].filter(Boolean).join(" "),
+      username,
+      email,
+      passwordHash,
+      data.isTeaching ? "teacher" : "nt",
+      school.district_id,
+      school.id,
+      actor.id
+    ]
+  );
+  return { userId: Number(inserted.rows[0].id), created: true };
+}
+
+function profileInsert(client, schoolId, userId, data, actorId) {
+  return client.query(
     `INSERT INTO personnel_profiles
        (user_id, school_id, employee_no, last_name, first_name, middle_name, suffix,
         position, employment_type, employment_status, is_teaching, specialization,
@@ -258,7 +350,7 @@ async function createProfile(actor, payload, meta) {
      RETURNING *`,
     [
       userId,
-      school.id,
+      schoolId,
       data.employeeNo,
       data.lastName,
       data.firstName,
@@ -274,19 +366,61 @@ async function createProfile(actor, payload, meta) {
       data.contactNumber,
       data.email,
       data.dateHired,
-      actor.id
+      actorId
     ]
   );
-  await auditService.record({
-    userId: actor.id,
-    districtId: actor.districtId,
-    ipAddress: meta && meta.ip,
-    action: "personnel.create",
-    entityType: "personnel_profile",
-    entityId: result.rows[0].id,
-    details: { employeeNo: data.employeeNo, schoolId: Number(school.id), teaching: data.isTeaching }
-  });
-  return getProfile(actor, result.rows[0].id);
+}
+
+async function createProfile(actor, payload, meta) {
+  assertCan(actor, "personnel", "add");
+  const school = await resolveSchool(actor, payload.schoolId);
+  const data = readProfile(payload);
+  const requestedUserId = payload.userId ? requireIdParam(payload.userId, "User account") : null;
+  const client = await getClient();
+  let profileId = null;
+  try {
+    await client.query("BEGIN");
+    const duplicate = await client.query(
+      "SELECT id FROM personnel_profiles WHERE school_id = $1 AND employee_no = $2",
+      [school.id, data.employeeNo]
+    );
+    if (duplicate.rows[0]) {
+      throw new HttpError(409, "That employee number is already in use.", "EMPLOYEE_NO_IN_USE");
+    }
+    const account = await resolveProfileAccount(client, actor, school, data, requestedUserId);
+    const result = await profileInsert(client, school.id, account.userId, data, actor.id);
+    profileId = Number(result.rows[0].id);
+    await auditService.record({
+      client,
+      userId: actor.id,
+      districtId: actor.districtId,
+      ipAddress: meta && meta.ip,
+      action: "personnel.create",
+      entityType: "personnel_profile",
+      entityId: profileId,
+      details: {
+        employeeNo: data.employeeNo,
+        schoolId: Number(school.id),
+        teaching: data.isTeaching,
+        accountId: account.userId,
+        accountCreated: account.created
+      }
+    });
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    if (error.code === "23505") {
+      throw new HttpError(
+        409,
+        "The employee number, email address, or generated username is already in use.",
+        "PERSONNEL_DUPLICATE"
+      );
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+  return getProfile(actor, profileId);
 }
 
 async function getProfile(actor, id) {
@@ -317,61 +451,88 @@ async function updateProfile(actor, id, payload, meta) {
   }
   const school = await resolveSchool(actor, existing.rows[0].school_id);
   const data = readProfile(payload);
-  const userId =
-    payload.userId === undefined
-      ? existing.rows[0].user_id
-      : payload.userId
-        ? requireIdParam(payload.userId, "User account")
-        : null;
-  if (userId && Number(userId) !== Number(existing.rows[0].user_id || 0)) {
-    const user = await query("SELECT id, school_id FROM users WHERE id = $1", [userId]);
-    if (!user.rows[0] || Number(user.rows[0].school_id) !== Number(school.id)) {
-      throw new HttpError(409, "That account belongs to another school.", "USER_SCHOOL_MISMATCH");
+  const requestedUserId = payload.userId ? requireIdParam(payload.userId, "User account") : null;
+  const currentUserId = existing.rows[0].user_id ? Number(existing.rows[0].user_id) : null;
+  const client = await getClient();
+  try {
+    await client.query("BEGIN");
+    let account;
+    if (currentUserId && (!requestedUserId || Number(requestedUserId) === currentUserId)) {
+      account = { userId: currentUserId, created: false };
+    } else if (currentUserId) {
+      const user = await client.query("SELECT id, school_id FROM users WHERE id = $1", [requestedUserId]);
+      if (!user.rows[0]) {
+        throw new HttpError(404, "User account not found.", "USER_NOT_FOUND");
+      }
+      await assertLinkableAccount(client, school.id, user.rows[0]);
+      account = { userId: Number(requestedUserId), created: false };
+    } else {
+      account = await resolveProfileAccount(client, actor, school, data, requestedUserId);
     }
+
+    const duplicate = await client.query(
+      "SELECT id FROM personnel_profiles WHERE school_id = $1 AND employee_no = $2 AND id <> $3",
+      [school.id, data.employeeNo, id]
+    );
+    if (duplicate.rows[0]) {
+      throw new HttpError(409, "That employee number is already in use.", "EMPLOYEE_NO_IN_USE");
+    }
+    await client.query(
+      `UPDATE personnel_profiles SET
+         user_id = $1, employee_no = $2, last_name = $3, first_name = $4, middle_name = $5,
+         suffix = $6, position = $7, employment_type = $8, employment_status = $9,
+         is_teaching = $10, specialization = $11, qualifications = $12, designation = $13,
+         contact_number = $14, email = $15, date_hired = $16
+       WHERE id = $17`,
+      [
+        account.userId,
+        data.employeeNo,
+        data.lastName,
+        data.firstName,
+        data.middleName,
+        data.suffix,
+        data.position,
+        data.employmentType,
+        data.employmentStatus,
+        data.isTeaching,
+        data.specialization,
+        data.qualifications,
+        data.designation,
+        data.contactNumber,
+        data.email,
+        data.dateHired,
+        id
+      ]
+    );
+    await auditService.record({
+      client,
+      userId: actor.id,
+      districtId: actor.districtId,
+      ipAddress: meta && meta.ip,
+      action: "personnel.update",
+      entityType: "personnel_profile",
+      entityId: id,
+      details: {
+        employeeNo: data.employeeNo,
+        schoolId: Number(school.id),
+        accountId: account.userId,
+        accountCreated: account.created
+      }
+    });
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    if (error.code === "23505") {
+      throw new HttpError(
+        409,
+        "The employee number, email address, or generated username is already in use.",
+        "PERSONNEL_DUPLICATE"
+      );
+    }
+    throw error;
+  } finally {
+    client.release();
   }
-  const duplicate = await query(
-    "SELECT id FROM personnel_profiles WHERE school_id = $1 AND employee_no = $2 AND id <> $3",
-    [school.id, data.employeeNo, id]
-  );
-  if (duplicate.rows[0]) {
-    throw new HttpError(409, "That employee number is already in use.", "EMPLOYEE_NO_IN_USE");
-  }
-  await query(
-    `UPDATE personnel_profiles SET
-       user_id = $1, employee_no = $2, last_name = $3, first_name = $4, middle_name = $5,
-       suffix = $6, position = $7, employment_type = $8, employment_status = $9,
-       is_teaching = $10, specialization = $11, qualifications = $12, designation = $13,
-       contact_number = $14, email = $15, date_hired = $16
-     WHERE id = $17`,
-    [
-      userId,
-      data.employeeNo,
-      data.lastName,
-      data.firstName,
-      data.middleName,
-      data.suffix,
-      data.position,
-      data.employmentType,
-      data.employmentStatus,
-      data.isTeaching,
-      data.specialization,
-      data.qualifications,
-      data.designation,
-      data.contactNumber,
-      data.email,
-      data.dateHired,
-      id
-    ]
-  );
-  await auditService.record({
-    userId: actor.id,
-    districtId: actor.districtId,
-    ipAddress: meta && meta.ip,
-    action: "personnel.update",
-    entityType: "personnel_profile",
-    entityId: id,
-    details: { employeeNo: data.employeeNo, schoolId: Number(school.id) }
-  });
   return getProfile(actor, id);
 }
 

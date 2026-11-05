@@ -227,7 +227,8 @@
         '<div class="col-md-4"><div class="form-group"><label for="personnelContact">Contact number</label>' +
         '<input class="form-control" id="personnelContact" name="contactNumber" maxlength="24" value="' + F.esc(data.contactNumber || "") + '"></div></div>' +
         '<div class="col-md-4"><div class="form-group"><label for="personnelEmail">Email</label>' +
-        '<input type="email" class="form-control" id="personnelEmail" name="email" maxlength="160" value="' + F.esc(data.email || "") + '"></div></div>' +
+        '<input type="email" class="form-control" id="personnelEmail" name="email" maxlength="160" value="' + F.esc(data.email || "") + '">' +
+        '<span class="field-hint">A staff account with this email is linked automatically; otherwise a disabled account is created for an administrator to activate.</span></div></div>' +
         '<div class="col-12"><div class="form-group mb-0"><label for="personnelQualifications">Qualifications</label>' +
         '<textarea class="form-control" id="personnelQualifications" name="qualifications" rows="2" maxlength="4000">' + F.esc(data.qualifications || "") + "</textarea>" +
         '<span class="field-hint">Contact details and qualifications are confidential fields shown only to authorized personnel roles.</span></div></div>' +

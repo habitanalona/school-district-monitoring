@@ -55,6 +55,7 @@ FROM (VALUES
   ('Science', 5),
   ('Araling Panlipunan', 6),
   ('Edukasyon sa Pagpapakatao', 7),
+  ('Values Education', 7),
   ('Music', 8),
   ('Arts', 9),
   ('Physical Education', 10),

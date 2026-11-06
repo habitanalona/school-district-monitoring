@@ -38,8 +38,8 @@
           <span>district identity.</span>
         </h1>
         <p class="hero-description">
-          Create your SDMS account and select your role. Your immediate superior confirms the
-          registration before you can sign in and maintain your own records.
+          Create your SDMS account and select every role you hold. Your immediate superior
+          confirms the registration before you can sign in and maintain your own records.
         </p>
 
         <ul class="hero-features" aria-label="How account confirmation works">
@@ -49,7 +49,7 @@
           </li>
           <li>
             <span class="hero-feature__icon"><i class="bi bi-people" aria-hidden="true"></i></span>
-            <span><strong>School-level review</strong><small>Teachers, NT, and advisers by the school head</small></span>
+            <span><strong>School-level review</strong><small>Teachers, coordinators, NT, and advisers by the school head</small></span>
           </li>
           <li>
             <span class="hero-feature__icon"><i class="bi bi-journal-check" aria-hidden="true"></i></span>
@@ -80,7 +80,7 @@
 
         <header class="auth-card__header">
           <h2 id="registerHeading">Create your account</h2>
-          <p>Register with your role and assignment. Your superior will confirm access.</p>
+          <p>Register with your name, roles, and assignment. Your superior will confirm access.</p>
         </header>
 
         <div id="registerAlert" class="auth-alert d-none" role="alert" aria-live="assertive"></div>
@@ -91,10 +91,22 @@
         </div>
 
         <form id="registerForm" class="auth-form d-none" method="post" novalidate autocomplete="on">
-          <div class="form-group">
-            <label for="fullName">Full name</label>
-            <input type="text" class="form-control" id="fullName" name="fullName" placeholder="Full Name" autocomplete="name" maxlength="160" required>
-            <span class="field-error" id="fullNameError" aria-live="polite"></span>
+          <div class="form-row">
+            <div class="form-group col-sm-5">
+              <label for="firstName">First name</label>
+              <input type="text" class="form-control" id="firstName" name="firstName" placeholder="First name" autocomplete="given-name" maxlength="80" required>
+              <span class="field-error" id="firstNameError" aria-live="polite"></span>
+            </div>
+            <div class="form-group col-sm-4">
+              <label for="middleName">Middle name <span class="field-optional">(optional)</span></label>
+              <input type="text" class="form-control" id="middleName" name="middleName" placeholder="Middle name" autocomplete="additional-name" maxlength="80">
+              <span class="field-error" id="middleNameError" aria-live="polite"></span>
+            </div>
+            <div class="form-group col-sm-3">
+              <label for="lastName">Last name</label>
+              <input type="text" class="form-control" id="lastName" name="lastName" placeholder="Last name" autocomplete="family-name" maxlength="80" required>
+              <span class="field-error" id="lastNameError" aria-live="polite"></span>
+            </div>
           </div>
 
           <div class="form-row">
@@ -110,12 +122,11 @@
             </div>
           </div>
 
-          <div class="form-group">
-            <label for="role">Role</label>
-            <select class="custom-select" id="role" name="role" required>
-              <option value="">Select your role</option>
-            </select>
-            <p class="form-hint mb-0" id="roleHelp">Your role determines who confirms your account.</p>
+          <div class="form-group" id="roleGroup">
+            <label id="roleLabel">Roles</label>
+            <p class="form-hint mb-2" id="roleHelp">Select every role you hold. Your account receives the combined access of all selected roles.</p>
+            <div id="roleOptions" class="role-options" role="group" aria-labelledby="roleLabel"></div>
+            <input type="hidden" name="roles" id="rolesValue">
             <span class="field-error" id="roleError" aria-live="polite"></span>
           </div>
 

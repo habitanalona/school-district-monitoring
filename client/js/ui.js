@@ -73,6 +73,7 @@
     psds: { label: "PSDS", short: "PSDS", tone: "primary" },
     school_head: { label: "School Head", short: "School Head", tone: "success" },
     teacher: { label: "Teacher", short: "Teacher", tone: "teal" },
+    coordinator: { label: "Coordinator", short: "Coordinator", tone: "primary" },
     nt: { label: "NT", short: "NT", tone: "warning" },
     adviser: { label: "Class Adviser", short: "Adviser", tone: "violet" },
     learner: { label: "Learner", short: "Learner", tone: "info" },

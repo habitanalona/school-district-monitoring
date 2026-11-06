@@ -2,6 +2,7 @@
 
 const config = require("../config/env");
 const authService = require("../services/authService");
+const mailService = require("../services/mailService");
 const registrationService = require("../services/registrationService");
 const districtService = require("../services/districtService");
 const auditService = require("../services/auditService");
@@ -12,6 +13,7 @@ const { effectivePermissions } = require("../services/permissionService");
 const { createCsrfToken } = require("../utils/tokens");
 const {
   requireString,
+  optionalString,
   requirePassword,
   requireEmail,
   requireUsername,
@@ -138,6 +140,19 @@ async function me(req, res) {
   });
 }
 
+function resetBaseUrl(req) {
+  if (config.publicBaseUrl) {
+    return config.publicBaseUrl;
+  }
+  return `${req.protocol}://${req.get("host")}`;
+}
+
+// Accounts provisioned without a real address use a synthetic
+// @sdms.invalid mailbox that can never receive mail.
+function hasDeliverableEmail(email) {
+  return Boolean(email) && !/@sdms\.invalid$/i.test(String(email));
+}
+
 async function forgotPassword(req, res) {
   const identifier = requireString(req.body.identifier, "Email or username", { min: 1, max: 160 });
   const reset = await authService.createPasswordReset(identifier);
@@ -145,8 +160,8 @@ async function forgotPassword(req, res) {
   let devResetUrl = null;
 
   if (reset) {
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    devResetUrl = `${baseUrl}/reset-password.html?token=${encodeURIComponent(reset.token)}`;
+    const resetUrl = `${resetBaseUrl(req)}/reset-password.html?token=${encodeURIComponent(reset.token)}`;
+    devResetUrl = resetUrl;
     await auditService.record({
       userId: reset.user.id,
       action: "user.password_reset_requested",
@@ -156,6 +171,22 @@ async function forgotPassword(req, res) {
       details: {},
       ipAddress: req.ip || null
     });
+
+    if (hasDeliverableEmail(reset.user.email)) {
+      // Sent in the background so response timing cannot reveal whether an
+      // account exists.
+      mailService
+        .sendPasswordReset({ to: reset.user.email, resetUrl, expiresAt: reset.expiresAt })
+        .catch((error) => {
+          console.warn(
+            `Password reset email could not be sent for user ${reset.user.id}: ${error.message}`
+          );
+        });
+    } else {
+      console.warn(
+        `Password reset email skipped for user ${reset.user.id}: the account has no deliverable email address.`
+      );
+    }
 
     if (!config.isProduction) {
       console.log(`Password reset link (development only): ${devResetUrl}`);
@@ -205,8 +236,42 @@ async function registrationOptions(req, res) {
   res.json({ data: options });
 }
 
+function registrationName(body) {
+  const hasParts =
+    body.firstName !== undefined || body.middleName !== undefined || body.lastName !== undefined;
+  if (!hasParts) {
+    return {
+      firstName: null,
+      middleName: null,
+      lastName: null,
+      fullName: requireString(body.fullName, "Full name", { min: 2, max: 160 })
+    };
+  }
+  const firstName = requireString(body.firstName, "First name", { min: 1, max: 80 });
+  const middleName = optionalString(body.middleName, "Middle name", { max: 80 });
+  const lastName = requireString(body.lastName, "Last name", { min: 1, max: 80 });
+  const fullName = [firstName, middleName, lastName].filter(Boolean).join(" ");
+  return { firstName, middleName, lastName, fullName };
+}
+
+function registrationRoles(body) {
+  const raw = Array.isArray(body.roles) ? body.roles : body.role ? [body.role] : [];
+  const roles = Array.from(
+    new Set(
+      raw
+        .filter((value) => value !== undefined && value !== null && value !== "")
+        .map((value) => requireEnum(value, "Role", SELF_REGISTER_ROLES))
+    )
+  );
+  if (!roles.length) {
+    throw new HttpError(400, "Select at least one role.", "VALIDATION_ERROR", { field: "roles" });
+  }
+  return roles;
+}
+
 async function register(req, res) {
-  const role = requireEnum(req.body.role, "Role", SELF_REGISTER_ROLES);
+  const roles = registrationRoles(req.body);
+  const name = registrationName(req.body);
   const districtId = requireInteger(req.body.districtId, "District", { min: 1 });
   const schoolId =
     req.body.schoolId === undefined || req.body.schoolId === null || req.body.schoolId === ""
@@ -214,11 +279,12 @@ async function register(req, res) {
       : requireInteger(req.body.schoolId, "School", { min: 1 });
 
   const result = await registrationService.register({
-    fullName: requireString(req.body.fullName, "Full name", { min: 2, max: 160 }),
+    ...name,
     username: requireUsername(req.body.username),
     email: requireEmail(req.body.email),
     password: requirePassword(req.body.password),
-    role,
+    roles,
+    role: roles[0],
     districtId,
     schoolId,
     ipAddress: req.ip || null

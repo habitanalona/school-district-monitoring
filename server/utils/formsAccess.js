@@ -4,12 +4,13 @@ const { query } = require("../config/database");
 const { HttpError } = require("./httpError");
 const { can } = require("../services/permissionService");
 const { assertSchoolScope, resolveSchoolId, learnerScopeSql } = require("./learnerAccess");
+const { hasRole, hasAnyRole, roleSetIncludes } = require("./roles");
 
 const DISTRICT_WIDE = new Set(["district_admin", "psds", "staff"]);
 const SCHOOL_BOUND = new Set(["school_head", "teacher", "coordinator", "adviser", "nt", "learner"]);
 
 function isSystemAdmin(actor) {
-  return actor && actor.role === "system_admin";
+  return hasRole(actor, "system_admin");
 }
 
 function canDo(actor, moduleKey, action = "access") {
@@ -35,7 +36,7 @@ async function resolveSchool(actor, rawSchoolId, options = {}) {
   let schoolId = resolveSchoolId(actor, requested);
   // PSDS accounts supervise a district rather than one school, so they must be
   // able to name the school they are working with.
-  if (!schoolId && actor.role === "psds" && requested) {
+  if (!schoolId && hasRole(actor, "psds") && requested) {
     schoolId = requested;
   }
   if (!schoolId) {
@@ -77,7 +78,7 @@ function schoolScopeSql(actor, alias, params, requestedSchoolId) {
     }
     return "";
   }
-  if (DISTRICT_WIDE.has(actor.role)) {
+  if (roleSetIncludes(actor, DISTRICT_WIDE)) {
     params.push(actor.districtId);
     let clause = `${alias}.district_id = $${params.length}`;
     if (requestedSchoolId) {
@@ -86,7 +87,7 @@ function schoolScopeSql(actor, alias, params, requestedSchoolId) {
     }
     return clause;
   }
-  if (SCHOOL_BOUND.has(actor.role) && actor.schoolId) {
+  if (roleSetIncludes(actor, SCHOOL_BOUND) && actor.schoolId) {
     if (requestedSchoolId && Number(requestedSchoolId) !== Number(actor.schoolId)) {
       throw new HttpError(403, "You can only access records in your own school.", "SCHOOL_FORBIDDEN");
     }
@@ -119,7 +120,7 @@ async function sectionForActor(actor, sectionId, options = {}) {
   }
   if (!isSystemAdmin(actor)) {
     assertSchoolScope(actor, section.school_id, section.district_id);
-    if (actor.role === "teacher" || actor.role === "adviser") {
+    if (hasAnyRole(actor, ["teacher", "adviser"])) {
       const allowed =
         Number(section.adviser_id) === Number(actor.id) ||
         (

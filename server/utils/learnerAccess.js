@@ -2,6 +2,7 @@
 
 const { HttpError } = require("./httpError");
 const { can } = require("../services/permissionService");
+const { hasRole, hasAnyRole, roleSetIncludes } = require("./roles");
 
 const DISTRICT_WIDE_ROLES = new Set(["district_admin", "psds", "staff"]);
 const SCHOOL_ROLES = new Set(["school_head", "teacher", "coordinator", "adviser", "nt", "learner"]);
@@ -45,7 +46,7 @@ function hasAnyWrite(actor, moduleKeys) {
 }
 
 function isSystemAdmin(actor) {
-  return actor.role === "system_admin";
+  return hasRole(actor, "system_admin");
 }
 
 // Appends bound parameters and returns an SQL fragment limiting learner rows to
@@ -55,20 +56,20 @@ function learnerScopeSql(actor, alias, params) {
   if (isSystemAdmin(actor)) {
     return "";
   }
-  if (actor.role === "learner") {
+  if (hasRole(actor, "learner")) {
     params.push(actor.id);
     return `${alias}.user_id = $${params.length}`;
   }
-  if (DISTRICT_WIDE_ROLES.has(actor.role)) {
+  if (roleSetIncludes(actor, DISTRICT_WIDE_ROLES)) {
     params.push(actor.districtId);
     return `${alias}.district_id = $${params.length}`;
   }
-  if (!SCHOOL_ROLES.has(actor.role)) {
+  if (!roleSetIncludes(actor, SCHOOL_ROLES)) {
     return "FALSE";
   }
   params.push(actor.schoolId);
   let clause = `${alias}.school_id = $${params.length}`;
-  if (actor.role === "teacher" || actor.role === "adviser") {
+  if (hasAnyRole(actor, ["teacher", "adviser"])) {
     params.push(actor.id);
     const ref = `$${params.length}`;
     clause +=
@@ -127,7 +128,7 @@ function assertCanViewReports(actor) {
 // Returns the school an actor may write to. System and district administrators
 // may pass a school in their scope; school accounts are pinned to their school.
 function resolveSchoolId(actor, rawSchoolId) {
-  if (actor.role === "system_admin" || actor.role === "district_admin" || actor.role === "staff") {
+  if (hasAnyRole(actor, ["system_admin", "district_admin", "staff"])) {
     return rawSchoolId || actor.schoolId || null;
   }
   return actor.schoolId;
@@ -137,7 +138,7 @@ function assertSchoolScope(actor, schoolId, districtId) {
   if (isSystemAdmin(actor)) {
     return;
   }
-  if (actor.role === "district_admin" || actor.role === "staff" || actor.role === "psds") {
+  if (hasAnyRole(actor, ["district_admin", "staff", "psds"])) {
     if (!actor.districtId || Number(actor.districtId) !== Number(districtId)) {
       throw new HttpError(403, "You do not have access to that school.", "SCHOOL_FORBIDDEN");
     }

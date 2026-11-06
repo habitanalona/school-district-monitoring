@@ -100,6 +100,13 @@ async function main() {
     console.log("Loading demonstration data...");
     await client.query(seed);
 
+    const userRolesSchema = fs.readFileSync(
+      path.join(__dirname, "schema-user-roles.sql"),
+      "utf8"
+    );
+    console.log("Applying structured names and multi-role account schema...");
+    await client.query(userRolesSchema);
+
     console.log("Loading starter Helpdesk content...");
     const helpdesk = await seedHelpdesk(client);
     console.log(

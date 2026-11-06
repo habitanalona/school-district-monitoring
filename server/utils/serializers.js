@@ -8,12 +8,21 @@ function serializeUser(row) {
   if (!row) {
     return null;
   }
+  const roles = Array.isArray(row.roles) && row.roles.length
+    ? row.roles
+    : row.role
+    ? [row.role]
+    : [];
   return {
     id: Number(row.id),
     fullName: row.full_name,
+    firstName: row.first_name || null,
+    middleName: row.middle_name || null,
+    lastName: row.last_name || null,
     username: row.username,
     email: row.email,
     role: row.role,
+    roles: roles,
     districtId: numberOrNull(row.district_id),
     districtName: row.district_name || null,
     districtCode: row.district_code || null,

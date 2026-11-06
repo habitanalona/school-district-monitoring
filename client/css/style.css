@@ -1562,6 +1562,27 @@ textarea.form-control {
   margin-top: -6px;
 }
 
+.role-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+}
+
+.role-options .custom-control {
+  min-height: 1.5rem;
+}
+
+.field-optional {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+@media (max-width: 575.98px) {
+  .role-options {
+    grid-template-columns: 1fr;
+  }
+}
+
 .register-success {
   padding: 8px 0 4px;
   text-align: center;

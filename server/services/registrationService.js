@@ -9,10 +9,22 @@ const auditService = require("./auditService");
 const {
   SELF_REGISTER_ROLES,
   SCHOOL_ROLES,
+  ROLE_RANK,
+  hasRole,
+  primaryRoleFor,
   approverRoleFor,
   roleLabel,
   roleMeta
 } = require("../utils/roles");
+
+const USER_SELECT = `SELECT u.*, d.district_name, d.district_code, s.school_name, s.school_code,
+         COALESCE(
+           (SELECT array_agg(ur.role ORDER BY ur.role) FROM user_roles ur WHERE ur.user_id = u.id),
+           ARRAY[u.role]
+         ) AS roles
+  FROM users u
+  LEFT JOIN districts d ON d.id = u.district_id
+  LEFT JOIN schools s ON s.id = u.school_id`;
 
 function publicUserRow(row) {
   return serializeUser(row);
@@ -20,14 +32,7 @@ function publicUserRow(row) {
 
 function findUserRow(id, runner = { query }) {
   return runner
-    .query(
-      `SELECT u.*, d.district_name, d.district_code, s.school_name, s.school_code
-       FROM users u
-       LEFT JOIN districts d ON d.id = u.district_id
-       LEFT JOIN schools s ON s.id = u.school_id
-       WHERE u.id = $1`,
-      [id]
-    )
+    .query(`${USER_SELECT} WHERE u.id = $1`, [id])
     .then((result) => result.rows[0] || null);
 }
 
@@ -55,7 +60,8 @@ async function registrationOptions() {
         fullLabel: meta.fullLabel || meta.label,
         approverRole: meta.approverRole,
         approverLabel: roleLabel(meta.approverRole),
-        needsSchool: meta.needsSchool
+        needsSchool: meta.needsSchool,
+        rank: ROLE_RANK[value] || 0
       };
     }),
     districts: districts.rows.map((row) => ({
@@ -88,7 +94,7 @@ async function assertUniqueAccount(username, email) {
   throw new HttpError(409, "That email address is already in use.", "EMAIL_IN_USE");
 }
 
-async function validateDistrictSchool(districtId, schoolId, role) {
+async function validateDistrictSchool(districtId, schoolId, roles) {
   const district = await query(
     `SELECT id, district_name FROM districts WHERE id = $1`,
     [districtId]
@@ -97,7 +103,8 @@ async function validateDistrictSchool(districtId, schoolId, role) {
     throw new HttpError(400, "Select a valid school district.", "VALIDATION_ERROR", { field: "districtId" });
   }
 
-  if (!SCHOOL_ROLES.includes(role)) {
+  const schoolRequired = roles.some((role) => SCHOOL_ROLES.includes(role));
+  if (!schoolRequired) {
     return { district: district.rows[0], school: null };
   }
 
@@ -204,7 +211,9 @@ async function notifyApprovers(client, target, approvers) {
     return;
   }
   const schoolName = target.school_name || target.school_code || "";
-  const role = roleLabel(target.role);
+  const role = (Array.isArray(target.roles) && target.roles.length ? target.roles : [target.role])
+    .map((value) => roleLabel(value))
+    .join(", ");
   const message = `${target.full_name} registered as ${role}${schoolName ? ` at ${schoolName}` : ""} and is waiting for your confirmation.`;
   for (const approver of approvers) {
     await client.query(
@@ -224,15 +233,20 @@ async function notifyUser(client, userId, title, message) {
 }
 
 async function register(payload) {
-  const role = payload.role;
-  if (!SELF_REGISTER_ROLES.includes(role)) {
-    throw new HttpError(400, "That role cannot be self-registered.", "VALIDATION_ERROR", { field: "role" });
+  const roles = Array.from(new Set(payload.roles || [payload.role])).filter(Boolean);
+  const invalidRole = roles.find((role) => !SELF_REGISTER_ROLES.includes(role));
+  if (!roles.length || invalidRole) {
+    throw new HttpError(400, "That role cannot be self-registered.", "VALIDATION_ERROR", { field: "roles" });
   }
+
+  // The highest role in the selection drives approval routing; every selected
+  // role is stored so permissions are the union of the account's duties.
+  const primaryRole = primaryRoleFor(roles);
 
   const { district, school } = await validateDistrictSchool(
     payload.districtId,
     payload.schoolId,
-    role
+    roles
   );
   await assertUniqueAccount(payload.username, payload.email);
 
@@ -243,21 +257,32 @@ async function register(payload) {
     await client.query("BEGIN");
     const inserted = await client.query(
       `INSERT INTO users (
-         full_name, username, email, password_hash, role, district_id, school_id,
-         is_active, approval_status
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, 'pending')
+         full_name, first_name, middle_name, last_name, username, email,
+         password_hash, role, district_id, school_id, is_active, approval_status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, FALSE, 'pending')
        RETURNING id`,
       [
         payload.fullName,
+        payload.firstName || null,
+        payload.middleName || null,
+        payload.lastName || null,
         payload.username,
         payload.email,
         passwordHash,
-        role,
+        primaryRole,
         district.id,
         school ? school.id : null
       ]
     );
     const id = Number(inserted.rows[0].id);
+    for (const role of roles) {
+      await client.query(
+        `INSERT INTO user_roles (user_id, role) VALUES ($1, $2)
+         ON CONFLICT (user_id, role) DO NOTHING`,
+        [id, role]
+      );
+    }
+
     const targetRow = await findUserRow(id, client);
     targetRow.district_name = district.district_name;
     if (school) {
@@ -278,15 +303,16 @@ async function register(payload) {
       ipAddress: payload.ipAddress || null,
       details: {
         username: payload.username,
-        role,
+        role: primaryRole,
+        roles,
         school_code: school ? school.school_code : null,
-        approver_role: approverRoleFor(role)
+        approver_role: approverRoleFor(primaryRole)
       }
     });
 
     await client.query("COMMIT");
 
-    const approverRole = approverRoleFor(role);
+    const approverRole = approverRoleFor(primaryRole);
     return {
       user: publicUserRow(targetRow),
       approval: {
@@ -312,7 +338,7 @@ async function canApprove(actor, target) {
   if (!target || target.approval_status !== "pending") {
     return false;
   }
-  if (actor.role === "system_admin") {
+  if (hasRole(actor, "system_admin")) {
     return true;
   }
 
@@ -326,33 +352,37 @@ async function canApprove(actor, target) {
   const sameSchool =
     actor.schoolId && target.school_id && Number(actor.schoolId) === Number(target.school_id);
 
-  if (requiredRole === "district_admin") {
-    return actor.role === "district_admin" && sameDistrict;
-  }
-  if (actor.role === requiredRole) {
-    if (requiredRole === "psds") {
-      return sameDistrict;
+  if (hasRole(actor, requiredRole)) {
+    if (requiredRole === "psds" || requiredRole === "district_admin") {
+      return Boolean(sameDistrict);
     }
     return Boolean(sameSchool);
   }
 
   // If the immediate superior role has no active account, escalate to the district administrator.
-  if (actor.role === "district_admin" && sameDistrict) {
+  if (hasRole(actor, "district_admin") && sameDistrict) {
     return !(await hasActiveApprover(target, requiredRole));
   }
   return false;
 }
 
+function approvalScopeRole(actor) {
+  return ["system_admin", "district_admin", "psds", "school_head", "adviser"].find((role) =>
+    hasRole(actor, role)
+  );
+}
+
 async function listPendingForActor(actor) {
   let where = "u.approval_status = 'pending'";
   const params = [];
+  const scopeRole = approvalScopeRole(actor);
 
-  if (actor.role === "system_admin") {
+  if (scopeRole === "system_admin") {
     // All districts.
-  } else if (actor.role === "district_admin" || actor.role === "psds") {
+  } else if (scopeRole === "district_admin" || scopeRole === "psds") {
     params.push(actor.districtId);
     where += " AND u.district_id = $1";
-  } else if (actor.role === "school_head" || actor.role === "adviser") {
+  } else if (scopeRole === "school_head" || scopeRole === "adviser") {
     params.push(actor.schoolId);
     where += " AND u.school_id = $1";
   } else {
@@ -360,11 +390,7 @@ async function listPendingForActor(actor) {
   }
 
   const result = await query(
-    `SELECT u.*, d.district_name, d.district_code, s.school_name, s.school_code
-     FROM users u
-     LEFT JOIN districts d ON d.id = u.district_id
-     LEFT JOIN schools s ON s.id = u.school_id
-     WHERE ${where}
+    `${USER_SELECT} WHERE ${where}
      ORDER BY u.created_at ASC, u.id ASC`,
     params
   );
@@ -434,6 +460,7 @@ async function approve(actor, id) {
       details: {
         username: target.username,
         role: target.role,
+        roles: target.roles || [target.role],
         school_code: target.school_code || null
       }
     });

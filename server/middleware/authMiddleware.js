@@ -13,6 +13,10 @@ async function loadUser(req, res, next) {
   try {
     const result = await query(
       `SELECT u.*, d.district_name, d.district_code, s.school_name, s.school_code,
+              COALESCE(
+                (SELECT array_agg(ur.role ORDER BY ur.role) FROM user_roles ur WHERE ur.user_id = u.id),
+                ARRAY[u.role]
+              ) AS roles,
               (SELECT p.updated_at FROM user_photos p WHERE p.user_id = u.id) AS photo_updated_at
        FROM users u
        LEFT JOIN districts d ON d.id = u.district_id

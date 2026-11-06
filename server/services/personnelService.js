@@ -24,6 +24,7 @@ const {
 const { createToken } = require("../utils/tokens");
 const { BCRYPT_ROUNDS } = require("./authService");
 const auditService = require("./auditService");
+const { hasAnyRole } = require("../utils/roles");
 
 const EMPLOYMENT_TYPES = ["plantilla", "provisional", "contractual", "substitute", "volunteer", "other"];
 const EMPLOYMENT_STATUSES = ["active", "inactive"];
@@ -51,9 +52,7 @@ function optionalDate(value, field) {
 function canViewConfidential(actor) {
   return (
     canDo(actor, "personnel", "edit") ||
-    actor.role === "school_head" ||
-    actor.role === "district_admin" ||
-    actor.role === "system_admin"
+    hasAnyRole(actor, ["school_head", "district_admin", "system_admin"])
   );
 }
 

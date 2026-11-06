@@ -29,6 +29,7 @@ const {
 } = require("../utils/formsAccess");
 const attendanceService = require("./attendanceService");
 const auditService = require("./auditService");
+const { hasRole, hasAnyRole } = require("../utils/roles");
 
 const SUBJECT_STATUSES = ["present", "absent", "tardy", "excused"];
 const DAILY_STATUSES = ["present", "absent", "tardy", "excused", "half_day"];
@@ -577,7 +578,7 @@ async function teacherLoads(actor, options) {
   const year = await resolveSchoolYear(options.schoolYearId);
   const params = [year.id];
   const clauses = ["ta.school_year_id = $1"];
-  if (actor.role === "teacher" || actor.role === "adviser") {
+  if (hasAnyRole(actor, ["teacher", "adviser"])) {
     params.push(actor.id);
     clauses.push(`(ta.teacher_id = $${params.length} OR sec.adviser_id = $${params.length})`);
   }
@@ -700,7 +701,7 @@ async function resolveAssignment(actor, section, year, subjectId, assignmentId) 
     if (!assignment) {
       throw new HttpError(404, "That teaching assignment was not found.", "ASSIGNMENT_NOT_FOUND");
     }
-  } else if (actor.role === "teacher" || actor.role === "adviser") {
+  } else if (hasAnyRole(actor, ["teacher", "adviser"])) {
     assignment = result.rows.find((row) => Number(row.teacher_id) === Number(actor.id));
   }
   if (!assignment) {
@@ -1630,7 +1631,10 @@ async function listCorrections(actor, options) {
     params.push(requireEnum(options.status, "Status", ["pending", "approved", "rejected"]));
     filter = ` AND c.status = $${params.length}`;
   }
-  if (actor.role === "teacher") {
+  if (
+    hasRole(actor, "teacher") &&
+    !hasAnyRole(actor, ["adviser", "coordinator", "school_head", "nt"])
+  ) {
     params.push(actor.id);
     filter += ` AND c.requested_by = $${params.length}`;
   }

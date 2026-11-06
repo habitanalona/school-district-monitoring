@@ -15,6 +15,7 @@ const {
 const gradeService = require("./gradeService");
 const formRenderer = require("./formRenderer");
 const auditService = require("./auditService");
+const { hasRole, hasAnyRole } = require("../utils/roles");
 
 const STATUS_LABEL = {
   draft: "Draft",
@@ -107,21 +108,23 @@ async function list(actor, filters = {}) {
     params.push(filters.status);
     conditions.push(`rc.status = $${params.length}`);
   }
-  if (actor.role === "learner") {
+  if (hasRole(actor, "learner")) {
     params.push(actor.id);
     conditions.push(`rc.learner_id IN (SELECT id FROM learners WHERE user_id = $${params.length})`);
-  } else if (actor.role === "adviser") {
-    params.push(actor.id);
-    conditions.push(
-      `(rc.adviser_id = $${params.length}
-        OR EXISTS (SELECT 1 FROM sections sec WHERE sec.id = rc.section_id AND sec.adviser_id = $${params.length}))`
-    );
-  } else if (actor.role === "teacher") {
-    params.push(actor.id);
-    conditions.push(
-      `EXISTS (SELECT 1 FROM teacher_assignments ta
-               WHERE ta.section_id = rc.section_id AND ta.teacher_id = $${params.length})`
-    );
+  } else if (!hasAnyRole(actor, ["coordinator", "school_head", "nt"])) {
+    if (hasRole(actor, "adviser")) {
+      params.push(actor.id);
+      conditions.push(
+        `(rc.adviser_id = $${params.length}
+          OR EXISTS (SELECT 1 FROM sections sec WHERE sec.id = rc.section_id AND sec.adviser_id = $${params.length}))`
+      );
+    } else if (hasRole(actor, "teacher")) {
+      params.push(actor.id);
+      conditions.push(
+        `EXISTS (SELECT 1 FROM teacher_assignments ta
+                 WHERE ta.section_id = rc.section_id AND ta.teacher_id = $${params.length})`
+      );
+    }
   }
   if (filters.search) {
     params.push(`%${String(filters.search).trim()}%`);

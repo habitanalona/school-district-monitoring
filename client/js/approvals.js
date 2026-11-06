@@ -30,8 +30,20 @@
     window.UI.showAlert(el("approvalPageAlert"), type, message, title);
   }
 
+  function roleBadges(user) {
+    var values = user.roles && user.roles.length ? user.roles : [user.role];
+    return values
+      .map(function (value) {
+        var meta = window.UI.ROLE[value] || {
+          label: window.UI.titleCase(value),
+          tone: "neutral"
+        };
+        return window.UI.pillarBadge(meta.label, meta.tone);
+      })
+      .join(" ");
+  }
+
   function approvalRow(approval) {
-    var roleMeta = window.UI.ROLE[approval.role] || { label: window.UI.titleCase(approval.role), tone: "neutral" };
     var school = approval.schoolName
       ? window.UI.escapeHtml(approval.schoolName) +
         (approval.schoolCode ? '<small class="cell-subtext">' + window.UI.escapeHtml(approval.schoolCode) + "</small>" : "")
@@ -43,7 +55,7 @@
         window.UI.escapeHtml(window.UI.initials(approval.fullName)) + "</span>" +
         "<div><strong>" + window.UI.escapeHtml(approval.fullName) +
         "</strong><small>@" + window.UI.escapeHtml(approval.username) + " · " + window.UI.escapeHtml(approval.email) + "</small></div></div></td>" +
-        '<td data-label="Requested role">' + window.UI.pillarBadge(roleMeta.label, roleMeta.tone) + "</td>" +
+        '<td data-label="Requested role">' + roleBadges(approval) + "</td>" +
         '<td data-label="District"><span class="cell-muted">' + window.UI.escapeHtml(approval.districtName || "—") + "</span></td>" +
         '<td data-label="School">' + school + "</td>" +
         '<td data-label="Registered"><span class="cell-time" title="' +

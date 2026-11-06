@@ -28,6 +28,7 @@ const {
   isSystemAdmin
 } = require("../utils/formsAccess");
 const auditService = require("./auditService");
+const { hasAnyRole } = require("../utils/roles");
 const gradeService = require("./gradeService");
 
 const PERIODS = ["q1", "q2", "q3", "q4"];
@@ -319,7 +320,7 @@ function assertRecordScope(actor, record) {
   if (Number(actor.schoolId) !== Number(record.school_id)) {
     throw new HttpError(403, "That class record is outside your school.", "SCHOOL_FORBIDDEN");
   }
-  if (actor.role === "teacher" || actor.role === "adviser") {
+  if (hasAnyRole(actor, ["teacher", "adviser"])) {
     if (
       Number(record.teacher_id) !== Number(actor.id) &&
       Number(record.adviser_id) !== Number(actor.id)
@@ -623,7 +624,7 @@ async function teacherDashboard(actor, filters) {
   if (scope) {
     conditions.push(scope);
   }
-  if (actor.role === "teacher" || actor.role === "adviser") {
+  if (hasAnyRole(actor, ["teacher", "adviser"])) {
     params.push(actor.id);
     conditions.push(`ta.teacher_id = $${params.length}`);
   }
@@ -750,7 +751,7 @@ async function initializeRecord(actor, payload, meta) {
     if (!assignment) {
       throw new HttpError(404, "That teaching assignment was not found.", "ASSIGNMENT_NOT_FOUND");
     }
-  } else if (actor.role === "teacher" || actor.role === "adviser") {
+  } else if (hasAnyRole(actor, ["teacher", "adviser"])) {
     assignment = assignments.rows.find((row) => Number(row.teacher_id) === Number(actor.id));
   } else {
     assignment = assignments.rows.find((row) => row.teacher_id) || assignments.rows[0];
@@ -763,7 +764,7 @@ async function initializeRecord(actor, payload, meta) {
     );
   }
   if (
-    (actor.role === "teacher" || actor.role === "adviser") &&
+    hasAnyRole(actor, ["teacher", "adviser"]) &&
     Number(assignment.teacher_id) !== Number(actor.id)
   ) {
     throw new HttpError(
@@ -1680,7 +1681,7 @@ async function adviserOverview(actor, filters) {
   if (scope) {
     conditions.push(scope);
   }
-  if (actor.role === "teacher" || actor.role === "adviser") {
+  if (hasAnyRole(actor, ["teacher", "adviser"])) {
     params.push(actor.id);
     conditions.push(`sec.adviser_id = $${params.length}`);
   }

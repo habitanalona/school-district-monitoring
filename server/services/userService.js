@@ -59,6 +59,10 @@ async function listUsers({
   );
   const dataResult = await query(
     `SELECT u.*, d.district_name, d.district_code, s.school_name, s.school_code,
+            COALESCE(
+              (SELECT array_agg(ur.role ORDER BY ur.role) FROM user_roles ur WHERE ur.user_id = u.id),
+              ARRAY[u.role]
+            ) AS roles,
             (SELECT p.updated_at FROM user_photos p WHERE p.user_id = u.id) AS photo_updated_at
      FROM users u
      LEFT JOIN districts d ON d.id = u.district_id
@@ -80,6 +84,10 @@ async function listUsers({
 async function findUserRow(id) {
   const result = await query(
     `SELECT u.*, d.district_name, d.district_code, s.school_name, s.school_code,
+            COALESCE(
+              (SELECT array_agg(ur.role ORDER BY ur.role) FROM user_roles ur WHERE ur.user_id = u.id),
+              ARRAY[u.role]
+            ) AS roles,
             (SELECT p.updated_at FROM user_photos p WHERE p.user_id = u.id) AS photo_updated_at
      FROM users u
      LEFT JOIN districts d ON d.id = u.district_id
@@ -239,6 +247,11 @@ async function createUser(actor, payload) {
       ]
     );
     const id = Number(result.rows[0].id);
+    await client.query(
+      `INSERT INTO user_roles (user_id, role) VALUES ($1, $2)
+       ON CONFLICT (user_id, role) DO NOTHING`,
+      [id, payload.role]
+    );
     await auditService.record({
       client,
       userId: actor.id,
@@ -324,6 +337,18 @@ async function updateUser(actor, id, payload) {
         id
       ]
     );
+
+    if (role !== target.role) {
+      await client.query(`DELETE FROM user_roles WHERE user_id = $1 AND role = $2`, [
+        id,
+        target.role
+      ]);
+      await client.query(
+        `INSERT INTO user_roles (user_id, role) VALUES ($1, $2)
+         ON CONFLICT (user_id, role) DO NOTHING`,
+        [id, role]
+      );
+    }
 
     if (payload.password || !isActive) {
       await deleteUserSessions(id, client);

@@ -119,6 +119,58 @@ const DISTRICT_MANAGED_ROLES = [
 ];
 // Roles that review self-registrations from the next level down.
 const APPROVER_ROLES = ["system_admin", "district_admin", "psds", "school_head", "adviser"];
+
+// Higher rank wins when an account has several roles. It decides the primary
+// role stored in users.role and therefore who confirms the registration.
+const ROLE_RANK = {
+  system_admin: 100,
+  district_admin: 90,
+  psds: 80,
+  school_head: 70,
+  coordinator: 60,
+  teacher: 50,
+  adviser: 50,
+  nt: 40,
+  staff: 30,
+  learner: 10
+};
+
+function rolesOf(user) {
+  if (!user) {
+    return [];
+  }
+  if (Array.isArray(user.roles) && user.roles.length) {
+    return user.roles;
+  }
+  return user.role ? [user.role] : [];
+}
+
+function hasRole(user, role) {
+  return rolesOf(user).includes(role);
+}
+
+function hasAnyRole(user, roles) {
+  const own = rolesOf(user);
+  return roles.some((role) => own.includes(role));
+}
+
+function roleSetIncludes(user, roleSet) {
+  return rolesOf(user).some((role) => roleSet.has(role));
+}
+
+function primaryRoleFor(roles) {
+  const unique = Array.from(new Set(roles || []));
+  if (!unique.length) {
+    return null;
+  }
+  return unique.reduce((best, role) => {
+    if (!best) {
+      return role;
+    }
+    return (ROLE_RANK[role] || 0) > (ROLE_RANK[best] || 0) ? role : best;
+  }, null);
+}
+
 function roleMeta(role) {
   return ROLE_MAP[role] || null;
 }
@@ -149,6 +201,12 @@ module.exports = {
   SCHOOL_ROLES,
   DISTRICT_MANAGED_ROLES,
   APPROVER_ROLES,
+  ROLE_RANK,
+  rolesOf,
+  hasRole,
+  hasAnyRole,
+  roleSetIncludes,
+  primaryRoleFor,
   roleMeta,
   roleLabel,
   approverRoleFor,

@@ -83,7 +83,12 @@ const config = {
   corsOrigin: process.env.CORS_ORIGIN || "",
   appName: process.env.APP_NAME || "School District Monitoring System",
   appVersion: process.env.APP_VERSION || "1.0.0",
-  resetTokenMinutes: readInteger(process.env.RESET_TOKEN_MINUTES, 60)
+  resetTokenMinutes: readInteger(process.env.RESET_TOKEN_MINUTES, 60),
+  publicBaseUrl: String(process.env.PUBLIC_BASE_URL || "").trim().replace(/\/+$/, ""),
+  mailgunApiKey: String(process.env.MAILGUN_API_KEY || "").trim(),
+  mailgunDomain: String(process.env.MAILGUN_DOMAIN || "").trim(),
+  mailgunFrom: String(process.env.MAILGUN_FROM || "").trim(),
+  mailgunRegion: String(process.env.MAILGUN_REGION || "us").trim().toLowerCase()
 };
 
 module.exports = config;

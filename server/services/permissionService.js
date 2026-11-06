@@ -12,6 +12,7 @@ const {
   defaultsForRole,
   sanitizeRow
 } = require("../utils/permissionModules");
+const { rolesOf } = require("../utils/roles");
 
 const USER_PERMISSION_SELECT = `SELECT m.module_key, m.label, m.description, m.group_label,
          m.sort_order, m.actions,
@@ -183,11 +184,30 @@ async function ensurePermissionCatalog(runner = null) {
   }
 }
 
+function mergeMatrices(matrices) {
+  const merged = emptyMatrix();
+  matrices.forEach((matrix) => {
+    MODULE_DEFINITIONS.forEach((definition) => {
+      const entry = matrix[definition.key];
+      if (!entry) {
+        return;
+      }
+      const target = merged[definition.key];
+      target.access = target.access || entry.access;
+      target.add = target.add || entry.add;
+      target.edit = target.edit || entry.edit;
+      target.delete = target.delete || entry.delete;
+    });
+  });
+  return merged;
+}
+
 async function effectivePermissions(user) {
   if (!user) {
     return emptyMatrix();
   }
-  if (user.role === "system_admin") {
+  const roles = rolesOf(user);
+  if (roles.includes("system_admin")) {
     return applyActionSupport(
       MODULE_DEFINITIONS.reduce((accumulator, definition) => {
         accumulator[definition.key] = { access: true, add: true, edit: true, delete: true };
@@ -195,8 +215,22 @@ async function effectivePermissions(user) {
       }, {})
     );
   }
-  const result = await query(USER_PERMISSION_SELECT, [user.role, user.id]);
-  return applyActionSupport(matrixFromRows(result.rows));
+  // An account may hold several roles; an action is allowed when any of its
+  // roles allows it. Per-user overrides are identical in every query, so the
+  // union keeps them intact.
+  const matrices = await Promise.all(
+    roles.map((role) =>
+      query(USER_PERMISSION_SELECT, [role, user.id]).then((result) =>
+        matrixFromRows(result.rows)
+      )
+    )
+  );
+  return applyActionSupport(mergeMatrices(matrices));
+}
+
+function defaultsForRoles(roles) {
+  const matrices = roles.map((role) => defaultsForRole(role));
+  return mergeMatrices(matrices);
 }
 
 function can(matrix, moduleKey, action = "access") {
@@ -227,6 +261,10 @@ async function assertModule(actor, moduleKey, action = "access") {
 async function getUserDetail(userId) {
   const userResult = await query(
     `SELECT u.*, d.district_name, d.district_code, s.school_name, s.school_code,
+            COALESCE(
+              (SELECT array_agg(ur.role ORDER BY ur.role) FROM user_roles ur WHERE ur.user_id = u.id),
+              ARRAY[u.role]
+            ) AS roles,
             (SELECT p.updated_at FROM user_photos p WHERE p.user_id = u.id) AS photo_updated_at
      FROM users u
      LEFT JOIN districts d ON d.id = u.district_id
@@ -239,9 +277,16 @@ async function getUserDetail(userId) {
     throw new HttpError(404, "User account not found.", "USER_NOT_FOUND");
   }
 
-  const rows = (await query(USER_PERMISSION_SELECT, [row.role, row.id])).rows;
-  const effective = applyActionSupport(matrixFromRows(rows));
-  const roleDefaults = defaultsForRole(row.role);
+  const roles = rolesOf(row);
+  const rows = (
+    await Promise.all(
+      roles.map((role) =>
+        query(USER_PERMISSION_SELECT, [role, row.id]).then((result) => result.rows)
+      )
+    )
+  ).flat();
+  const effective = applyActionSupport(mergeMatrices(rows.map((entries) => matrixFromRows(entries))));
+  const roleDefaults = applyActionSupport(defaultsForRoles(roles));
   const overrides = {};
   rows.forEach((entry) => {
     if (entry.user_access !== null && entry.user_access !== undefined) {
@@ -295,14 +340,20 @@ async function saveUserPermissions(actor, targetUserId, rawPermissions, ipAddres
   }
 
   const targetResult = await query(
-    `SELECT id, role, full_name, username FROM users WHERE id = $1`,
+    `SELECT id, role, full_name, username,
+            COALESCE(
+              (SELECT array_agg(ur.role ORDER BY ur.role) FROM user_roles ur WHERE ur.user_id = users.id),
+              ARRAY[role]
+            ) AS roles
+     FROM users WHERE id = $1`,
     [targetUserId]
   );
   const target = targetResult.rows[0];
   if (!target) {
     throw new HttpError(404, "User account not found.", "USER_NOT_FOUND");
   }
-  if (target.role === "system_admin") {
+  const targetRoles = rolesOf(target);
+  if (targetRoles.includes("system_admin")) {
     throw new HttpError(
       403,
       "System administrator permissions are fixed and cannot be revoked.",
@@ -317,7 +368,9 @@ async function saveUserPermissions(actor, targetUserId, rawPermissions, ipAddres
       if (!next[definition.key][action]) {
         return;
       }
-      const allowed = (definition.grantRoles[action] || []).includes(target.role);
+      const allowed = targetRoles.some((role) =>
+        (definition.grantRoles[action] || []).includes(role)
+      );
       if (!allowed) {
         throw new HttpError(
           403,
@@ -354,7 +407,7 @@ async function saveUserPermissions(actor, targetUserId, rawPermissions, ipAddres
   // Only differences from the role defaults are stored. A user who follows
   // the role policy keeps no override row, so later role policy changes flow
   // through; an explicit exception is persisted until it is cleared again.
-  const roleDefaults = defaultsForRole(target.role);
+  const roleDefaults = defaultsForRoles(targetRoles);
   const client = await getClient();
   try {
     await client.query("BEGIN");

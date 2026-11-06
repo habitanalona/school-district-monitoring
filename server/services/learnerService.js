@@ -17,6 +17,7 @@ const {
   assertSchoolScope
 } = require("../utils/learnerAccess");
 const auditService = require("./auditService");
+const { hasRole, hasAnyRole } = require("../utils/roles");
 const { calculateAge } = require("../utils/age");
 
 const ENROLLMENT_STATUSES = [
@@ -1354,7 +1355,7 @@ async function deleteDocument(actor, learnerId, documentId) {
 /* -------------------------------------------------------------------------- */
 
 function schoolScopeFilter(actor, schoolColumn, districtColumn, params) {
-  if (actor.role === "system_admin") {
+  if (hasRole(actor, "system_admin")) {
     return "";
   }
   if (actor.schoolId) {
@@ -1474,7 +1475,7 @@ async function getLearnerSummary(actor, schoolYearId) {
     "sch.district_id",
     sectionParams
   );
-  if (actor.role === "teacher" || actor.role === "adviser") {
+  if (hasAnyRole(actor, ["teacher", "adviser"])) {
     sectionParams.push(actor.id);
     sectionScope += `${sectionScope ? " AND" : ""} (
       sec.adviser_id = $${sectionParams.length}

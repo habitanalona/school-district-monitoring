@@ -15,6 +15,10 @@ const DUMMY_HASH = "$2b$12$LHFoA0ghkcobPlB8g1We7.JYePnr4lbw9lvidrPqt9MuD6Hxhqz8q
 async function findByIdentifier(identifier) {
   const result = await query(
     `SELECT u.*, d.district_name, d.district_code, s.school_name, s.school_code,
+            COALESCE(
+              (SELECT array_agg(ur.role ORDER BY ur.role) FROM user_roles ur WHERE ur.user_id = u.id),
+              ARRAY[u.role]
+            ) AS roles,
             (SELECT p.updated_at FROM user_photos p WHERE p.user_id = u.id) AS photo_updated_at
      FROM users u
      LEFT JOIN districts d ON d.id = u.district_id
@@ -85,7 +89,11 @@ async function createPasswordReset(identifier) {
   }
 
   return {
-    user: { id: Number(row.id), districtId: row.district_id ? Number(row.district_id) : null },
+    user: {
+      id: Number(row.id),
+      districtId: row.district_id ? Number(row.district_id) : null,
+      email: row.email
+    },
     token: rawToken,
     expiresAt
   };

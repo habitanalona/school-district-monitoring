@@ -142,7 +142,7 @@
       }
 
       var identifier = document.getElementById("forgotIdentifier").value.trim();
-      window.UI.setButtonLoading(forgotButton, true, "Creating…");
+      window.UI.setButtonLoading(forgotButton, true, "Sending…");
 
       API.post("/auth/forgot-password", { identifier: identifier })
         .then(function (payload) {

@@ -18,6 +18,7 @@ const {
   resolveSchoolId
 } = require("../utils/learnerAccess");
 const auditService = require("./auditService");
+const { hasRole, hasAnyRole } = require("../utils/roles");
 
 const DAY_NAMES = {
   1: "Monday",
@@ -57,7 +58,7 @@ async function schoolForActor(actor, rawSchoolId) {
 // Read-side scope for academic tables. Every query using this joins schools
 // (sch) and districts (d).
 function academicScope(actor, params, requestedSchoolId = null) {
-  if (actor.role === "system_admin") {
+  if (hasRole(actor, "system_admin")) {
     if (requestedSchoolId) {
       params.push(requestedSchoolId);
       return `sch.id = $${params.length}`;
@@ -381,7 +382,7 @@ function assertSystemAdmin(actor, message, code) {
 async function listGradeLevelOptions(actor, { includeInactive = false } = {}) {
   // Inactive options are only exposed to the administrator who maintains the
   // catalog. Schools receive the active choices for their dropdown.
-  const showInactive = Boolean(includeInactive) && actor.role === "system_admin";
+  const showInactive = Boolean(includeInactive) && hasRole(actor, "system_admin");
   const result = await query(
     `SELECT glo.*,
             (SELECT COUNT(*)::int FROM grade_levels gl
@@ -574,7 +575,7 @@ async function resolveGradeLevelChoice(name, currentName = null) {
 async function listSubjectOptions(actor, { includeInactive = false } = {}) {
   // Inactive options are only exposed to the administrator who maintains the
   // catalog. Schools receive the active choices for their dropdown.
-  const showInactive = Boolean(includeInactive) && actor.role === "system_admin";
+  const showInactive = Boolean(includeInactive) && hasRole(actor, "system_admin");
   const result = await query(
     `SELECT so.*,
             (SELECT COUNT(*)::int FROM subjects sub
@@ -921,7 +922,7 @@ async function listSections(actor, { schoolId, schoolYearId, gradeLevelId } = {}
     params.push(gradeLevelId);
     conditions.push(`sec.grade_level_id = $${params.length}`);
   }
-  if (actor.role === "teacher" || actor.role === "adviser") {
+  if (hasAnyRole(actor, ["teacher", "adviser"])) {
     params.push(actor.id);
     conditions.push(`(
       sec.adviser_id = $${params.length}
@@ -1371,7 +1372,7 @@ async function listAssignments(actor, filters = {}) {
         OR t.full_name ILIKE $${params.length} OR sec.name ILIKE $${params.length})`
     );
   }
-  if (actor.role === "teacher" || actor.role === "adviser") {
+  if (hasAnyRole(actor, ["teacher", "adviser"])) {
     params.push(actor.id);
     conditions.push(`(ta.teacher_id = $${params.length} OR sec.adviser_id = $${params.length})`);
   }
@@ -1643,7 +1644,7 @@ async function listSchedules(actor, filters = {}) {
     params.push(filters.dayOfWeek);
     conditions.push(`cs.day_of_week = $${params.length}`);
   }
-  if (actor.role === "teacher" || actor.role === "adviser") {
+  if (hasAnyRole(actor, ["teacher", "adviser"])) {
     params.push(actor.id);
     conditions.push(`(ta.teacher_id = $${params.length} OR sec.adviser_id = $${params.length})`);
   }
@@ -1664,7 +1665,7 @@ async function listSchedules(actor, filters = {}) {
 
 async function assertSectionAccess(actor, section) {
   assertSchoolScope(actor, section.school_id, section.district_id);
-  if (actor.role === "teacher" || actor.role === "adviser") {
+  if (hasAnyRole(actor, ["teacher", "adviser"])) {
     const allowed = await query(
       `SELECT 1 FROM sections sec
        WHERE sec.id = $1
@@ -1682,7 +1683,7 @@ async function assertSectionAccess(actor, section) {
       );
     }
   }
-  if (actor.role === "learner") {
+  if (hasRole(actor, "learner")) {
     const allowed = await query(
       `SELECT 1 FROM enrollments e
        JOIN learners l ON l.id = e.learner_id

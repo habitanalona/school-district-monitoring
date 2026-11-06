@@ -133,7 +133,16 @@
     }
     actions += "</div>";
 
-    var roleMeta = window.UI.ROLE[user.role] || { label: window.UI.titleCase(user.role), tone: "neutral" };
+    var roleValues = user.roles && user.roles.length ? user.roles : [user.role];
+    var roleBadges = roleValues
+      .map(function (value) {
+        var meta = window.UI.ROLE[value] || {
+          label: window.UI.titleCase(value),
+          tone: "neutral"
+        };
+        return window.UI.pillarBadge(meta.label, meta.tone);
+      })
+      .join(" ");
     var lastLogin = user.lastLoginAt
       ? '<span class="cell-time" title="' + window.UI.escapeHtml(window.UI.dateTime(user.lastLoginAt)) + '">' +
         window.UI.escapeHtml(window.UI.relativeTime(user.lastLoginAt)) + "</span>"
@@ -158,7 +167,7 @@
         "<div><strong>" + window.UI.escapeHtml(user.fullName) +
         (isSelf(user) ? '<span class="self-chip">You</span>' : "") +
         "</strong><small>@" + window.UI.escapeHtml(user.username) + " · " + window.UI.escapeHtml(user.email) + "</small></div></div></td>" +
-        '<td data-label="Role">' + window.UI.pillarBadge(roleMeta.label, roleMeta.tone) + "</td>" +
+        '<td data-label="Role">' + roleBadges + "</td>" +
         '<td data-label="District"><span class="cell-muted">' + districtCell + "</span></td>" +
         '<td data-label="Status">' + statusBadge + "</td>" +
         '<td data-label="Last Sign-in">' + lastLogin + "</td>" +

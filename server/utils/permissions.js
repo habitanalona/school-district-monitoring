@@ -1,6 +1,6 @@
 "use strict";
 
-const { canApproveRole } = require("./roles");
+const { canApproveRole, rolesOf, hasRole } = require("./roles");
 const { can } = require("../services/permissionService");
 
 function allows(matrix, moduleKey, action) {
@@ -9,8 +9,8 @@ function allows(matrix, moduleKey, action) {
 
 function permissionsFor(user) {
   const matrix = user && user.permissionMatrix ? user.permissionMatrix : null;
-  const isSystemAdmin = user.role === "system_admin";
-  const isAdmin = isSystemAdmin || user.role === "district_admin";
+  const isSystemAdmin = hasRole(user, "system_admin");
+  const isAdmin = isSystemAdmin || hasRole(user, "district_admin");
 
   const schoolsWrite =
     allows(matrix, "schools", "add") ||
@@ -58,14 +58,13 @@ function permissionsFor(user) {
     canManageDistricts:
       allows(matrix, "districts", "access") &&
       (allows(matrix, "districts", "add") || allows(matrix, "districts", "edit")),
-    canManageStaffOnly: !isSystemAdmin && user.role === "district_admin",
+    canManageStaffOnly: !isSystemAdmin && hasRole(user, "district_admin"),
     canViewAuditLogs: allows(matrix, "audit_logs", "access"),
     canSelectDistrict: isSystemAdmin,
     canApproveAccounts:
       allows(matrix, "approvals", "access") &&
       allows(matrix, "approvals", "edit") &&
-      canApproveRole(user.role),
-    canViewLearners: allows(matrix, "learners", "access"),
+      rolesOf(user).some((role) => canApproveRole(role)),    canViewLearners: allows(matrix, "learners", "access"),
     canManageLearners: allows(matrix, "learners", "access") && learnerWrite,
     canManageAcademics: academicWrite,
     canManageActivities: allows(matrix, "activities", "access") && activityWrite,
@@ -87,11 +86,11 @@ function permissionsFor(user) {
     canConfigureAttendance:
       allows(matrix, "attendance", "access") &&
       allows(matrix, "attendance", "edit") &&
-      ["system_admin", "district_admin", "staff", "school_head"].includes(user.role),
+      ["system_admin", "district_admin", "staff", "school_head"].some((role) => hasRole(user, role)),
     canValidateAttendance:
       allows(matrix, "attendance", "access") &&
       allows(matrix, "attendance", "edit") &&
-      ["system_admin", "district_admin", "school_head", "adviser"].includes(user.role),
+      ["system_admin", "district_admin", "school_head", "adviser"].some((role) => hasRole(user, role)),
     canViewGrades: allows(matrix, "grades", "access"),
     canManageGrades: allows(matrix, "grades", "access") && moduleWrite("grades"),
     canViewBooks: allows(matrix, "books", "access"),
@@ -107,11 +106,11 @@ function permissionsFor(user) {
     canReviewSchoolForms:
       allows(matrix, "school_forms", "access") &&
       allows(matrix, "school_forms", "edit") &&
-      reviewerRoles.indexOf(user.role) !== -1,
+      reviewerRoles.some((role) => hasRole(user, role)),
     canFinalizeSchoolForms:
       allows(matrix, "school_forms", "access") &&
       allows(matrix, "school_forms", "edit") &&
-      ["system_admin", "district_admin"].indexOf(user.role) !== -1,
+      ["system_admin", "district_admin"].some((role) => hasRole(user, role)),
     canViewMonitoring: allows(matrix, "monitoring", "access"),
     canViewPermanentRecords: allows(matrix, "permanent_records", "access"),
     canManageHelpdesk:

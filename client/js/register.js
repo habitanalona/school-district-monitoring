@@ -19,14 +19,41 @@
     window.UI.hideAlert(el("registerAlert"));
   }
 
-  function selectedRole() {
+  function selectedRoles() {
     if (!state.options) {
+      return [];
+    }
+    return Array.prototype.slice
+      .call(document.querySelectorAll('#roleOptions input[type="checkbox"]:checked'))
+      .map(function (input) {
+        return input.value;
+      });
+  }
+
+  function selectedRole() {
+    var roles = selectedRoles();
+    if (!roles.length) {
       return null;
     }
-    var value = el("role").value;
-    return state.options.roles.find(function (role) {
-      return role.value === value;
-    }) || null;
+    return roles
+      .map(function (value) {
+        return state.options.roles.find(function (role) {
+          return role.value === value;
+        });
+      })
+      .filter(Boolean)
+      .sort(function (a, b) {
+        return (b.rank || 0) - (a.rank || 0);
+      })[0] || null;
+  }
+
+  function selectionNeedsSchool() {
+    return selectedRoles().some(function (value) {
+      var role = state.options && state.options.roles.find(function (entry) {
+        return entry.value === value;
+      });
+      return Boolean(role && role.needsSchool);
+    });
   }
 
   function selectedDistrict() {
@@ -50,19 +77,29 @@
   }
 
   function fillRoleOptions() {
-    el("role").innerHTML =
-      '<option value="">Select your role</option>' +
-      state.options.roles
-        .map(function (role) {
-          return (
-            '<option value="' +
-            window.UI.escapeHtml(role.value) +
-            '">' +
-            window.UI.escapeHtml(role.fullLabel || role.label) +
-            "</option>"
-          );
-        })
-        .join("");
+    el("roleOptions").innerHTML = state.options.roles
+      .slice()
+      .sort(function (a, b) {
+        return (b.rank || 0) - (a.rank || 0);
+      })
+      .map(function (role) {
+        var id = "role-" + role.value;
+        return (
+          '<div class="custom-control custom-checkbox">' +
+          '<input class="custom-control-input" type="checkbox" id="' +
+          window.UI.escapeHtml(id) +
+          '" value="' +
+          window.UI.escapeHtml(role.value) +
+          '">' +
+          '<label class="custom-control-label" for="' +
+          window.UI.escapeHtml(id) +
+          '">' +
+          window.UI.escapeHtml(role.fullLabel || role.label) +
+          "</label>" +
+          "</div>"
+        );
+      })
+      .join("");
   }
 
   function fillDistrictOptions() {
@@ -110,36 +147,52 @@
   }
 
   function updateRoleUi() {
-    var role = selectedRole();
-    var needsSchool = Boolean(role && role.needsSchool);
+    var values = selectedRoles();
+    var roles = values
+      .map(function (value) {
+        return state.options.roles.find(function (role) {
+          return role.value === value;
+        });
+      })
+      .filter(Boolean);
+    var needsSchool = roles.some(function (role) {
+      return role.needsSchool;
+    });
     var schoolGroup = el("schoolGroup");
     var school = el("schoolId");
     var help = el("roleHelp");
+    var primary = selectedRole();
 
+    el("rolesValue").value = values.join(",");
     schoolGroup.classList.toggle("d-none", !needsSchool);
     school.required = needsSchool;
     if (!needsSchool) {
       school.value = "";
     }
 
-    if (!role) {
-      help.textContent = "Your role determines who confirms your account.";
+    if (!primary) {
+      help.textContent =
+        "Select every role you hold. Your account receives the combined access of all selected roles.";
       return;
     }
-    if (role.value === "psds") {
-      help.textContent = "PSDS registrations are confirmed by the District Administrator.";
+    var roleCount = values.length > 1 ? " (" + values.length + " roles combined)" : "";
+    if (primary.value === "psds") {
+      help.textContent =
+        "PSDS registrations are confirmed by the District Administrator" + roleCount + ".";
       return;
     }
-    if (role.value === "school_head") {
-      help.textContent = "School head registrations are confirmed by the PSDS in your district.";
+    if (primary.value === "school_head") {
+      help.textContent =
+        "School head registrations are confirmed by the PSDS in your district" + roleCount + ".";
       return;
     }
-    if (role.value === "learner") {
-      help.textContent = "Learner registrations are confirmed by your Class Adviser.";
+    if (primary.value === "learner") {
+      help.textContent =
+        "Learner registrations are confirmed by your Class Adviser" + roleCount + ".";
       return;
     }
     help.textContent =
-      "This registration is confirmed by the School Head at your selected school.";
+      "This registration is confirmed by the School Head at your selected school" + roleCount + ".";
   }
 
   function showSuccess(result) {
@@ -154,7 +207,11 @@
       approval.message ||
       "Your account was created and is waiting for confirmation.";
     var meta = [];
-    meta.push("Role: " + (user.role ? window.UI.ROLE[user.role] ? window.UI.ROLE[user.role].label : window.UI.titleCase(user.role) : "Registered"));
+    var roleValues = user.roles && user.roles.length ? user.roles : user.role ? [user.role] : [];
+    var roleNames = roleValues.map(function (value) {
+      return window.UI.ROLE[value] ? window.UI.ROLE[value].label : window.UI.titleCase(value);
+    });
+    meta.push("Roles: " + (roleNames.length ? roleNames.join(", ") : "Registered"));
     if (district) {
       meta.push("District: " + district.name);
     }
@@ -184,7 +241,9 @@
     var form = el("registerForm");
     var role = selectedRole();
     var rules = [
-      { name: "fullName", label: "Full name", required: true, minLength: 2, maxLength: 160 },
+      { name: "firstName", label: "First name", required: true, maxLength: 80 },
+      { name: "middleName", label: "Middle name", maxLength: 80 },
+      { name: "lastName", label: "Last name", required: true, maxLength: 80 },
       {
         name: "username",
         label: "Username",
@@ -201,7 +260,12 @@
         pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
         patternMessage: "Enter a valid email address."
       },
-      { name: "role", label: "Role", required: true, requiredMessage: "Select your role." },
+      {
+        name: "roles",
+        label: "Role",
+        required: true,
+        requiredMessage: "Select at least one role."
+      },
       { name: "districtId", label: "District", required: true, requiredMessage: "Select your district." },
       {
         name: "password",
@@ -221,7 +285,7 @@
         matchMessage: "Passwords do not match."
       }
     ];
-    if (role && role.needsSchool) {
+    if (selectionNeedsSchool()) {
       rules.push({
         name: "schoolId",
         label: "School",
@@ -237,13 +301,16 @@
     window.UI.setButtonLoading(el("registerButton"), true, "Submitting…");
 
     API.post("/auth/register", {
-      fullName: el("fullName").value.trim(),
+      firstName: el("firstName").value.trim(),
+      middleName: el("middleName").value.trim(),
+      lastName: el("lastName").value.trim(),
       username: el("username").value.trim(),
       email: el("email").value.trim(),
       password: el("registerPassword").value,
-      role: el("role").value,
+      roles: selectedRoles(),
+      role: role ? role.value : "",
       districtId: Number(el("districtId").value),
-      schoolId: role && role.needsSchool ? Number(el("schoolId").value) : null
+      schoolId: selectionNeedsSchool() ? Number(el("schoolId").value) : null
     })
       .then(function (payload) {
         state.submitting = false;
@@ -266,7 +333,7 @@
   }
 
   function bind() {
-    el("role").addEventListener("change", function () {
+    el("roleOptions").addEventListener("change", function () {
       updateRoleUi();
       fillSchoolOptions();
     });

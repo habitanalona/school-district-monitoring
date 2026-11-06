@@ -3,7 +3,7 @@
 const { query, getClient } = require("../config/database");
 const { HttpError } = require("../utils/httpError");
 const { serializeSchool } = require("../utils/serializers");
-const { assertDistrictAccess } = require("../utils/scope");
+const { assertDistrictAccess, assertSchoolAccess } = require("../utils/scope");
 const { requireDistrict } = require("./districtService");
 const auditService = require("./auditService");
 
@@ -38,15 +38,17 @@ function latestReportJoin(periodIndex) {
 function buildWhere() {
   return [
     "($1::bigint IS NULL OR s.district_id = $1)",
-    "($2 = '' OR s.school_name ILIKE $2 OR s.school_code ILIKE $2 OR s.school_head ILIKE $2 OR d.district_name ILIKE $2)",
-    "($3 = '' OR s.school_type = $3)",
-    "(($4 = '' AND s.status <> 'archived') OR ($4 = 'all') OR ($4 NOT IN ('', 'all') AND s.status = $4))",
-    "($5 = '' OR ($5 = 'pending' AND COALESCE(r.report_status, 'pending') = 'pending') OR r.report_status = $5)"
+    "($2::bigint IS NULL OR s.id = $2)",
+    "($3 = '' OR s.school_name ILIKE $3 OR s.school_code ILIKE $3 OR s.school_head ILIKE $3 OR d.district_name ILIKE $3)",
+    "($4 = '' OR s.school_type = $4)",
+    "(($5 = '' AND s.status <> 'archived') OR ($5 = 'all') OR ($5 NOT IN ('', 'all') AND s.status = $5))",
+    "($6 = '' OR ($6 = 'pending' AND COALESCE(r.report_status, 'pending') = 'pending') OR r.report_status = $6)"
   ].join(" AND ");
 }
 
 async function listSchools({
   districtScopeId = null,
+  schoolScopeId = null,
   search = "",
   schoolType = "",
   status = "",
@@ -58,13 +60,21 @@ async function listSchools({
   pageSize = 10
 }) {
   const where = buildWhere();
-  const params = [districtScopeId, search ? `%${search}%` : "", schoolType, status, reportStatus, period];
+  const params = [
+    districtScopeId,
+    schoolScopeId,
+    search ? `%${search}%` : "",
+    schoolType,
+    status,
+    reportStatus,
+    period
+  ];
   const sortColumn = SORT_COLUMNS[sort] || SORT_COLUMNS.name;
   const sortDirection = direction === "desc" ? "DESC" : "ASC";
 
   const fromSql = `FROM schools s
     JOIN districts d ON d.id = s.district_id
-    ${latestReportJoin(6)}
+    ${latestReportJoin(7)}
     WHERE ${where}`;
 
   const countResult = await query(`SELECT COUNT(*)::int AS total ${fromSql}`, params);
@@ -73,7 +83,7 @@ async function listSchools({
             r.report_status, r.report_period, r.report_submitted_at
      ${fromSql}
      ORDER BY ${sortColumn} ${sortDirection} NULLS LAST, s.id ${sortDirection}
-     LIMIT $7 OFFSET $8`,
+     LIMIT $8 OFFSET $9`,
     [...params, pageSize, (page - 1) * pageSize]
   );
 
@@ -90,16 +100,17 @@ async function findSchoolRow(id) {
   return result.rows[0] || null;
 }
 
-async function getSchool(id, districtScopeId = null, period = null) {
+async function getSchool(id, districtScopeId = null, schoolScopeId = null, period = null) {
   const result = await query(
     `SELECT s.*, d.district_name, d.district_code,
             r.report_status, r.report_period, r.report_submitted_at
      FROM schools s
      JOIN districts d ON d.id = s.district_id
-     ${latestReportJoin(3)}
+     ${latestReportJoin(4)}
      WHERE s.id = $1
-       AND ($2::bigint IS NULL OR s.district_id = $2)`,
-    [id, districtScopeId, period]
+       AND ($2::bigint IS NULL OR s.district_id = $2)
+       AND ($3::bigint IS NULL OR s.id = $3)`,
+    [id, districtScopeId, schoolScopeId, period]
   );
   if (!result.rows[0]) {
     throw new HttpError(404, "School not found.", "SCHOOL_NOT_FOUND");
@@ -107,17 +118,18 @@ async function getSchool(id, districtScopeId = null, period = null) {
   return serializeSchool(result.rows[0]);
 }
 
-async function sidebarSchools(districtScopeId, search = "") {
+async function sidebarSchools(districtScopeId, schoolScopeId = null, search = "") {
   const result = await query(
     `SELECT s.*, d.district_name, d.district_code
      FROM schools s
      JOIN districts d ON d.id = s.district_id
      WHERE s.status <> 'archived'
        AND ($1::bigint IS NULL OR s.district_id = $1)
-       AND ($2 = '' OR s.school_name ILIKE $2 OR s.school_code ILIKE $2)
+       AND ($2::bigint IS NULL OR s.id = $2)
+       AND ($3 = '' OR s.school_name ILIKE $3 OR s.school_code ILIKE $3)
      ORDER BY s.school_name ASC
      LIMIT 100`,
-    [districtScopeId, search ? `%${search}%` : ""]
+    [districtScopeId, schoolScopeId, search ? `%${search}%` : ""]
   );
 
   const counts = await query(
@@ -125,8 +137,9 @@ async function sidebarSchools(districtScopeId, search = "") {
        COUNT(*) FILTER (WHERE status = 'active')::int AS active_count,
        COUNT(*) FILTER (WHERE status <> 'archived')::int AS total_count
      FROM schools
-     WHERE ($1::bigint IS NULL OR district_id = $1)`,
-    [districtScopeId]
+     WHERE ($1::bigint IS NULL OR district_id = $1)
+       AND ($2::bigint IS NULL OR id = $2)`,
+    [districtScopeId, schoolScopeId]
   );
 
   return {
@@ -211,7 +224,7 @@ async function updateSchool(user, id, payload) {
   if (!existing) {
     throw new HttpError(404, "School not found.", "SCHOOL_NOT_FOUND");
   }
-  assertDistrictAccess(user, existing.district_id);
+  assertSchoolAccess(user, existing.id, existing.district_id);
   await ensureDistrict(user, payload.districtId);
 
   if (existing.status === "archived") {
@@ -297,7 +310,7 @@ async function archiveSchool(user, id) {
   if (!existing) {
     throw new HttpError(404, "School not found.", "SCHOOL_NOT_FOUND");
   }
-  assertDistrictAccess(user, existing.district_id);
+  assertSchoolAccess(user, existing.id, existing.district_id);
   if (existing.status === "archived") {
     throw new HttpError(409, "This school is already archived.", "SCHOOL_ALREADY_ARCHIVED");
   }
@@ -334,7 +347,7 @@ async function restoreSchool(user, id) {
   if (!existing) {
     throw new HttpError(404, "School not found.", "SCHOOL_NOT_FOUND");
   }
-  assertDistrictAccess(user, existing.district_id);
+  assertSchoolAccess(user, existing.id, existing.district_id);
   if (existing.status !== "archived") {
     throw new HttpError(409, "This school is not archived.", "SCHOOL_NOT_ARCHIVED");
   }

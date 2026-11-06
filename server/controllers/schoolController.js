@@ -1,7 +1,7 @@
 "use strict";
 
 const schoolService = require("../services/schoolService");
-const { resolveScope } = require("../utils/scope");
+const { resolveScope, schoolScopeFor } = require("../utils/scope");
 const {
   fail,
   requireString,
@@ -70,6 +70,7 @@ async function list(req, res) {
   const period = optionalPeriod(req.query.period);
   const result = await schoolService.listSchools({
     districtScopeId: resolveScope(req.user, req.query.districtId),
+    schoolScopeId: schoolScopeFor(req.user, req.query.schoolId),
     search: optionalString(req.query.search, "Search", { max: 100 }) || "",
     schoolType: optionalEnum(req.query.type, "School type", SCHOOL_TYPES) || "",
     status: parseStatus(req.query.status),
@@ -95,6 +96,7 @@ async function list(req, res) {
 async function sidebar(req, res) {
   const result = await schoolService.sidebarSchools(
     resolveScope(req.user, req.query.districtId),
+    schoolScopeFor(req.user, req.query.schoolId),
     optionalString(req.query.search, "Search", { max: 100 }) || ""
   );
   res.json({ data: result });
@@ -104,6 +106,7 @@ async function detail(req, res) {
   const school = await schoolService.getSchool(
     requireIdParam(req.params.id, "School ID"),
     resolveScope(req.user, req.query.districtId),
+    schoolScopeFor(req.user, req.query.schoolId),
     optionalPeriod(req.query.period)
   );
   res.json({ data: school });

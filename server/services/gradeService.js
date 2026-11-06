@@ -20,6 +20,7 @@ const {
 } = require("../utils/formsAccess");
 const auditService = require("./auditService");
 const subjectAttendanceService = require("./subjectAttendanceService");
+const { learnerScopeSql } = require("../utils/learnerAccess");
 const { calculateAge } = require("../utils/age");
 
 const PERIODS = ["q1", "q2", "q3", "q4"];
@@ -1131,6 +1132,10 @@ async function listReportCards(actor, filters) {
   const scope = schoolScopeSql(actor, "s", params, filters.schoolId);
   if (scope) {
     conditions.push(scope);
+  }
+  const learnerScope = learnerScopeSql(actor, "l", params);
+  if (learnerScope) {
+    conditions.push(learnerScope);
   }
   if (filters.schoolYearId) {
     params.push(filters.schoolYearId);

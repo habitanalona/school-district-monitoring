@@ -3,6 +3,7 @@
 const { query, getClient } = require("../config/database");
 const { serializeDistrict } = require("../utils/serializers");
 const { HttpError } = require("../utils/httpError");
+const { workspaceFor, WORKSPACE } = require("../utils/scope");
 const auditService = require("./auditService");
 
 const DISTRICT_SELECT = `SELECT d.*,
@@ -19,11 +20,21 @@ function requireSystemAdministrator(user) {
 }
 
 async function listForUser(user) {
+  const workspace = workspaceFor(user);
+  // School-bound accounts already receive their district name on the session;
+  // returning district rows would expose aggregate counts for other schools.
+  if (
+    workspace === WORKSPACE.SCHOOL ||
+    workspace === WORKSPACE.CLASS ||
+    workspace === WORKSPACE.LEARNER
+  ) {
+    return [];
+  }
   const result = await query(
     `${DISTRICT_SELECT}
      WHERE ($1::bigint IS NULL OR d.id = $1)
      ORDER BY d.district_name ASC`,
-    [user.role === "system_admin" ? null : user.districtId]
+    [workspace === WORKSPACE.ALL ? null : user.districtId]
   );
   return result.rows.map(serializeDistrict);
 }
@@ -55,6 +66,12 @@ async function getDistrict(user, id) {
 }
 
 async function hierarchyForUser(user) {
+  const workspace = workspaceFor(user);
+  const districtFilter = workspace === WORKSPACE.ALL ? null : user.districtId;
+  const schoolFilter =
+    workspace === WORKSPACE.ALL || workspace === WORKSPACE.DISTRICT
+      ? null
+      : user.schoolId || -1;
   const result = await query(
     `SELECT d.id AS district_id, d.district_name, d.district_code,
             d.psds_one_name, d.psds_one_email, d.psds_one_phone,
@@ -62,10 +79,12 @@ async function hierarchyForUser(user) {
             s.id AS school_id, s.school_code, s.school_name, s.school_type, s.status
      FROM districts d
      LEFT JOIN schools s
-       ON s.district_id = d.id AND s.status <> 'archived'
+       ON s.district_id = d.id
+      AND s.status <> 'archived'
+      AND ($2::bigint IS NULL OR s.id = $2)
      WHERE ($1::bigint IS NULL OR d.id = $1)
      ORDER BY d.district_name ASC, s.school_name ASC`,
-    [user.role === "system_admin" ? null : user.districtId]
+    [districtFilter, schoolFilter]
   );
 
   const byId = new Map();

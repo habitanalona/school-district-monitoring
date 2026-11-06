@@ -2,6 +2,7 @@
 
 const { canApproveRole, rolesOf, hasRole } = require("./roles");
 const { can } = require("../services/permissionService");
+const { workspaceFor, isNonTeachingReadOnly } = require("./scope");
 
 function allows(matrix, moduleKey, action) {
   return can(matrix, moduleKey, action);
@@ -49,8 +50,7 @@ function permissionsFor(user) {
   const reviewerRoles = ["system_admin", "district_admin", "psds", "school_head"];
 
   return {
-    canManageSchools: allows(matrix, "schools", "access") && schoolsWrite,
-    canManageReports: allows(matrix, "school_reports", "access") && reportWrite,
+    canManageSchools: allows(matrix, "schools", "access") && schoolsWrite,    canManageReports: allows(matrix, "school_reports", "access") && reportWrite,
     canManageAnnouncements:
       allows(matrix, "announcements", "access") &&
       (allows(matrix, "announcements", "add") || allows(matrix, "announcements", "edit")),
@@ -118,6 +118,8 @@ function permissionsFor(user) {
       (allows(matrix, "helpdesk", "add") ||
         allows(matrix, "helpdesk", "edit") ||
         allows(matrix, "helpdesk", "delete")),
+    workspace: workspaceFor(user),
+    readOnly: isNonTeachingReadOnly(user),
     modules: matrix || {}
   };
 }

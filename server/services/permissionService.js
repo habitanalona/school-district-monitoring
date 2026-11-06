@@ -13,6 +13,7 @@ const {
   sanitizeRow
 } = require("../utils/permissionModules");
 const { rolesOf } = require("../utils/roles");
+const { isNonTeachingReadOnly } = require("../utils/scope");
 
 const USER_PERMISSION_SELECT = `SELECT m.module_key, m.label, m.description, m.group_label,
          m.sort_order, m.actions,
@@ -225,7 +226,21 @@ async function effectivePermissions(user) {
       )
     )
   );
-  return applyActionSupport(mergeMatrices(matrices));
+  const matrix = applyActionSupport(mergeMatrices(matrices));
+  // Non-teaching accounts are view-only unless they also carry a coordinator
+  // (or other professional) role that represents a DepEd program designation.
+  if (isNonTeachingReadOnly(user)) {
+    MODULE_DEFINITIONS.forEach((definition) => {
+      const entry = matrix[definition.key];
+      if (!entry) {
+        return;
+      }
+      entry.add = false;
+      entry.edit = false;
+      entry.delete = false;
+    });
+  }
+  return matrix;
 }
 
 function defaultsForRoles(roles) {

@@ -3,12 +3,12 @@
 const express = require("express");
 const controller = require("../controllers/monitoringController");
 const { requireAuth } = require("../middleware/authMiddleware");
-const { requireModule } = require("../middleware/permissionMiddleware");
+const { requireModule, requireWorkspaceAtLeast } = require("../middleware/permissionMiddleware");
 const { asyncHandler } = require("../utils/asyncHandler");
 
 const router = express.Router();
 
-router.use(requireAuth, requireModule("monitoring"));
+router.use(requireAuth, requireWorkspaceAtLeast("school"), requireModule("monitoring"));
 
 router.get("/", asyncHandler(controller.summary));
 router.get("/discrepancies", asyncHandler(controller.discrepancies));

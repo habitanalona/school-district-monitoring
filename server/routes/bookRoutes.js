@@ -3,12 +3,12 @@
 const express = require("express");
 const controller = require("../controllers/bookController");
 const { requireAuth } = require("../middleware/authMiddleware");
-const { requireModule } = require("../middleware/permissionMiddleware");
+const { requireModule, requireWorkspaceAtLeast } = require("../middleware/permissionMiddleware");
 const { asyncHandler } = require("../utils/asyncHandler");
 
 const router = express.Router();
 
-router.use(requireAuth, requireModule("books"));
+router.use(requireAuth, requireWorkspaceAtLeast("school"), requireModule("books"));
 
 router.get("/catalog", asyncHandler(controller.catalog));
 router.post("/catalog", requireModule("books", "add"), asyncHandler(controller.createCatalog));

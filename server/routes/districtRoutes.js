@@ -5,14 +5,14 @@ const districtController = require("../controllers/districtController");
 const districtImportController = require("../controllers/districtImportController");
 const { requireAuth } = require("../middleware/authMiddleware");
 const { requireSystemAdmin } = require("../middleware/roleMiddleware");
-const { requireModule } = require("../middleware/permissionMiddleware");
+const { requireModule, requireWorkspaceAtLeast } = require("../middleware/permissionMiddleware");
 const { districtImportUpload } = require("../middleware/districtImportUpload");
 const { districtImportLimiter } = require("../middleware/rateLimiters");
 const { asyncHandler } = require("../utils/asyncHandler");
 
 const router = express.Router();
 
-router.use(requireAuth, requireModule("districts"));
+router.use(requireAuth, requireWorkspaceAtLeast("school"), requireModule("districts"));
 router.get("/", asyncHandler(districtController.list));
 router.get("/hierarchy", asyncHandler(districtController.hierarchy));
 

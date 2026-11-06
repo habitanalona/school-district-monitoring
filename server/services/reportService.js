@@ -3,6 +3,7 @@
 const { query, getClient } = require("../config/database");
 const { HttpError } = require("../utils/httpError");
 const { serializeReport } = require("../utils/serializers");
+const { assertSchoolAccess } = require("../utils/scope");
 const auditService = require("./auditService");
 
 const REPORT_SELECT = `SELECT r.*, s.school_name, s.school_code, s.district_id,
@@ -14,6 +15,7 @@ const REPORT_SELECT = `SELECT r.*, s.school_name, s.school_code, s.district_id,
 
 async function listReports({
   districtScopeId = null,
+  schoolScopeId = null,
   period = "",
   status = "",
   reportType = "",
@@ -24,6 +26,7 @@ async function listReports({
 }) {
   const where = [
     "($1::bigint IS NULL OR s.district_id = $1)",
+    "($7::bigint IS NULL OR r.school_id = $7)",
     "($2 = '' OR r.reporting_period = $2)",
     "($3 = '' OR r.submission_status = $3)",
     "($4 = '' OR r.report_type = $4)",
@@ -36,7 +39,8 @@ async function listReports({
     status,
     reportType,
     search ? `%${search}%` : "",
-    schoolId
+    schoolId,
+    schoolScopeId
   ];
 
   const countResult = await query(
@@ -51,7 +55,7 @@ async function listReports({
     `${REPORT_SELECT}
      WHERE ${where}
      ORDER BY r.reporting_period DESC, s.school_name ASC, r.updated_at DESC
-     LIMIT $7 OFFSET $8`,
+     LIMIT $8 OFFSET $9`,
     [...params, pageSize, (page - 1) * pageSize]
   );
 
@@ -63,12 +67,13 @@ async function listReports({
   };
 }
 
-async function getReport(id, districtScopeId = null) {
+async function getReport(id, districtScopeId = null, schoolScopeId = null) {
   const result = await query(
     `${REPORT_SELECT}
      WHERE r.id = $1
-       AND ($2::bigint IS NULL OR s.district_id = $2)`,
-    [id, districtScopeId]
+       AND ($2::bigint IS NULL OR s.district_id = $2)
+       AND ($3::bigint IS NULL OR s.id = $3)`,
+    [id, districtScopeId, schoolScopeId]
   );
   if (!result.rows[0]) {
     throw new HttpError(404, "School report not found.", "REPORT_NOT_FOUND");
@@ -76,15 +81,16 @@ async function getReport(id, districtScopeId = null) {
   return serializeReport(result.rows[0]);
 }
 
-async function getReportSummary(districtScopeId, period) {
+async function getReportSummary(districtScopeId, schoolScopeId, period) {
   const result = await query(
     `SELECT r.submission_status AS status, COUNT(*)::int AS count
      FROM school_reports r
      JOIN schools s ON s.id = r.school_id
      WHERE ($1::bigint IS NULL OR s.district_id = $1)
+       AND ($3::bigint IS NULL OR s.id = $3)
        AND ($2 = '' OR r.reporting_period = $2)
      GROUP BY r.submission_status`,
-    [districtScopeId, period]
+    [districtScopeId, period, schoolScopeId]
   );
 
   const statuses = { pending: 0, submitted: 0, late: 0, reviewed: 0 };
@@ -121,6 +127,7 @@ async function createReport(actor, payload) {
   if (!school) {
     throw new HttpError(404, "School not found.", "SCHOOL_NOT_FOUND");
   }
+  assertSchoolAccess(actor, school.id, school.district_id);
   if (school.status === "archived") {
     throw new HttpError(409, "Reports cannot be added for an archived school.", "SCHOOL_ARCHIVED");
   }
@@ -184,6 +191,7 @@ async function updateReport(actor, id, payload) {
   if (actor.role !== "system_admin" && Number(existing.district_id) !== Number(actor.districtId)) {
     throw new HttpError(403, "You do not have access to that school report.", "DISTRICT_FORBIDDEN");
   }
+  assertSchoolAccess(actor, existing.school_id, existing.district_id);
 
   const isSubmitted = payload.submissionStatus !== "pending";
   const submittedBy = isSubmitted ? (existing.submitted_by || actor.id) : null;

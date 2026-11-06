@@ -3,12 +3,12 @@
 const express = require("express");
 const controller = require("../controllers/schoolFormsController");
 const { requireAuth } = require("../middleware/authMiddleware");
-const { requireModule } = require("../middleware/permissionMiddleware");
+const { requireModule, requireWorkspaceAtLeast } = require("../middleware/permissionMiddleware");
 const { asyncHandler } = require("../utils/asyncHandler");
 
 const router = express.Router();
 
-router.use(requireAuth, requireModule("school_forms"));
+router.use(requireAuth, requireWorkspaceAtLeast("school"), requireModule("school_forms"));
 
 router.get("/definitions", asyncHandler(controller.definitions));
 router.get("/cards", asyncHandler(controller.cards));

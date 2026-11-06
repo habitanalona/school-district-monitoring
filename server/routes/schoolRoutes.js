@@ -6,7 +6,7 @@ const schoolImportController = require("../controllers/schoolImportController");
 const schoolLogoController = require("../controllers/schoolLogoController");
 const { requireAuth } = require("../middleware/authMiddleware");
 const { requireAdmin } = require("../middleware/roleMiddleware");
-const { requireModule } = require("../middleware/permissionMiddleware");
+const { requireModule, requireWorkspaceAtLeast } = require("../middleware/permissionMiddleware");
 const { schoolImportUpload } = require("../middleware/schoolImportUpload");
 const { schoolLogoUpload } = require("../middleware/schoolLogoUpload");
 const { schoolImportLimiter, schoolLogoLimiter } = require("../middleware/rateLimiters");
@@ -14,7 +14,7 @@ const { asyncHandler } = require("../utils/asyncHandler");
 
 const router = express.Router();
 
-router.use(requireAuth, requireModule("schools"));
+router.use(requireAuth, requireWorkspaceAtLeast("school"), requireModule("schools"));
 router.get("/sidebar", asyncHandler(schoolController.sidebar));
 router.get("/", asyncHandler(schoolController.list));
 

@@ -1,6 +1,7 @@
 "use strict";
 
 const { can } = require("../services/permissionService");
+const { workspaceAtLeast, workspaceFor } = require("../utils/scope");
 
 function denyApi(res) {
   return res.status(403).json({
@@ -55,4 +56,26 @@ function requirePageModule(moduleKey) {
   };
 }
 
-module.exports = { requireModule, requireAnyModule, requirePageModule };
+// Rejects accounts whose workspace is narrower than the page's data level.
+// For example, a class adviser may open class records but not the school-wide
+// personnel or monitoring endpoints.
+function requireWorkspaceAtLeast(minimum) {
+  return function workspaceGuard(req, res, next) {
+    if (!req.user) {
+      return res.status(401).json({
+        error: "Authentication required.",
+        code: "AUTH_REQUIRED"
+      });
+    }
+    if (!workspaceAtLeast(req.user, minimum)) {
+      return res.status(403).json({
+        error: "That workspace is not available for your role.",
+        code: "WORKSPACE_FORBIDDEN",
+        workspace: workspaceFor(req.user)
+      });
+    }
+    return next();
+  };
+}
+
+module.exports = { requireModule, requireAnyModule, requirePageModule, requireWorkspaceAtLeast };

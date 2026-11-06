@@ -76,7 +76,87 @@
     return meta ? meta.short : window.UI.titleCase(role);
   }
 
+  function workspaceOf(session) {
+    return (session && session.permissions && session.permissions.workspace) || "district";
+  }
+
+  function isDistrictWorkspace(session) {
+    var workspace = workspaceOf(session);
+    return workspace === "all" || workspace === "district";
+  }
+
+  function isSchoolWorkspace(session) {
+    return workspaceOf(session) === "school";
+  }
+
+  function isClassWorkspace(session) {
+    var workspace = workspaceOf(session);
+    return workspace === "class" || workspace === "learner";
+  }
+
+  function rolesOfSession(session) {
+    if (!session || !session.user) {
+      return [];
+    }
+    return session.user.roles && session.user.roles.length
+      ? session.user.roles
+      : [session.user.role];
+  }
+
+  // A program coordinator without a teaching or school-wide role is limited to
+  // personnel, learner, and coordination records inside the school.
+  function isCoordinatorOnly(session) {
+    var roles = rolesOfSession(session);
+    return (
+      roles.indexOf("coordinator") !== -1 &&
+      roles.every(function (role) {
+        return role === "coordinator" || role === "nt" || role === "learner";
+      })
+    );
+  }
+
+  var WORKSPACE_RANK = { all: 5, district: 4, school: 3, class: 2, learner: 1 };
+
+  // Pages that must never render for a narrower workspace, even from a direct link.
+  var PAGE_MIN_WORKSPACE = {
+    districts: "district",
+    schools: "school",
+    reports: "school",
+    monitoring: "school",
+    personnel: "school",
+    books: "school",
+    movements: "school",
+    health: "school",
+    "school-forms": "school",
+    activities: "school",
+    "school-years": "school",
+    "grade-levels": "school",
+    sections: "school",
+    teachers: "school",
+    subjects: "school"
+  };
+
+  function workspaceAllowed(session, minimum) {
+    var actual = WORKSPACE_RANK[workspaceOf(session)] || 0;
+    return actual >= WORKSPACE_RANK[minimum];
+  }
+
+  var COORDINATOR_PAGES = {
+    dashboard: 1,
+    learners: 1,
+    learner: 1,
+    "learner-reports": 1,
+    activities: 1,
+    personnel: 1,
+    announcements: 1,
+    profile: 1,
+    settings: 1
+  };
+
   function districtLabel(session) {
+    if (!isDistrictWorkspace(session) && session.user.schoolName) {
+      return session.user.schoolName;
+    }
     if (session.user.districtName) {
       return session.user.districtName;
     }
@@ -95,8 +175,19 @@
       return Boolean(modules[key] && modules[key].access);
     }
 
-    var adminLinks = "";
+    var districtScope = isDistrictWorkspace(session);
+    var schoolScope = isSchoolWorkspace(session);
+    var classScope = isClassWorkspace(session);
+
+    var roleList = rolesOfSession(session);
+    function hasRole(name) {
+      return roleList.indexOf(name) !== -1;
+    }
     var isSystemAdmin = session.user.role === "system_admin";
+    var coordinatorOnly = isCoordinatorOnly(session);
+    var isAdviser = hasRole("adviser") || hasRole("school_head") || isSystemAdmin;
+
+    var adminLinks = "";
     var showDistricts = permissions.canManageDistricts;
     if (
       allows("approvals") ||
@@ -139,12 +230,12 @@
     var learnerLinks = "";
     var learnerItems =
       (allows("learners") ? navItem("learners", "learners.html", "bi-person-vcard", "Learners") : "") +
-      (allows("school_years") ? navItem("school-years", "school-years.html", "bi-calendar3", "School Years") : "") +
-      (allows("grade_levels") ? navItem("grade-levels", "grade-levels.html", "bi-layers", "Grade Levels") : "") +
-      (allows("sections") ? navItem("sections", "sections.html", "bi-diagram-3", "Sections") : "") +
-      (allows("teachers") ? navItem("teachers", "teachers.html", "bi-person-video3", "Teachers") : "") +
-      (allows("subjects") ? navItem("subjects", "subjects.html", "bi-easel2", "Subjects") : "") +
-      (allows("activities") ? navItem("activities", "activities.html", "bi-trophy", "Activities") : "") +
+      (!classScope && !coordinatorOnly && allows("school_years") ? navItem("school-years", "school-years.html", "bi-calendar3", "School Years") : "") +
+      (!classScope && !coordinatorOnly && allows("grade_levels") ? navItem("grade-levels", "grade-levels.html", "bi-layers", "Grade Levels") : "") +
+      (!classScope && !coordinatorOnly && allows("sections") ? navItem("sections", "sections.html", "bi-diagram-3", "Sections") : "") +
+      (!classScope && !coordinatorOnly && allows("teachers") ? navItem("teachers", "teachers.html", "bi-person-video3", "Teachers") : "") +
+      (!classScope && !coordinatorOnly && allows("subjects") ? navItem("subjects", "subjects.html", "bi-easel2", "Subjects") : "") +
+      (!classScope && allows("activities") ? navItem("activities", "activities.html", "bi-trophy", "Activities") : "") +
       (allows("learner_reports")
         ? navItem("learner-reports", "learner-reports.html", "bi-clipboard-data", "Learner Reports")
         : "");
@@ -152,25 +243,27 @@
       learnerLinks = '<p class="sidebar-heading">Learner records</p>' + learnerItems;
     }
 
-    var operationsItems =
-      (allows("attendance") ? navItem("attendance", "attendance.html", "bi-calendar2-check", "Attendance") : "") +
-      (allows("attendance") && permissions.canValidateAttendance
-        ? navItem("adviser-attendance", "adviser-attendance.html", "bi-clipboard2-check", "Adviser Attendance")
-        : "") +
-      (allows("grades") ? navItem("grades", "grades.html", "bi-journal-check", "Grades & Promotion") : "") +
-      (allows("books") ? navItem("books", "books.html", "bi-book", "Books & Materials") : "") +
-      (allows("movements") ? navItem("movements", "movements.html", "bi-arrow-left-right", "Learner Movements") : "") +
-      (allows("health") ? navItem("health", "health.html", "bi-heart-pulse", "Health & Nutrition") : "") +
-      (allows("personnel") ? navItem("personnel", "personnel.html", "bi-person-badge", "Personnel") : "");
+    var operationsItems = coordinatorOnly
+      ? (allows("personnel") ? navItem("personnel", "personnel.html", "bi-person-badge", "Personnel") : "")
+      : (allows("attendance") ? navItem("attendance", "attendance.html", "bi-calendar2-check", "Attendance") : "") +
+        (allows("attendance") && permissions.canValidateAttendance
+          ? navItem("adviser-attendance", "adviser-attendance.html", "bi-clipboard2-check", "Adviser Attendance")
+          : "") +
+        (allows("grades") ? navItem("grades", "grades.html", "bi-journal-check", "Grades & Promotion") : "") +
+        (!classScope && allows("books") ? navItem("books", "books.html", "bi-book", "Books & Materials") : "") +
+        (!classScope && allows("movements") ? navItem("movements", "movements.html", "bi-arrow-left-right", "Learner Movements") : "") +
+        (!classScope && allows("health") ? navItem("health", "health.html", "bi-heart-pulse", "Health & Nutrition") : "") +
+        (!classScope && allows("personnel") ? navItem("personnel", "personnel.html", "bi-person-badge", "Personnel") : "");
     var operationsLinks = operationsItems
       ? '<p class="sidebar-heading">School operations</p>' + operationsItems
       : "";
 
-    var formsItems =
-      (allows("class_records")
+    var formsItems = coordinatorOnly
+      ? ""
+      : (allows("class_records")
         ? navItem("class-records", "class-records.html", "bi-journal-text", "Class Records")
         : "") +
-      (allows("grade_submissions")
+      (allows("grade_submissions") && (!classScope || isAdviser)
         ? navItem(
             "adviser-consolidation",
             "adviser-consolidation.html",
@@ -181,11 +274,16 @@
       (allows("report_cards")
         ? navItem("report-cards", "report-cards.html", "bi-file-earmark-person", "Report Cards (SF 9)")
         : "") +
-      (allows("school_forms")
+      (!classScope && allows("school_forms")
         ? navItem("school-forms", "school-forms.html", "bi-file-earmark-text", "School Forms Center")
         : "") +
-      (allows("monitoring")
-        ? navItem("monitoring", "monitoring.html", "bi-clipboard2-data", "District Monitoring")
+      (!classScope && allows("monitoring")
+        ? navItem(
+            "monitoring",
+            "monitoring.html",
+            "bi-clipboard2-data",
+            districtScope ? "District Monitoring" : "School Monitoring"
+          )
         : "");
     var formsLinks = formsItems
       ? '<p class="sidebar-heading">Grading & school forms</p>' + formsItems
@@ -195,7 +293,7 @@
       ? navItem("dashboard", "dashboard.html", "bi-grid-1x2", "Dashboard")
       : "";
     var divisionSection =
-      allows("schools") && allows("districts")
+      districtScope && allows("schools") && allows("districts")
         ? '<section class="sidebar-division" aria-labelledby="sidebarDivisionHeading">' +
           '<div class="sidebar-division__head">' +
           '<p class="sidebar-heading" id="sidebarDivisionHeading"><i class="bi bi-diagram-3" aria-hidden="true"></i> School Division Office</p>' +
@@ -210,14 +308,23 @@
           '<div class="division-tree" id="sidebarDivisionTree" role="list"></div>' +
           "</section>"
         : "";
-    var schoolLinks = allows("schools")
-      ? navItem("schools", "schools.html", "bi-buildings", "Schools") +
-        navItemView("schools", "enrollment", "schools.html?view=enrollment", "bi-people", "School Enrollment") +
-        navItemView("schools", "performance", "schools.html?view=performance", "bi-graph-up-arrow", "School Performance")
-      : "";
-    var reportLink = allows("district_reports")
-      ? navItem("reports", "reports.html", "bi-graph-up", "District Reports")
-      : "";
+    var schoolLinks =
+      !classScope && !coordinatorOnly && allows("schools")
+        ? navItem("schools", "schools.html", "bi-buildings", "Schools") +
+          (districtScope
+            ? navItemView("schools", "enrollment", "schools.html?view=enrollment", "bi-people", "School Enrollment") +
+              navItemView("schools", "performance", "schools.html?view=performance", "bi-graph-up-arrow", "School Performance")
+            : "")
+        : "";
+    var reportLink =
+      !classScope && !coordinatorOnly && allows("district_reports")
+        ? navItem(
+            "reports",
+            "reports.html",
+            "bi-graph-up",
+            districtScope ? "District Reports" : "School Reports"
+          )
+        : "";
     var announcementLink = allows("announcements")
       ? navItem("announcements", "announcements.html", "bi-megaphone", "Announcements")
       : "";
@@ -240,12 +347,15 @@
       '<button type="button" class="sidebar-close" id="sidebarClose" aria-label="Close navigation"><i class="bi bi-x-lg" aria-hidden="true"></i></button>' +
       "</div>" +
       '<div class="sidebar-district">' +
-      '<span class="sidebar-district__label">District workspace</span>' +
+      '<span class="sidebar-district__label">' +
+      (districtScope ? "District workspace" : schoolScope ? "School workspace" : "Class workspace") +
+      "</span>" +
       '<span class="sidebar-district__name">' +
       window.UI.escapeHtml(districtLabel(session)) +
       "</span>" +
       '<span class="role-pill">' +
       window.UI.escapeHtml(roleShort(session.user.role)) +
+      (permissions.readOnly ? " · View only" : "") +
       "</span>" +
       "</div>" +
       '<div class="sidebar-scroll" id="sidebarScroll">' +
@@ -257,7 +367,9 @@
       formsLinks +
       divisionSection +
       schoolLinks +
-      (reportLink || announcementLink ? '<p class="sidebar-heading">District</p>' : "") +
+      (reportLink || announcementLink
+        ? '<p class="sidebar-heading">' + (districtScope ? "District" : "School") + "</p>"
+        : "") +
       reportLink +
       announcementLink +
       adminLinks +
@@ -500,8 +612,18 @@
       });
   }
 
+  function workspaceRootLabel() {
+    if (isDistrictWorkspace(state.session)) {
+      return "District";
+    }
+    if (isSchoolWorkspace(state.session)) {
+      return "School";
+    }
+    return "Class";
+  }
+
   function breadcrumbsHtml(items) {
-    var parts = ['<li class="breadcrumb-item"><a href="dashboard.html"><i class="bi bi-house-door" aria-hidden="true"></i><span>District</span></a></li>'];
+    var parts = ['<li class="breadcrumb-item"><a href="dashboard.html"><i class="bi bi-house-door" aria-hidden="true"></i><span>' + workspaceRootLabel() + '</span></a></li>'];
     (items || []).forEach(function (item, index) {
       var last = index === (items || []).length - 1;
       parts.push(
@@ -533,11 +655,13 @@
       "</ol></nav>" +
       "</div>" +
       '<div class="topbar-right">' +
-      '<form class="topbar-search" id="globalSchoolSearch" role="search">' +
-      '<i class="bi bi-search" aria-hidden="true"></i>' +
-      '<input type="search" id="globalSchoolSearchInput" placeholder="Search schools…" aria-label="Search schools" autocomplete="off">' +
-      '<kbd>↵</kbd>' +
-      "</form>" +
+      (isClassWorkspace(session) || isSchoolWorkspace(session)
+        ? ""
+        : '<form class="topbar-search" id="globalSchoolSearch" role="search">' +
+          '<i class="bi bi-search" aria-hidden="true"></i>' +
+          '<input type="search" id="globalSchoolSearchInput" placeholder="Search schools…" aria-label="Search schools" autocomplete="off">' +
+          '<kbd>↵</kbd>' +
+          "</form>") +
       '<div class="dropdown">' +
       '<button type="button" class="icon-button notification-button" id="notificationToggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">' +
       '<i class="bi bi-bell" aria-hidden="true"></i>' +
@@ -549,7 +673,7 @@
       '<button type="button" class="text-button" id="markAllRead">Mark all read</button>' +
       "</div>" +
       '<div class="notification-list" id="notificationList"><div class="notification-loading"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Loading…</div></div>' +
-      '<a class="notification-menu__foot" href="announcements.html"><i class="bi bi-megaphone" aria-hidden="true"></i> View district announcements</a>' +
+      '<a class="notification-menu__foot" href="announcements.html"><i class="bi bi-megaphone" aria-hidden="true"></i> View announcements</a>' +
       "</div>" +
       "</div>" +
       '<div class="dropdown profile-dropdown">' +
@@ -855,6 +979,15 @@
       .then(function (payload) {
         state.session = payload.data;
         API.setCsrfToken(state.session.csrfToken);
+        var minimum = PAGE_MIN_WORKSPACE[state.page];
+        if (minimum && !workspaceAllowed(state.session, minimum)) {
+          window.location.replace("/dashboard.html?denied=" + encodeURIComponent(state.page));
+          return null;
+        }
+        if (isCoordinatorOnly(state.session) && !COORDINATOR_PAGES[state.page]) {
+          window.location.replace("/dashboard.html?denied=" + encodeURIComponent(state.page));
+          return null;
+        }
         renderSidebar();
         renderTopbar(settings);
         wireShellEvents();

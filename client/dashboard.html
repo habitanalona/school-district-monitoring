@@ -30,7 +30,7 @@
       <main class="app-content" id="appContent">
         <div class="page-header page-header--dashboard">
           <div class="page-header__copy">
-            <p class="page-eyebrow">District overview</p>
+            <p class="page-eyebrow" id="dashboardEyebrow">District overview</p>
             <h1 id="greetingHeading">Good morning, Administrator!</h1>
             <p class="page-subtitle">
               <span id="dashboardDate">—</span>
@@ -43,7 +43,7 @@
               <label for="districtFilter">District</label>
               <select class="custom-select custom-select-sm" id="districtFilter"></select>
             </div>
-            <div class="select-control">
+            <div class="select-control" id="periodControl">
               <label for="periodFilter">Reporting period</label>
               <select class="custom-select custom-select-sm" id="periodFilter" aria-label="Reporting period"></select>
             </div>
@@ -55,7 +55,7 @@
 
         <div id="dashboardAlert" class="d-none mb-3" role="alert"></div>
 
-        <section class="stat-grid" aria-label="District summary statistics">
+        <section class="stat-grid" id="schoolStatGrid" aria-label="District summary statistics">
           <article class="stat-card stat-card--blue">
             <div class="stat-card__top">
               <span class="stat-icon"><i class="bi bi-buildings" aria-hidden="true"></i></span>
@@ -81,7 +81,7 @@
             </div>
             <p class="stat-label">Total Students</p>
             <p class="stat-value" id="statStudents">—</p>
-            <p class="stat-description">Enrolled students across all monitored schools</p>
+            <p class="stat-description" id="statStudentsDescription">Enrolled students across all monitored schools</p>
           </article>
           <article class="stat-card stat-card--sky">
             <div class="stat-card__top">
@@ -90,7 +90,7 @@
             </div>
             <p class="stat-label">Total Teaching Personnel</p>
             <p class="stat-value" id="statTeachers">—</p>
-            <p class="stat-description">Teaching personnel serving district schools</p>
+            <p class="stat-description" id="statTeachersDescription">Teaching personnel serving district schools</p>
           </article>
           <article class="stat-card stat-card--amber">
             <div class="stat-card__top">
@@ -213,9 +213,9 @@
           </div>
         </div>
 
-        <div class="section-heading">
+        <div class="section-heading" id="analyticsHeading">
           <div>
-            <h2>District analytics</h2>
+            <h2 id="analyticsTitle">District analytics</h2>
             <p>Enrollment, performance, and reporting at a glance.</p>
           </div>
           <div class="chart-focus">
@@ -226,7 +226,7 @@
           </div>
         </div>
 
-        <div class="row chart-row">
+        <div class="row chart-row" id="analyticsCharts">
           <div class="col-xl-7">
             <section class="surface-card chart-card" aria-labelledby="enrollmentChartTitle">
               <header class="card-heading">
@@ -267,7 +267,7 @@
           </div>
         </div>
 
-        <div class="row chart-row">
+        <div class="row chart-row" id="statusRow">
           <div class="col-xl-4">
             <section class="surface-card chart-card chart-card--compact" aria-labelledby="reportChartTitle">
               <header class="card-heading">
@@ -319,7 +319,7 @@
             </section>
           </div>
           <div class="col-xl-4">
-            <section class="surface-card activity-card" aria-labelledby="activityTitle">
+            <section class="surface-card activity-card" id="activityCard" aria-labelledby="activityTitle">
               <header class="card-heading">
                 <div>
                   <h3 id="activityTitle">Recent activity</h3>
@@ -345,7 +345,7 @@
           </div>
         </div>
 
-        <section class="surface-card table-card" aria-labelledby="monitoringTitle">
+        <section class="surface-card table-card" id="schoolMonitoringSection" aria-labelledby="monitoringTitle">
           <header class="table-card__head">
             <div>
               <h2 id="monitoringTitle">School monitoring</h2>

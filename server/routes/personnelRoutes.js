@@ -5,7 +5,7 @@ const controller = require("../controllers/personnelController");
 const importController = require("../controllers/personnelImportController");
 const { requireAuth } = require("../middleware/authMiddleware");
 const { requireAdmin } = require("../middleware/roleMiddleware");
-const { requireModule } = require("../middleware/permissionMiddleware");
+const { requireModule, requireWorkspaceAtLeast } = require("../middleware/permissionMiddleware");
 const { createSpreadsheetImportUpload } = require("../middleware/spreadsheetImportUpload");
 const { personnelImportLimiter } = require("../middleware/rateLimiters");
 const { asyncHandler } = require("../utils/asyncHandler");
@@ -17,7 +17,7 @@ const importUpload = createSpreadsheetImportUpload({
   entityType: "personnel_import"
 });
 
-router.use(requireAuth, requireModule("personnel"));
+router.use(requireAuth, requireWorkspaceAtLeast("school"), requireModule("personnel"));
 
 // Bulk staff import. One row creates a login account and a personnel profile,
 // so the route additionally requires account-management rights. Declared

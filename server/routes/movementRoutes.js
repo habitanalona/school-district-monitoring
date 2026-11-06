@@ -3,12 +3,12 @@
 const express = require("express");
 const controller = require("../controllers/movementController");
 const { requireAuth } = require("../middleware/authMiddleware");
-const { requireModule } = require("../middleware/permissionMiddleware");
+const { requireModule, requireWorkspaceAtLeast } = require("../middleware/permissionMiddleware");
 const { asyncHandler } = require("../utils/asyncHandler");
 
 const router = express.Router();
 
-router.use(requireAuth, requireModule("movements"));
+router.use(requireAuth, requireWorkspaceAtLeast("school"), requireModule("movements"));
 
 router.get("/", asyncHandler(controller.list));
 router.post("/", requireModule("movements", "add"), asyncHandler(controller.create));

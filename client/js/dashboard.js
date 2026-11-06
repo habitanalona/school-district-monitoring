@@ -21,6 +21,8 @@
     [
       "greetingHeading",
       "dashboardDate",
+      "dashboardEyebrow",
+      "periodControl",
       "districtOverview",
       "districtControl",
       "districtFilter",
@@ -81,6 +83,70 @@
     ].forEach(function (id) {
       elements[id] = document.getElementById(id);
     });
+  }
+
+  function workspaceOf() {
+    return (state.session && state.session.permissions && state.session.permissions.workspace) || "district";
+  }
+
+  function isClassScope() {
+    var workspace = workspaceOf();
+    return workspace === "class" || workspace === "learner";
+  }
+
+  function isDistrictScope() {
+    var workspace = workspaceOf();
+    return workspace === "all" || workspace === "district";
+  }
+
+  function hideByIds(ids) {
+    (ids || []).forEach(function (id) {
+      var node = document.getElementById(id);
+      if (node) {
+        node.classList.add("d-none");
+      }
+    });
+  }
+
+  function applyWorkspaceView() {
+    if (isDistrictScope()) {
+      return;
+    }
+    if (elements.dashboardEyebrow) {
+      elements.dashboardEyebrow.textContent = isClassScope() ? "Class overview" : "School overview";
+    }
+    if (!isClassScope()) {
+      var analyticsTitle = document.getElementById("analyticsTitle");
+      if (analyticsTitle) {
+        analyticsTitle.textContent = "School analytics";
+      }
+      var studentsNote = document.getElementById("statStudentsDescription");
+      if (studentsNote) {
+        studentsNote.textContent = "Students enrolled in this school";
+      }
+      var teachersNote = document.getElementById("statTeachersDescription");
+      if (teachersNote) {
+        teachersNote.textContent = "Teaching personnel serving this school";
+      }
+      return;
+    }
+    hideByIds([
+      "schoolStatGrid",
+      "analyticsHeading",
+      "analyticsCharts",
+      "statusRow",
+      "schoolMonitoringSection",
+      "periodControl"
+    ]);
+    var quickActions = document.getElementById("dashboardQuickActions");
+    if (quickActions) {
+      Array.prototype.forEach.call(quickActions.querySelectorAll("a"), function (link) {
+        var href = link.getAttribute("href") || "";
+        if (href === "school-years.html" || href === "sections.html" || href === "activities.html") {
+          link.classList.add("d-none");
+        }
+      });
+    }
   }
 
   function setGreeting(session) {
@@ -225,17 +291,23 @@
     elements.statPendingDescription.textContent = period
       ? "Awaiting submission for " + window.UI.month(period)
       : "Awaiting submission for the selected period";
-    elements.statSchoolsDescription.textContent = scopeName()
-      ? scopeName() + " register"
-      : "All districts combined";
+    elements.statSchoolsDescription.textContent = isDistrictScope()
+      ? scopeName()
+        ? scopeName() + " register"
+        : "All districts combined"
+      : (state.session && state.session.user.schoolName) || "This school";
 
-    elements.districtOverview.textContent =
-      window.UI.number(total) +
-      " schools · " +
-      window.UI.number(active) +
-      " active · " +
-      window.UI.number(students) +
-      " students monitored";
+    elements.districtOverview.textContent = isDistrictScope()
+      ? window.UI.number(total) +
+        " schools · " +
+        window.UI.number(active) +
+        " active · " +
+        window.UI.number(students) +
+        " students monitored"
+      : window.UI.number(students) +
+        " students monitored · " +
+        window.UI.number(teachers) +
+        " teaching personnel";
 
     if (elements.footerUpdated) {
       elements.footerUpdated.textContent =
@@ -626,15 +698,17 @@
     if (elements.enrollmentChartSubtitle) {
       elements.enrollmentChartSubtitle.textContent = focus
         ? "Highlighting " + focus.name
-        : data.length > 8
-          ? "Top 8 schools by enrolled students"
-          : "All monitored schools";
+        : !isDistrictScope()
+          ? "Students enrolled in your school"
+          : data.length > 8
+            ? "Top 8 schools by enrolled students"
+            : "All monitored schools";
     }
     elements.enrollmentSummary.textContent =
       window.UI.number(total) +
       " students across " +
       data.length +
-      " schools. " +
+      (data.length === 1 ? " school. " : " schools. ") +
       leader.name +
       " has the largest enrollment at " +
       window.UI.number(leader.students) +
@@ -674,16 +748,18 @@
     if (elements.performanceChartSubtitle) {
       elements.performanceChartSubtitle.textContent = focus
         ? "Highlighting " + focus.name + " · score out of 100"
-        : data.length > 8
-          ? "Top 8 schools · score out of 100"
-          : "Performance score out of 100";
+        : !isDistrictScope()
+          ? "Performance score out of 100"
+          : data.length > 8
+            ? "Top 8 schools · score out of 100"
+            : "Performance score out of 100";
     }
     elements.performanceSummary.textContent =
       "Average performance score of " +
       average.toFixed(1) +
       " across " +
       data.length +
-      " scored schools. " +
+      (data.length === 1 ? " scored school. " : " scored schools. ") +
       leader.name +
       " leads with " +
       leader.score +
@@ -727,7 +803,11 @@
     var inactive = Math.max(0, total - active);
     var pct = total ? Math.round((active / total) * 100) : 0;
     elements.classificationSummary.textContent = total
-      ? active + " of " + total + " schools are active (" + pct + "%), with " + inactive + " inactive."
+      ? total === 1
+        ? active
+          ? "Your school is active and reporting."
+          : "Your school is currently inactive."
+        : active + " of " + total + " schools are active (" + pct + "%), with " + inactive + " inactive."
       : "No schools are currently registered in this district scope.";
     var chart = document.getElementById("classificationChart");
     toggleChartEmpty(chart, elements.classificationEmpty, total === 0);
@@ -1009,9 +1089,9 @@
 
   function loadLearnerSummary() {
     if (!elements.learnerKpiTotal) {
-      return;
+      return Promise.resolve();
     }
-    API.get("/learners/summary")
+    return API.get("/learners/summary")
       .then(function (payload) {
         renderLearnerSummary(payload.data || {});
       })
@@ -1072,6 +1152,17 @@
     }
     setRefreshing(true);
     window.UI.hideAlert(elements.dashboardAlert);
+
+    if (isClassScope()) {
+      if (elements.districtOverview) {
+        elements.districtOverview.textContent = "Focused on your advisory class and assigned learners";
+      }
+      return Promise.all([loadActivity(), loadLearnerSummary()]).then(function () {
+        if (sequence === refreshSequence) {
+          setRefreshing(false);
+        }
+      });
+    }
 
     return Promise.all([
       API.get("/dashboard/report-status", params),
@@ -1214,12 +1305,22 @@
           return;
         }
         state.session = session;
+        applyWorkspaceView();
+        if (new URLSearchParams(window.location.search).get("denied")) {
+          window.UI.toast(
+            "Access restricted",
+            "Your account cannot open that page.",
+            "warning"
+          );
+        }
         setGreeting(session);
         configureDistrictControl(session);
         if (elements.activityAuditLink && session.permissions.canViewAuditLogs) {
           elements.activityAuditLink.classList.remove("d-none");
         }
-        initialiseTable(session);
+        if (!isClassScope()) {
+          initialiseTable(session);
+        }
         bindControls();
         wireLearnerSearch();
         refreshAll();

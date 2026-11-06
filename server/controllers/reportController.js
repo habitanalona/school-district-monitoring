@@ -2,7 +2,7 @@
 
 const reportService = require("../services/reportService");
 const dashboardService = require("../services/dashboardService");
-const { resolveScope } = require("../utils/scope");
+const { resolveScope, schoolScopeFor, workspaceFor } = require("../utils/scope");
 const {
   requireInteger,
   optionalString,
@@ -37,6 +37,7 @@ async function list(req, res) {
     : null;
   const result = await reportService.listReports({
     districtScopeId: resolveScope(req.user, req.query.districtId),
+    schoolScopeId: schoolScopeFor(req.user, req.query.schoolId),
     period: optionalPeriod(req.query.period) || "",
     status: optionalEnum(req.query.status, "Submission status", REPORT_STATUSES) || "",
     reportType: optionalEnum(req.query.type, "Report type", REPORT_TYPES) || "",
@@ -59,17 +60,26 @@ async function list(req, res) {
 
 async function summary(req, res) {
   const districtScopeId = resolveScope(req.user, req.query.districtId);
+  const schoolScopeId = schoolScopeFor(req.user, req.query.schoolId);
   const period =
     optionalPeriod(req.query.period) ||
-    (await dashboardService.resolvePeriod(districtScopeId, null));
-  const data = await reportService.getReportSummary(districtScopeId, period);
+    (await dashboardService.resolvePeriod(
+      {
+        districtId: districtScopeId,
+        schoolId: schoolScopeId,
+        workspace: workspaceFor(req.user)
+      },
+      null
+    ));
+  const data = await reportService.getReportSummary(districtScopeId, schoolScopeId, period);
   res.json({ data });
 }
 
 async function detail(req, res) {
   const report = await reportService.getReport(
     requireIdParam(req.params.id, "Report ID"),
-    resolveScope(req.user, req.query.districtId)
+    resolveScope(req.user, req.query.districtId),
+    schoolScopeFor(req.user, req.query.schoolId)
   );
   res.json({ data: report });
 }

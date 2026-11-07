@@ -1,6 +1,7 @@
 "use strict";
 
 const { HttpError } = require("./httpError");
+const { query } = require("../config/database");
 const { can } = require("../services/permissionService");
 const { hasRole, hasAnyRole, roleSetIncludes } = require("./roles");
 
@@ -49,6 +50,55 @@ function isSystemAdmin(actor) {
   return hasRole(actor, "system_admin");
 }
 
+// A coordinator, school head, or non-teaching account already sees the whole
+// school. When that role is combined with teacher or adviser, the wider read
+// scope wins instead of the advisory-only classroom filter.
+const SCHOOL_WIDE_LEARNER_ROLES = new Set(["school_head", "coordinator", "nt"]);
+
+// A class adviser who is not also a school or district record keeper works
+// inside the advisory sections assigned to them. DepEd makes the adviser
+// responsible for enrolling learners in their own class, so writes are pinned
+// to sections where they are the adviser, not to sections they merely teach.
+function isAdviserScoped(actor) {
+  return hasRole(actor, "adviser") && !hasAnyRole(actor, Array.from(MANAGE_LEARNER_ROLES));
+}
+
+async function assertAdviserLearnerAccess(actor, learnerId) {
+  if (!isAdviserScoped(actor)) {
+    return;
+  }
+  const result = await query(
+    `SELECT 1
+     FROM enrollments e
+     JOIN sections sec ON sec.id = e.section_id
+     WHERE e.learner_id = $1
+       AND e.school_id = $2
+       AND sec.adviser_id = $3
+     LIMIT 1`,
+    [learnerId, actor.schoolId, actor.id]
+  );
+  if (!result.rows[0]) {
+    throw new HttpError(
+      403,
+      "Class advisers can only manage learners enrolled in the section they advise.",
+      "ADVISER_SECTION_FORBIDDEN"
+    );
+  }
+}
+
+function assertAdviserTargetSection(actor, section) {
+  if (!isAdviserScoped(actor)) {
+    return;
+  }
+  if (!section || Number(section.adviser_id) !== Number(actor.id)) {
+    throw new HttpError(
+      403,
+      "Class advisers can only enroll learners in the section they advise.",
+      "ADVISER_SECTION_FORBIDDEN"
+    );
+  }
+}
+
 // Appends bound parameters and returns an SQL fragment limiting learner rows to
 // what the actor may see. Teacher and adviser accounts only see learners who
 // belong to a section they advise or teach.
@@ -69,7 +119,10 @@ function learnerScopeSql(actor, alias, params) {
   }
   params.push(actor.schoolId);
   let clause = `${alias}.school_id = $${params.length}`;
-  if (hasAnyRole(actor, ["teacher", "adviser"])) {
+  if (
+    !hasAnyRole(actor, Array.from(SCHOOL_WIDE_LEARNER_ROLES)) &&
+    hasAnyRole(actor, ["teacher", "adviser"])
+  ) {
     params.push(actor.id);
     const ref = `$${params.length}`;
     clause +=
@@ -156,8 +209,11 @@ module.exports = {
   MANAGE_ACTIVITY_ROLES,
   REPORT_ROLES,
   isSystemAdmin,
+  isAdviserScoped,
   learnerScopeSql,
   assertCanManageLearners,
+  assertAdviserLearnerAccess,
+  assertAdviserTargetSection,
   assertCanManageAcademics,
   assertCanManageActivities,
   assertCanViewReports,

@@ -77,7 +77,42 @@
           "</strong> years old";
   }
 
-  function bodyMarkup(learner) {
+  function advisoryPlacementMarkup(sections) {
+    var list = sections || [];
+    var selected = list.length === 1 ? String(list[0].id) : "";
+    return (
+      '<p class="form-section-label">Class placement</p>' +
+      '<div class="row"><div class="col-md-8"><div class="form-group">' +
+      '<label for="learner-advisorySection">Advisory section <span class="required-mark">*</span></label>' +
+      '<select class="custom-select" id="learner-advisorySection" name="sectionId" required>' +
+      '<option value="">Select your advisory section</option>' +
+      list
+        .map(function (section) {
+          return (
+            '<option value="' +
+            section.id +
+            '" data-school-year="' +
+            section.schoolYearId +
+            '" data-grade="' +
+            section.gradeLevelId +
+            '"' +
+            (String(section.id) === selected ? " selected" : "") +
+            ">" +
+            ESC(section.schoolYearName || "") +
+            " · " +
+            ESC(section.gradeLevel || "") +
+            " · " +
+            ESC(section.name) +
+            "</option>"
+          );
+        })
+        .join("") +
+      '</select><span class="field-hint">DepEd assigns enrollment to the class adviser. The learner is enrolled in your advisory section immediately and appears in your class.</span>' +
+      '<span class="field-error"></span></div></div></div>'
+    );
+  }
+
+  function bodyMarkup(learner, advisorySections) {
     var data = learner || {};
     var fixedSchool = window.LearnerUI.schoolId();
     return (
@@ -158,6 +193,9 @@
           '<option value="">Loading schools…</option></select><span class="field-error"></span></div>') +
       "</div>" +
       "</div>" +
+      (advisorySections && advisorySections.length
+        ? advisoryPlacementMarkup(advisorySections)
+        : "") +
       '<p class="form-section-label">Address</p>' +
       '<div class="row">' +
       '<div class="col-md-4">' +
@@ -227,9 +265,13 @@
   }
 
   function open(options) {
-    var settings = Object.assign({ learner: null, onSaved: null }, options || {});
+    var settings = Object.assign(
+      { learner: null, onSaved: null, advisorySections: null },
+      options || {}
+    );
     var learner = settings.learner;
     var editing = Boolean(learner);
+    var advisorySections = editing ? null : settings.advisorySections;
     discardStaleDialogs();
     var dialog = window.LearnerUI.modal({
       eyebrow: editing ? "Update profile" : "New record",
@@ -237,7 +279,7 @@
       subtitle:
         "Permanent learner details. School-year enrollment, guardians, and activities are managed from the learner profile.",
       size: "modal-lg",
-      body: bodyMarkup(learner),
+      body: bodyMarkup(learner, advisorySections),
       footer:
         '<button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>' +
         '<button type="submit" form="learnerForm" class="btn btn-primary" id="saveLearnerButton">' +
@@ -285,6 +327,16 @@
       if (values.schoolId === "" && !window.LearnerUI.schoolId()) {
         window.UI.fieldError(form.querySelector("#recordSchool"), "Choose the learner's school.");
         return;
+      }
+      var advisory = form.querySelector("#learner-advisorySection");
+      if (advisory) {
+        if (!advisory.value) {
+          window.UI.fieldError(advisory, "Choose the advisory section for this learner.");
+          return;
+        }
+        var placement = advisory.options[advisory.selectedIndex];
+        values.schoolYearId = placement.getAttribute("data-school-year");
+        values.gradeLevelId = placement.getAttribute("data-grade");
       }
       window.LearnerUI.submit(
         form,

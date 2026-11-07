@@ -1,6 +1,6 @@
 "use strict";
 
-const { canApproveRole, rolesOf, hasRole } = require("./roles");
+const { canApproveRole, rolesOf, hasRole, hasAnyRole } = require("./roles");
 const { can } = require("../services/permissionService");
 const { workspaceFor, isNonTeachingReadOnly } = require("./scope");
 
@@ -11,6 +11,10 @@ function allows(matrix, moduleKey, action) {
 function permissionsFor(user) {
   const matrix = user && user.permissionMatrix ? user.permissionMatrix : null;
   const isSystemAdmin = hasRole(user, "system_admin");
+  const learnerManagerRoles = ["system_admin", "district_admin", "staff", "school_head"];
+  const adviserScoped =
+    hasRole(user, "adviser") &&
+    !learnerManagerRoles.some((role) => hasRole(user, role));
 
   const schoolsWrite =
     allows(matrix, "schools", "add") ||
@@ -71,6 +75,19 @@ function permissionsFor(user) {
       allows(matrix, "approvals", "edit") &&
       rolesOf(user).some((role) => canApproveRole(role)),    canViewLearners: allows(matrix, "learners", "access"),
     canManageLearners: allows(matrix, "learners", "access") && learnerWrite,
+    isAdviserScoped: adviserScoped,
+    canImportLearners:
+      allows(matrix, "learners", "access") &&
+      allows(matrix, "learners", "add") &&
+      !adviserScoped,
+    canPromoteLearners:
+      allows(matrix, "learners", "access") &&
+      allows(matrix, "learners", "add") &&
+      !adviserScoped,
+    canManageLearnerDocuments:
+      allows(matrix, "learners", "access") &&
+      (allows(matrix, "learners", "add") || allows(matrix, "learners", "delete")) &&
+      !adviserScoped,
     canManageAcademics: academicWrite,
     canManageActivities: allows(matrix, "activities", "access") && activityWrite,
     canExportLearnerReports: allows(matrix, "learner_reports", "access"),
@@ -106,6 +123,12 @@ function permissionsFor(user) {
     canManageHealth: allows(matrix, "health", "access") && moduleWrite("health"),
     canViewPersonnel: allows(matrix, "personnel", "access"),
     canManagePersonnel: allows(matrix, "personnel", "access") && moduleWrite("personnel"),
+    // A school head assigns subject teacher, class adviser, and coordinator
+    // roles to the staff of their own school. Districts and system
+    // administrators keep the same power across their scope.
+    canAssignPersonnelRoles:
+      allows(matrix, "personnel", "edit") &&
+      hasAnyRole(user, ["system_admin", "district_admin", "school_head"]),
     canViewSchoolForms: allows(matrix, "school_forms", "access"),
     canManageSchoolForms: allows(matrix, "school_forms", "access") && moduleWrite("school_forms"),
     canReviewSchoolForms:

@@ -14,6 +14,27 @@
     other: "Other"
   };
 
+  // Roles a school head may combine on one staff account. The labels follow
+  // DepEd terminology; the hint explains which workspace each role unlocks.
+  var SYSTEM_ROLES = [
+    { value: "teacher", label: "Subject teacher", hint: "Class records, grades, and subject attendance" },
+    { value: "adviser", label: "Class adviser", hint: "Advisory class, enrollment, and adviser review" },
+    { value: "coordinator", label: "Coordinator", hint: "School-wide programs and monitoring" }
+  ];
+
+  var ROLE_LABELS = {
+    teacher: "Subject teacher",
+    adviser: "Class adviser",
+    coordinator: "Coordinator",
+    school_head: "School head",
+    nt: "Non-teaching personnel",
+    psds: "PSDS",
+    staff: "Authorized staff",
+    district_admin: "District administrator",
+    system_admin: "System administrator",
+    learner: "Learner"
+  };
+
   var state = {
     schoolId: "",
     yearId: "",
@@ -33,6 +54,34 @@
 
   function canManage() {
     return F.permission("canManagePersonnel");
+  }
+
+  function canAssignRoles() {
+    return F.permission("canAssignPersonnelRoles");
+  }
+
+  function assignableRoles(item) {
+    return (item && item.accountRoles ? item.accountRoles : []).filter(function (role) {
+      return SYSTEM_ROLES.some(function (entry) {
+        return entry.value === role;
+      });
+    });
+  }
+
+  function roleSummary(item) {
+    var roles = item.accountRoles && item.accountRoles.length
+      ? item.accountRoles
+      : item.accountRole
+      ? [item.accountRole]
+      : [];
+    if (!roles.length) {
+      return "";
+    }
+    return roles
+      .map(function (role) {
+        return ROLE_LABELS[role] || window.UI.titleCase(role);
+      })
+      .join(" · ");
   }
 
   function failed(error) {
@@ -105,6 +154,9 @@
         var hasProfile = Boolean(item.id);
         var actions = [];
         actions.push('<button type="button" class="btn btn-light btn-sm" data-loads="' + (item.userId || "") + '" title="View teaching load"><i class="bi bi-calendar3" aria-hidden="true"></i></button>');
+        if (canAssignRoles() && item.userId) {
+          actions.push('<button type="button" class="btn btn-light btn-sm" data-assign-roles="' + item.userId + '" title="Assign roles"><i class="bi bi-person-badge" aria-hidden="true"></i></button>');
+        }
         if (canManage()) {
           if (hasProfile) {
             actions.push('<button type="button" class="btn btn-light btn-sm" data-edit-personnel="' + item.id + '" title="Edit personnel profile"><i class="bi bi-pencil-square" aria-hidden="true"></i></button>');
@@ -117,7 +169,7 @@
           "<tr>" +
           "<td><strong>" + F.esc(item.fullName) + "</strong>" +
           '<span class="field-hint">' +
-          F.esc([item.accountRole ? window.UI.titleCase(item.accountRole) : "No account", item.username || ""].filter(Boolean).join(" · ")) +
+          F.esc([roleSummary(item) || "No account", item.username || ""].filter(Boolean).join(" · ")) +
           "</span></td>" +
           "<td>" + F.esc(item.employeeNo || "—") + "</td>" +
           "<td>" + F.esc(item.position || "—") +
@@ -174,6 +226,10 @@
       alertPage("warning", "Choose a specific school before adding personnel.", "School required");
       return;
     }
+    var existingRoles = assignableRoles(data);
+    if (!existingRoles.length && !data.accountRoles && data.isTeaching !== false) {
+      existingRoles = ["teacher"];
+    }
     var dialog = L.modal({
       title: editing ? "Edit personnel profile" : "Add personnel profile",
       eyebrow: "SF7 personnel record",
@@ -218,6 +274,31 @@
         L.option("true", "Teaching personnel", data.isTeaching === false ? "false" : "true") +
         L.option("false", "Non-teaching personnel", data.isTeaching === false ? "false" : "true") +
         "</select></div></div>" +
+        (canAssignRoles()
+          ? '<div class="col-12"><div class="form-group"><label>System roles</label>' +
+            '<div id="personnelRoles" class="d-flex flex-wrap">' +
+            SYSTEM_ROLES.map(function (role) {
+              var checked = existingRoles.indexOf(role.value) !== -1;
+              return (
+                '<div class="custom-control custom-checkbox custom-control-inline mr-3">' +
+                '<input type="checkbox" class="custom-control-input" id="personnelRole_' +
+                role.value +
+                '" value="' +
+                role.value +
+                '"' +
+                (checked ? " checked" : "") +
+                ">" +
+                '<label class="custom-control-label" for="personnelRole_' +
+                role.value +
+                '">' +
+                F.esc(role.label) +
+                "</label></div>"
+              );
+            }).join("") +
+            "</div>" +
+            '<span class="field-hint">Select every role this person performs. Their permissions and workspaces combine on this one account, and takes effect on their next page load.</span>' +
+            "</div></div>"
+          : "") +
         '<div class="col-md-4"><div class="form-group"><label for="personnelSpecialization">Specialization</label>' +
         '<input class="form-control" id="personnelSpecialization" name="specialization" maxlength="160" value="' + F.esc(data.specialization || "") + '"></div></div>' +
         '<div class="col-md-4"><div class="form-group"><label for="personnelDesignation">Designation</label>' +
@@ -267,6 +348,14 @@
         email: values.email.trim(),
         dateHired: values.dateHired || null
       };
+      if (canAssignRoles()) {
+        payload.roles = Array.prototype.map.call(
+          dialog.element.querySelectorAll("#personnelRoles input[type=checkbox]:checked"),
+          function (input) {
+            return input.value;
+          }
+        );
+      }
       window.UI.setButtonLoading(button, true, "Saving…");
       var request = editing ? API.put("/personnel/" + item.id, payload) : API.post("/personnel", payload);
       request
@@ -288,6 +377,118 @@
           if (!window.UI.showFieldErrors(form, error)) {
             window.UI.showAlert(alertBox, "danger", L.friendlyError(error), "Could not save the profile");
           }
+        });
+    });
+  }
+
+  // Direct role management on the account itself, so a school head can grant
+  // or revoke teaching roles before an SF7 profile exists for that staff.
+  function rolesModal(item) {
+    if (!item || !item.userId) {
+      return;
+    }
+    var current = assignableRoles(item);
+    var preserved = (item.accountRoles || []).filter(function (role) {
+      return !SYSTEM_ROLES.some(function (entry) {
+        return entry.value === role;
+      });
+    });
+    var dialog = L.modal({
+      title: "Assign roles",
+      eyebrow: item.fullName || "Staff account",
+      size: "modal-md",
+      body:
+        '<div id="rolesAlert" class="d-none mb-3" role="alert"></div>' +
+        '<p class="field-hint mb-3">Select every role this person performs. Their permissions and workspaces combine on this one account.</p>' +
+        '<div id="rolesOptions" class="d-flex flex-wrap">' +
+        SYSTEM_ROLES.map(function (role) {
+          var checked = current.indexOf(role.value) !== -1;
+          return (
+            '<div class="custom-control custom-checkbox custom-control-inline mr-3 mb-2" style="min-width: 12rem">' +
+            '<input type="checkbox" class="custom-control-input" id="roleAssign_' +
+            role.value +
+            '" value="' +
+            role.value +
+            '"' +
+            (checked ? " checked" : "") +
+            ">" +
+            '<label class="custom-control-label" for="roleAssign_' +
+            role.value +
+            '">' +
+            F.esc(role.label) +
+            '<span class="field-hint d-block">' +
+            F.esc(role.hint) +
+            "</span></label></div>"
+          );
+        }).join("") +
+        "</div>" +
+        (preserved.length
+          ? '<p class="field-hint mt-3 mb-0">Kept on the account: ' +
+            F.esc(
+              preserved
+                .map(function (role) {
+                  return ROLE_LABELS[role] || window.UI.titleCase(role);
+                })
+                .join(" · ")
+            ) +
+            "</p>"
+          : "") +
+        '<p class="field-hint mt-3 mb-0">Changes take effect the next time this person loads a page.</p>',
+      footer:
+        '<button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>' +
+        '<button type="button" class="btn btn-primary" id="rolesSaveButton">Save roles</button>'
+    });
+    var button = dialog.element.querySelector("#rolesSaveButton");
+    var alertBox = dialog.element.querySelector("#rolesAlert");
+    button.addEventListener("click", function () {
+      window.UI.hideAlert(alertBox);
+      var roles = Array.prototype.map.call(
+        dialog.element.querySelectorAll("#rolesOptions input[type=checkbox]:checked"),
+        function (input) {
+          return input.value;
+        }
+      );
+      if (!roles.length) {
+        window.UI.showAlert(
+          alertBox,
+          "warning",
+          "Select at least one role, or cancel to keep the current roles.",
+          "Role required"
+        );
+        return;
+      }
+      window.UI.setButtonLoading(button, true, "Saving…");
+      API.put("/personnel/accounts/" + item.userId + "/roles", { roles: roles })
+        .then(function (payload) {
+          window.UI.setButtonLoading(button, false);
+          dialog.close();
+          var assigned = (payload && payload.accountRoles) || roles;
+          window.UI.toast(
+            "Roles updated",
+            (item.fullName || "Account") +
+              " · " +
+              assigned
+                .filter(function (role) {
+                  return ROLE_LABELS[role];
+                })
+                .map(function (role) {
+                  return ROLE_LABELS[role];
+                })
+                .join(" · "),
+            "success"
+          );
+          summary();
+          loadPersonnel();
+          if (state.tab === "loads" || state.loads.length) {
+            loadLoads();
+          }
+        })
+        .catch(function (error) {
+          window.UI.setButtonLoading(button, false);
+          if (failed(error)) {
+            return;
+          }
+          window.UI.showAlert(alertBox, "danger", L.friendlyError(error), "Could not save roles");
         });
     });
   }
@@ -377,6 +578,9 @@
           "</td>" +
           '<td class="text-right"><div class="row-actions">' +
           '<button type="button" class="btn btn-light btn-sm" data-load-detail="' + item.userId + '" title="View assignments and schedule"><i class="bi bi-eye" aria-hidden="true"></i></button>' +
+          (canAssignRoles()
+            ? '<button type="button" class="btn btn-light btn-sm" data-assign-roles="' + item.userId + '" title="Assign roles"><i class="bi bi-person-badge" aria-hidden="true"></i></button>'
+            : "") +
           (canManage() && !item.profileId
             ? '<button type="button" class="btn btn-light btn-sm" data-create-profile="' + item.userId + '">Profile</button>'
             : "") +
@@ -619,6 +823,16 @@
         personnelModal(account || null);
         return;
       }
+      var rolesButton = event.target.closest("[data-assign-roles]");
+      if (rolesButton) {
+        var staff = state.personnel.find(function (row) {
+          return String(row.userId) === String(rolesButton.dataset.assignRoles);
+        });
+        if (staff) {
+          rolesModal(staff);
+        }
+        return;
+      }
       var loads = event.target.closest("[data-loads]");
       if (loads && loads.dataset.loads) {
         if (!state.loads.length) {
@@ -635,6 +849,16 @@
       var detail = event.target.closest("[data-load-detail]");
       if (detail) {
         loadDetail(detail.dataset.loadDetail);
+        return;
+      }
+      var rolesButton = event.target.closest("[data-assign-roles]");
+      if (rolesButton) {
+        var staff = state.loads.find(function (row) {
+          return String(row.userId) === String(rolesButton.dataset.assignRoles);
+        });
+        if (staff) {
+          rolesModal(staff);
+        }
         return;
       }
       var create = event.target.closest("[data-create-profile]");

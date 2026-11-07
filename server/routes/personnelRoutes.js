@@ -64,6 +64,13 @@ router.get("/", asyncHandler(controller.list));
 router.get("/assignments", asyncHandler(controller.assignments));
 router.get("/summary", asyncHandler(controller.summary));
 router.post("/", requireModule("personnel", "add"), asyncHandler(controller.create));
+// Account-level role assignment so a school head can grant or revoke teaching
+// roles without an SF7 profile existing for that staff account yet.
+router.put(
+  "/accounts/:userId/roles",
+  requireModule("personnel", "edit"),
+  asyncHandler(controller.roles)
+);
 router.get("/:id", asyncHandler(controller.detail));
 router.put("/:id", requireModule("personnel", "edit"), asyncHandler(controller.update));
 router.delete("/:id", requireModule("personnel", "delete"), asyncHandler(controller.archive));

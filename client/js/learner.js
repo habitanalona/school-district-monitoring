@@ -82,8 +82,54 @@
     return Boolean(state.session && state.session.permissions.canManageLearners);
   }
 
+  function isAdviserScoped() {
+    return Boolean(state.session && state.session.permissions.isAdviserScoped);
+  }
+
+  function advisorySections() {
+    if (!state.session || !state.session.user) {
+      return [];
+    }
+    return state.sections.filter(function (section) {
+      return Number(section.adviserId) === Number(state.session.user.id);
+    });
+  }
+
+  function isAdvisoryEnrollment(enrollment) {
+    if (!isAdviserScoped()) {
+      return true;
+    }
+    return advisorySections().some(function (section) {
+      return String(section.id) === String(enrollment.sectionId);
+    });
+  }
+
+  function canManageDocuments() {
+    return Boolean(state.session && state.session.permissions.canManageLearnerDocuments);
+  }
+
+  function canManageThisLearner() {
+    if (!isManage()) {
+      return false;
+    }
+    if (!isAdviserScoped()) {
+      return true;
+    }
+    return (state.detail && state.detail.enrollments ? state.detail.enrollments : []).some(
+      isAdvisoryEnrollment
+    );
+  }
+
   function isActivityManager() {
     return Boolean(state.session && state.session.permissions.canManageActivities);
+  }
+
+  // The activity catalog is read from the school-wide Activities module, which
+  // class-scoped accounts cannot open, so participation controls stay hidden
+  // there instead of offering a dialog with no choices.
+  function canManageActivitiesHere() {
+    var workspace = state.session && state.session.permissions.workspace;
+    return isActivityManager() && workspace !== "class" && workspace !== "learner";
   }
 
   /* Hero ------------------------------------------------------------------ */
@@ -128,7 +174,7 @@
       "</div></div></div>" +
       '<div class="learner-hero__actions">' +
       '<button type="button" class="btn btn-light" id="printProfileButton"><i class="bi bi-printer" aria-hidden="true"></i> Print profile</button>' +
-      (isManage()
+      (canManageThisLearner()
         ? '<button type="button" class="btn btn-light" id="heroEditButton"><i class="bi bi-pencil-square" aria-hidden="true"></i> Edit</button>' +
           (archived
             ? '<button type="button" class="btn btn-light" id="heroArchiveButton" data-restore><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Restore</button>'
@@ -232,8 +278,8 @@
       detailItem("Last updated", window.UI.phDateTime(learner.updatedAt));
 
     var editButton = el("editPersonalButton");
-    editButton.classList.toggle("d-none", !isManage() || learner.isArchived);
-    if (isManage() && !learner.isArchived) {
+    editButton.classList.toggle("d-none", !canManageThisLearner() || learner.isArchived);
+    if (canManageThisLearner() && !learner.isArchived) {
       editButton.onclick = function () {
         window.LearnerForm.open({
           learner: learner,
@@ -263,7 +309,7 @@
       esc(guardian.relationship) +
       (guardian.occupation ? " · " + esc(guardian.occupation) : "") +
       "</p></div>" +
-      (isManage()
+      (canManageThisLearner()
         ? '<div class="row-actions"><button type="button" class="btn btn-light" data-guardian-edit="' +
           guardian.id +
           '" title="Edit guardian"><i class="bi bi-pencil-square" aria-hidden="true"></i></button>' +
@@ -297,7 +343,7 @@
         title: "No parent or guardian recorded",
         message:
           "Add at least one parent or guardian to complete the learner's profile. A primary and an emergency contact can be flagged.",
-        action: isManage()
+        action: canManageThisLearner()
           ? '<button type="button" class="btn btn-primary btn-sm" data-add-guardian><i class="bi bi-person-plus" aria-hidden="true"></i> Add guardian</button>'
           : ""
       });
@@ -305,7 +351,7 @@
       mount.innerHTML = guardians.map(guardianCard).join("");
     }
     var addButton = el("addGuardianButton");
-    addButton.classList.toggle("d-none", !isManage());
+    addButton.classList.toggle("d-none", !canManageThisLearner());
     addButton.onclick = function () {
       guardianModal(null);
     };
@@ -467,7 +513,7 @@
             (enrollment.sectionName ? " · " + esc(enrollment.sectionName) : "") +
             "</span></div><div>" +
             L.badge(enrollment.status) +
-            (isManage() && !learner.isArchived
+            (isManage() && !learner.isArchived && isAdvisoryEnrollment(enrollment)
               ? ' <button type="button" class="btn btn-light btn-sm" data-enrollment-edit="' +
                 enrollment.id +
                 '"><i class="bi bi-pencil-square" aria-hidden="true"></i> Edit</button>'
@@ -496,12 +542,15 @@
     });
 
     var addButton = el("addEnrollmentButton");
-    addButton.classList.toggle("d-none", !isManage() || learner.isArchived);
+    addButton.classList.toggle("d-none", !canManageThisLearner() || learner.isArchived);
     addButton.onclick = function () {
       enrollmentModal(null);
     };
     var promoteButton = el("promoteButton");
-    promoteButton.classList.toggle("d-none", !isManage() || learner.isArchived || !enrollments.length);
+    promoteButton.classList.toggle(
+      "d-none",
+      !canManageThisLearner() || isAdviserScoped() || learner.isArchived || !enrollments.length
+    );
     promoteButton.onclick = promoteModal;
   }
 
@@ -512,6 +561,11 @@
         String(section.gradeLevelId) === String(gradeId)
       );
     });
+    if (isAdviserScoped()) {
+      list = list.filter(function (section) {
+        return Number(section.adviserId) === Number(state.session.user.id);
+      });
+    }
     return L.options(
       list,
       "id",
@@ -519,7 +573,13 @@
         return section.name + (section.room ? " · " + section.room : "");
       },
       selected,
-      list.length ? "No section / unassigned" : "No sections for this grade and year"
+      list.length
+        ? isAdviserScoped()
+          ? "Select advisory section"
+          : "No section / unassigned"
+        : isAdviserScoped()
+          ? "No advisory section for this grade and year"
+          : "No sections for this grade and year"
     );
   }
 
@@ -567,14 +627,24 @@
         '<select class="custom-select" id="enrollmentGrade" name="gradeLevelId" required>' +
         L.gradeOptions(state.gradeLevels, defaultGrade, "Select grade level") +
         "</select><span class=\"field-error\"></span></div></div>" +
-        '<div class="col-md-6"><div class="form-group"><label for="enrollmentSection">Section</label>' +
-        '<select class="custom-select" id="enrollmentSection" name="sectionId">' +
+        '<div class="col-md-6"><div class="form-group"><label for="enrollmentSection">Section' +
+        (isAdviserScoped() ? ' <span class="required-mark">*</span>' : "") +
+        "</label>" +
+        '<select class="custom-select" id="enrollmentSection" name="sectionId"' +
+        (isAdviserScoped() ? " required" : "") +
+        ">" +
         sectionOptionsFor(defaultYear, defaultGrade, editing ? enrollment.sectionId : "") +
-        "</select><span class=\"field-error\"></span></div></div>" +
-        '<div class="col-md-6"><div class="form-group"><label for="enrollmentAdviser">Adviser</label>' +
-        '<select class="custom-select" id="enrollmentAdviser" name="adviserId">' +
-        L.teacherOptions(state.teachers, editing ? enrollment.adviserId : "", "Use section adviser") +
-        "</select><span class=\"field-error\"></span></div></div>" +
+        "</select>" +
+        (isAdviserScoped()
+          ? '<span class="field-hint">Class advisers enroll learners in the section they advise.</span>'
+          : "") +
+        '<span class="field-error"></span></div></div>' +
+        (isAdviserScoped()
+          ? ""
+          : '<div class="col-md-6"><div class="form-group"><label for="enrollmentAdviser">Adviser</label>' +
+            '<select class="custom-select" id="enrollmentAdviser" name="adviserId">' +
+            L.teacherOptions(state.teachers, editing ? enrollment.adviserId : "", "Use section adviser") +
+            "</select><span class=\"field-error\"></span></div></div>") +
         '<div class="col-md-6"><div class="form-group"><label for="enrollmentDate">Enrollment date</label>' +
         '<input type="date" class="form-control" id="enrollmentDate" name="enrollmentDate" value="' +
         esc(editing ? enrollment.enrollmentDate : L.todayIso()) +
@@ -632,6 +702,10 @@
       var values = L.formValues(form);
       if (!values.schoolYearId || !values.gradeLevelId) {
         window.UI.showAlert(alertBox, "warning", "Choose both a school year and a grade level.", "Missing details");
+        return;
+      }
+      if (isAdviserScoped() && !values.sectionId) {
+        window.UI.showAlert(alertBox, "warning", "Choose the advisory section for this learner.", "Missing section");
         return;
       }
       L.submit(
@@ -768,7 +842,7 @@
             "/documents/" +
             document.id +
             '/download" title="Download document"><i class="bi bi-download" aria-hidden="true"></i></a>' +
-            (isManage() && !state.detail.learner.isArchived
+            (canManageDocuments() && !state.detail.learner.isArchived
               ? '<button type="button" class="btn btn-light" data-document-delete="' +
                 document.id +
                 '" title="Delete document"><i class="bi bi-trash3" aria-hidden="true"></i></button>'
@@ -804,7 +878,7 @@
       });
     });
     var upload = el("uploadDocumentButton");
-    upload.classList.toggle("d-none", !isManage() || state.detail.learner.isArchived);
+    upload.classList.toggle("d-none", !canManageDocuments() || state.detail.learner.isArchived);
     upload.onclick = uploadDocumentModal;
   }
 
@@ -895,7 +969,7 @@
       esc(record.category) +
       (record.organization ? " · " + esc(record.organization) : "") +
       "</p></div>" +
-      (isActivityManager() && !state.detail.learner.isArchived
+      (canManageActivitiesHere() && !state.detail.learner.isArchived
         ? '<div class="row-actions"><button type="button" class="btn btn-light" data-activity-remove="' +
           record.id +
           '" title="Remove participation"><i class="bi bi-x-circle" aria-hidden="true"></i></button></div>'
@@ -967,7 +1041,7 @@
       });
     });
     var addButton = el("addActivityButton");
-    addButton.classList.toggle("d-none", !isActivityManager() || state.detail.learner.isArchived);
+    addButton.classList.toggle("d-none", !canManageActivitiesHere() || state.detail.learner.isArchived);
     addButton.onclick = addActivityModal;
   }
 
@@ -1432,12 +1506,28 @@
   function loadReferenceData() {
     var learner = state.detail ? state.detail.learner : null;
     var learnerSchoolId = learner ? learner.schoolId : L.schoolId();
+    // The activity catalog only powers the manager-only "add participation"
+    // dialog. Class-scoped accounts (advisers, teachers) cannot open the
+    // Activities module, so their denial must not block the profile.
+    var current = L.session();
+    var workspace = current && current.permissions ? current.permissions.workspace : null;
+    var activityRequest;
+    if (workspace === "class" || workspace === "learner") {
+      activityRequest = Promise.resolve([]);
+    } else {
+      activityRequest = L.activities({ schoolId: learnerSchoolId || undefined }).catch(function (error) {
+        if (error && (error.status === 401 || error.status === 403)) {
+          return [];
+        }
+        throw error;
+      });
+    }
     return Promise.all([
       L.years(),
       L.grades(learnerSchoolId),
       L.sections({ schoolId: learnerSchoolId || undefined }),
       L.teachers(learnerSchoolId || undefined),
-      L.activities({ schoolId: learnerSchoolId || undefined })
+      activityRequest
     ]).then(function (results) {
       state.years = results[0];
       state.gradeLevels = results[1];

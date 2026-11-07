@@ -123,6 +123,28 @@
     });
   }
 
+  function isAdviserScoped() {
+    return Boolean(
+      state.session && state.session.permissions && state.session.permissions.isAdviserScoped
+    );
+  }
+
+  function ownsAdvisory(learner) {
+    if (!isAdviserScoped()) {
+      return true;
+    }
+    var enrollment = learner.currentEnrollment;
+    return Boolean(
+      enrollment &&
+        state.session.user &&
+        Number(enrollment.adviserId) === Number(state.session.user.id)
+    );
+  }
+
+  function canManageRow(learner) {
+    return window.LearnerUI.permission("canManageLearners") && ownsAdvisory(learner);
+  }
+
   function rowHtml(learner) {
     var enrollment = learner.currentEnrollment;
     var gradeSection = enrollment
@@ -169,7 +191,7 @@
       '<a class="btn btn-light" href="learner.html?id=' +
       learner.id +
       '" title="Open profile"><i class="bi bi-eye" aria-hidden="true"></i><span class="sr-only">View</span></a>' +
-      (window.LearnerUI.permission("canManageLearners")
+      (canManageRow(learner)
         ? '<button type="button" class="btn btn-light" data-edit="' +
           learner.id +
           '" title="Edit profile"><i class="bi bi-pencil-square" aria-hidden="true"></i><span class="sr-only">Edit</span></button>' +
@@ -242,17 +264,54 @@
       });
   }
 
-  function openCreate() {
-    window.LearnerForm.open({
-      onSaved: function () {
-        refreshAll();
-      }
+  function advisorySectionsFor(user) {
+    return window.LearnerUI.sections().then(function (list) {
+      return (list || []).filter(function (section) {
+        return Number(section.adviserId) === Number(user.id);
+      });
     });
+  }
+
+  function openCreate() {
+    if (!isAdviserScoped()) {
+      window.LearnerForm.open({
+        onSaved: function () {
+          refreshAll();
+        }
+      });
+      return;
+    }
+    advisorySectionsFor(state.session.user)
+      .then(function (sections) {
+        if (!sections.length) {
+          window.UI.showAlert(
+            el("learnerPageAlert"),
+            "warning",
+            "You are not assigned as the adviser of any section. Ask the school head to assign your advisory section before enrolling learners.",
+            "No advisory section"
+          );
+          return;
+        }
+        window.LearnerForm.open({
+          advisorySections: sections,
+          onSaved: function () {
+            refreshAll();
+          }
+        });
+      })
+      .catch(function (error) {
+        window.UI.showAlert(
+          el("learnerPageAlert"),
+          "danger",
+          window.LearnerUI.friendlyError(error),
+          "Could not load your advisory sections"
+        );
+      });
   }
 
   function openEdit(id) {
     var learner = state.rows ? state.rows[id] : null;
-    if (!learner) {
+    if (!learner || !canManageRow(learner)) {
       return;
     }
     window.LearnerForm.open({
@@ -265,7 +324,7 @@
 
   function archiveLearner(id, restore) {
     var learner = state.rows ? state.rows[id] : null;
-    if (!learner) {
+    if (!learner || !canManageRow(learner)) {
       return;
     }
     window.UI.confirm({
@@ -422,7 +481,7 @@
     },
     templateName: "learner-import-template.xlsx",
     canImport: function () {
-      return Boolean(window.LearnerUI.permission("canManageLearners"));
+      return Boolean(window.LearnerUI.permission("canImportLearners"));
     },
     previewColumns: [
       {

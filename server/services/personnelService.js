@@ -24,12 +24,19 @@ const {
 const { createToken } = require("../utils/tokens");
 const { BCRYPT_ROUNDS } = require("./authService");
 const auditService = require("./auditService");
-const { hasAnyRole } = require("../utils/roles");
+const { hasAnyRole, primaryRoleFor, rolesOf } = require("../utils/roles");
 
 const EMPLOYMENT_TYPES = ["plantilla", "provisional", "contractual", "substitute", "volunteer", "other"];
 const EMPLOYMENT_STATUSES = ["active", "inactive"];
 const TEACHING_ROLES = ["teacher", "adviser", "coordinator", "school_head"];
 const STAFF_ACCOUNT_ROLES = ["teacher", "adviser", "coordinator", "school_head", "nt", "psds"];
+// Roles a school head may grant or revoke on the staff under their school.
+// Every other role on the account is preserved as-is.
+const ASSIGNABLE_PERSONNEL_ROLES = ["teacher", "adviser", "coordinator"];
+const PERSONNEL_ROLE_MANAGERS = ["system_admin", "district_admin", "school_head"];
+// An account with one of these roles is not a staff account, so teaching
+// roles must never be attached to it.
+const NON_STAFF_ROLES = ["learner", "staff"];
 
 function requireDate(value, field) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -54,6 +61,118 @@ function canViewConfidential(actor) {
     canDo(actor, "personnel", "edit") ||
     hasAnyRole(actor, ["school_head", "district_admin", "system_admin"])
   );
+}
+
+function accountRolesOf(value) {
+  return Array.isArray(value) ? value.filter(Boolean).map(String) : [];
+}
+
+// undefined/null means "leave the account roles untouched". A list replaces the
+// assignable roles and keeps every other role already on the account.
+function readRoles(payload) {
+  if (payload.roles === undefined || payload.roles === null) {
+    return null;
+  }
+  if (!Array.isArray(payload.roles)) {
+    fail("Roles must be a list of role codes.", { field: "roles" });
+  }
+  const unique = [];
+  payload.roles.forEach((value) => {
+    if (typeof value !== "string" || !ASSIGNABLE_PERSONNEL_ROLES.includes(value)) {
+      fail(
+        `Assignable personnel roles are: ${ASSIGNABLE_PERSONNEL_ROLES.join(", ")}.`,
+        { field: "roles", allowed: ASSIGNABLE_PERSONNEL_ROLES }
+      );
+    }
+    if (!unique.includes(value)) {
+      unique.push(value);
+    }
+  });
+  return unique;
+}
+
+async function applyPersonnelRoles(client, actor, userId, roles, schoolId, meta) {
+  if (roles === null) {
+    return null;
+  }
+  if (!hasAnyRole(actor, PERSONNEL_ROLE_MANAGERS)) {
+    throw new HttpError(
+      403,
+      "Only a school head or administrator can change personnel roles.",
+      "ROLE_ASSIGNMENT_FORBIDDEN"
+    );
+  }
+  const accountResult = await client.query(
+    "SELECT id, role, school_id, full_name FROM users WHERE id = $1 FOR UPDATE",
+    [userId]
+  );
+  const account = accountResult.rows[0];
+  if (!account) {
+    throw new HttpError(404, "User account not found.", "USER_NOT_FOUND");
+  }
+  if (Number(account.school_id) !== Number(schoolId)) {
+    throw new HttpError(409, "That account belongs to another school.", "USER_SCHOOL_MISMATCH");
+  }
+  const stored = await client.query(
+    "SELECT role FROM user_roles WHERE user_id = $1 ORDER BY role",
+    [userId]
+  );
+  const existing = stored.rows.length
+    ? stored.rows.map((row) => row.role)
+    : rolesOf(account);
+  if (existing.some((role) => NON_STAFF_ROLES.includes(role))) {
+    throw new HttpError(
+      409,
+      "Only school staff accounts can carry teaching roles.",
+      "ROLE_ASSIGNMENT_UNSUPPORTED"
+    );
+  }
+  const preserved = existing.filter((role) => !ASSIGNABLE_PERSONNEL_ROLES.includes(role));
+  const after = Array.from(new Set(preserved.concat(roles))).sort();
+  if (!after.length) {
+    throw new HttpError(
+      400,
+      "At least one personnel role must remain on the account.",
+      "ROLE_REQUIRED",
+      { field: "roles" }
+    );
+  }
+  const before = Array.from(new Set(existing)).sort();
+  if (before.join(",") === after.join(",")) {
+    return { changed: false, roles: after };
+  }
+  await client.query("UPDATE users SET role = $1 WHERE id = $2", [
+    primaryRoleFor(after),
+    userId
+  ]);
+  // Only the assignable rows are rewritten; any other role keeps its row.
+  await client.query(
+    "DELETE FROM user_roles WHERE user_id = $1 AND role = ANY($2::varchar[])",
+    [userId, ASSIGNABLE_PERSONNEL_ROLES]
+  );
+  for (const role of after) {
+    await client.query(
+      `INSERT INTO user_roles (user_id, role) VALUES ($1, $2)
+       ON CONFLICT (user_id, role) DO NOTHING`,
+      [userId, role]
+    );
+  }
+  await auditService.record({
+    client,
+    userId: actor.id,
+    districtId: actor.districtId,
+    ipAddress: meta && meta.ip,
+    action: "personnel.roles_updated",
+    entityType: "user",
+    entityId: userId,
+    details: {
+      schoolId: Number(schoolId),
+      accountName: account.full_name,
+      before,
+      after
+    }
+  });
+  return { changed: true, roles: after };
 }
 
 function displayName(row) {
@@ -85,6 +204,10 @@ async function listPersonnel(actor, filters) {
   }
   const profileRows = await query(
     `SELECT p.*, s.school_name, s.school_code, u.username, u.role AS account_role,
+            COALESCE(
+              (SELECT array_agg(ur.role ORDER BY ur.role) FROM user_roles ur WHERE ur.user_id = u.id),
+              ARRAY[u.role]
+            ) AS account_roles,
             (SELECT COUNT(*)::int FROM teacher_assignments ta
              WHERE ta.teacher_id = p.user_id AND ta.school_id = p.school_id) AS assignment_count,
             (SELECT COUNT(*)::int FROM sections sec WHERE sec.adviser_id = p.user_id) AS adviser_count
@@ -112,7 +235,11 @@ async function listPersonnel(actor, filters) {
   }
   const accountRows = await query(
     `SELECT u.id AS user_id, u.full_name, u.role, u.email, u.school_id, u.is_active,
-            s.school_name, s.school_code, u.username
+            s.school_name, s.school_code, u.username,
+            COALESCE(
+              (SELECT array_agg(ur.role ORDER BY ur.role) FROM user_roles ur WHERE ur.user_id = u.id),
+              ARRAY[u.role]
+            ) AS account_roles
      FROM users u JOIN schools s ON s.id = u.school_id
      WHERE ${userConditions.join(" AND ")}
      ORDER BY u.full_name ASC`,
@@ -143,6 +270,7 @@ async function listPersonnel(actor, filters) {
       email: confidential ? row.email : undefined,
       dateHired: null,
       accountRole: row.role,
+      accountRoles: accountRolesOf(row.account_roles),
       username: row.username,
       assignmentCount: 0,
       adviserCount: 0,
@@ -185,6 +313,7 @@ function serializeProfile(row, confidential) {
     designation: row.designation,
     dateHired: row.date_hired ? String(row.date_hired).slice(0, 10) : null,
     accountRole: row.account_role,
+    accountRoles: accountRolesOf(row.account_roles),
     username: row.username,
     assignmentCount: Number(row.assignment_count || 0),
     adviserCount: Number(row.adviser_count || 0),
@@ -374,6 +503,7 @@ async function createProfile(actor, payload, meta) {
   assertCan(actor, "personnel", "add");
   const school = await resolveSchool(actor, payload.schoolId);
   const data = readProfile(payload);
+  const roles = readRoles(payload);
   const requestedUserId = payload.userId ? requireIdParam(payload.userId, "User account") : null;
   const client = await getClient();
   let profileId = null;
@@ -389,6 +519,7 @@ async function createProfile(actor, payload, meta) {
     const account = await resolveProfileAccount(client, actor, school, data, requestedUserId);
     const result = await profileInsert(client, school.id, account.userId, data, actor.id);
     profileId = Number(result.rows[0].id);
+    await applyPersonnelRoles(client, actor, account.userId, roles, school.id, meta);
     await auditService.record({
       client,
       userId: actor.id,
@@ -426,6 +557,10 @@ async function getProfile(actor, id) {
   assertCan(actor, "personnel", "access");
   const result = await query(
     `SELECT p.*, s.school_name, s.school_code, u.username, u.role AS account_role,
+            COALESCE(
+              (SELECT array_agg(ur.role ORDER BY ur.role) FROM user_roles ur WHERE ur.user_id = u.id),
+              ARRAY[u.role]
+            ) AS account_roles,
             (SELECT COUNT(*)::int FROM teacher_assignments ta
              WHERE ta.teacher_id = p.user_id AND ta.school_id = p.school_id) AS assignment_count,
             (SELECT COUNT(*)::int FROM sections sec WHERE sec.adviser_id = p.user_id) AS adviser_count
@@ -450,6 +585,7 @@ async function updateProfile(actor, id, payload, meta) {
   }
   const school = await resolveSchool(actor, existing.rows[0].school_id);
   const data = readProfile(payload);
+  const roles = readRoles(payload);
   const requestedUserId = payload.userId ? requireIdParam(payload.userId, "User account") : null;
   const currentUserId = existing.rows[0].user_id ? Number(existing.rows[0].user_id) : null;
   const client = await getClient();
@@ -468,6 +604,8 @@ async function updateProfile(actor, id, payload, meta) {
     } else {
       account = await resolveProfileAccount(client, actor, school, data, requestedUserId);
     }
+
+    await applyPersonnelRoles(client, actor, account.userId, roles, school.id, meta);
 
     const duplicate = await client.query(
       "SELECT id FROM personnel_profiles WHERE school_id = $1 AND employee_no = $2 AND id <> $3",
@@ -554,6 +692,34 @@ async function archiveProfile(actor, id) {
   return { archived: true };
 }
 
+// Role management for an account that has no personnel profile yet. The same
+// rules as the profile form apply: only school staff, only the assignable
+// roles, and every other role is preserved.
+async function setAccountRoles(actor, userId, payload, meta) {
+  assertCan(actor, "personnel", "edit");
+  const account = await query("SELECT id, school_id FROM users WHERE id = $1", [userId]);
+  if (!account.rows[0]) {
+    throw new HttpError(404, "User account not found.", "USER_NOT_FOUND");
+  }
+  const school = await resolveSchool(actor, account.rows[0].school_id);
+  const roles = readRoles(payload);
+  if (roles === null) {
+    fail("Select the roles to assign.", { field: "roles" });
+  }
+  const client = await getClient();
+  try {
+    await client.query("BEGIN");
+    const result = await applyPersonnelRoles(client, actor, userId, roles, school.id, meta);
+    await client.query("COMMIT");
+    return { userId: Number(userId), accountRoles: result.roles };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 function minutesBetween(start, end) {
   const [sh, sm] = String(start).split(":").map(Number);
   const [eh, em] = String(end).split(":").map(Number);
@@ -570,6 +736,10 @@ async function assignmentSummary(actor, options) {
   const year = await resolveSchoolYear(options.schoolYearId);
   const result = await query(
     `SELECT u.id AS user_id, u.full_name, u.role, u.email,
+            COALESCE(
+              (SELECT array_agg(ur.role ORDER BY ur.role) FROM user_roles ur WHERE ur.user_id = u.id),
+              ARRAY[u.role]
+            ) AS account_roles,
             p.id AS profile_id, p.employee_no, p.position, p.is_teaching,
             p.employment_type, p.employment_status, p.designation, p.specialization,
             ta.id AS assignment_id, ta.employee_number,
@@ -598,6 +768,7 @@ async function assignmentSummary(actor, options) {
         profileId: row.profile_id ? Number(row.profile_id) : null,
         fullName: row.full_name,
         role: row.role,
+        accountRoles: accountRolesOf(row.account_roles),
         employeeNo: row.employee_no || row.employee_number || null,
         position: row.position || (row.role === "nt" ? "Non-Teaching Personnel" : "Teaching Personnel"),
         isTeaching: row.profile_id ? row.is_teaching : row.role !== "nt",
@@ -738,6 +909,7 @@ module.exports = {
   getProfile,
   updateProfile,
   archiveProfile,
+  setAccountRoles,
   assignmentSummary,
   summaryCounts
 };

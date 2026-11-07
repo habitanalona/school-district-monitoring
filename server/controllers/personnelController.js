@@ -77,4 +77,15 @@ async function summary(req, res) {
   });
 }
 
-module.exports = { list, create, detail, update, archive, assignments, summary };
+async function roles(req, res) {
+  res.json({
+    data: await personnelService.setAccountRoles(
+      actorFrom(req),
+      requireIdParam(req.params.userId, "User account"),
+      req.body,
+      { ip: req.ip }
+    )
+  });
+}
+
+module.exports = { list, create, detail, update, archive, assignments, summary, roles };

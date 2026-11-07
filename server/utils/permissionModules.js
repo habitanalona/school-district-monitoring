@@ -122,9 +122,9 @@ const MODULE_DEFINITIONS = [
     actions: ["access", "add", "edit", "delete"],
     defaults: {
       access: ALL_ROLES,
-      add: ["system_admin", "district_admin", "staff", "school_head"],
-      edit: ["system_admin", "district_admin", "staff", "school_head"],
-      delete: ["system_admin", "district_admin", "staff", "school_head"]
+      add: ["system_admin", "district_admin", "staff", "school_head", "adviser"],
+      edit: ["system_admin", "district_admin", "staff", "school_head", "adviser"],
+      delete: ["system_admin", "district_admin", "staff", "school_head", "adviser"]
     },
     grantRoles: {
       access: ALL_ROLES,

@@ -103,7 +103,10 @@ function readLearnerPayload(body, actor) {
     zipCode: optionalZip(body.zipCode),
     contactNumber: optionalPhone(body.contactNumber, "Contact number"),
     email: optionalEmail(body.email, "Email address"),
-    schoolId
+    schoolId,
+    schoolYearId: optionalId(body.schoolYearId, "School year"),
+    gradeLevelId: optionalId(body.gradeLevelId, "Grade level"),
+    sectionId: optionalId(body.sectionId, "Section")
   };
 }
 

@@ -14,7 +14,10 @@ const {
   learnerScopeSql,
   assertCanManageLearners,
   assertCanManageActivities,
-  assertSchoolScope
+  assertSchoolScope,
+  isAdviserScoped,
+  assertAdviserLearnerAccess,
+  assertAdviserTargetSection
 } = require("../utils/learnerAccess");
 const auditService = require("./auditService");
 const { hasRole, hasAnyRole } = require("../utils/roles");
@@ -97,9 +100,10 @@ async function findLearnerRow(id) {
   return result.rows[0] || null;
 }
 
-function assertLearnerWritable(actor, learner) {
+async function assertLearnerWritable(actor, learner) {
   assertCanManageLearners(actor);
   assertSchoolScope(actor, learner.school_id, learner.district_id);
+  await assertAdviserLearnerAccess(actor, learner.id);
   if (learner.archived_at) {
     throw new HttpError(
       409,
@@ -114,7 +118,7 @@ async function loadLearnerForWrite(actor, id) {
   if (!learner) {
     throw new HttpError(404, "Learner not found.", "LEARNER_NOT_FOUND");
   }
-  assertLearnerWritable(actor, learner);
+  await assertLearnerWritable(actor, learner);
   return learner;
 }
 
@@ -387,9 +391,51 @@ function learnerSnapshot(learner) {
   };
 }
 
+async function resolveAdviserPlacement(actor, school, payload) {
+  if (!payload.schoolYearId || !payload.gradeLevelId || !payload.sectionId) {
+    throw new HttpError(
+      400,
+      "Choose the school year, grade level, and advisory section before adding this learner.",
+      "ADVISER_PLACEMENT_REQUIRED"
+    );
+  }
+  const result = await query(
+    `SELECT sec.id, sec.school_year_id, sec.grade_level_id,
+            sec.name AS section_name, y.name AS school_year_name,
+            gl.name AS grade_level_name
+     FROM sections sec
+     JOIN school_years y ON y.id = sec.school_year_id
+     JOIN grade_levels gl ON gl.id = sec.grade_level_id
+     WHERE sec.id = $1 AND sec.school_id = $2 AND sec.adviser_id = $3`,
+    [payload.sectionId, school.id, actor.id]
+  );
+  const section = result.rows[0];
+  if (!section) {
+    throw new HttpError(
+      403,
+      "Class advisers can only enroll learners in the section they advise.",
+      "ADVISER_SECTION_FORBIDDEN"
+    );
+  }
+  if (
+    Number(section.school_year_id) !== Number(payload.schoolYearId) ||
+    Number(section.grade_level_id) !== Number(payload.gradeLevelId)
+  ) {
+    throw new HttpError(
+      400,
+      "The selected advisory section does not belong to that school year and grade level.",
+      "SECTION_MISMATCH"
+    );
+  }
+  return section;
+}
+
 async function createLearner(actor, payload) {
   assertCanManageLearners(actor);
   const school = await schoolForActor(actor, payload.schoolId);
+  const placement = isAdviserScoped(actor)
+    ? await resolveAdviserPlacement(actor, school, payload)
+    : null;
   await assertLrnAvailable(payload.lrn);
 
   const client = await getClient();
@@ -426,6 +472,40 @@ async function createLearner(actor, payload) {
       ]
     );
     const id = Number(result.rows[0].id);
+    if (placement) {
+      const enrollment = await client.query(
+        `INSERT INTO enrollments (
+           learner_id, school_id, school_year_id, grade_level_id, section_id,
+           adviser_id, status
+         ) VALUES ($1, $2, $3, $4, $5, $6, 'enrolled')
+         RETURNING id`,
+        [
+          id,
+          school.id,
+          placement.school_year_id,
+          placement.grade_level_id,
+          placement.id,
+          actor.id
+        ]
+      );
+      await auditService.record({
+        client,
+        userId: actor.id,
+        action: "enrollment.created",
+        entityType: "enrollment",
+        entityId: Number(enrollment.rows[0].id),
+        districtId: school.district_id,
+        ipAddress: actor.ipAddress || null,
+        details: {
+          learner_id: String(id),
+          lrn: payload.lrn,
+          school_year: placement.school_year_name,
+          grade_level: placement.grade_level_name,
+          section: placement.section_name,
+          source: "adviser_enrollment"
+        }
+      });
+    }
     await auditService.record({
       client,
       userId: actor.id,
@@ -579,6 +659,7 @@ async function setArchived(actor, id, archived) {
   }
   assertCanManageLearners(actor);
   assertSchoolScope(actor, existing.school_id, existing.district_id);
+  await assertAdviserLearnerAccess(actor, existing.id);
 
   if (Boolean(existing.archived_at) === archived) {
     throw new HttpError(
@@ -845,8 +926,22 @@ async function resolveEnrollmentTargets(learner, payload) {
 
 async function createEnrollment(actor, learnerId, payload) {
   const learner = await loadLearnerForWrite(actor, learnerId);
+  const adviserScoped = isAdviserScoped(actor);
+  if (adviserScoped && !payload.sectionId) {
+    throw new HttpError(
+      400,
+      "Choose the advisory section for this learner.",
+      "ADVISER_SECTION_REQUIRED"
+    );
+  }
   const targets = await resolveEnrollmentTargets(learner, payload);
-  const adviserId = payload.adviserId || (targets.section ? targets.section.adviser_id : null);
+  let adviserId;
+  if (adviserScoped) {
+    assertAdviserTargetSection(actor, targets.section);
+    adviserId = actor.id;
+  } else {
+    adviserId = payload.adviserId || (targets.section ? targets.section.adviser_id : null);
+  }
 
   const client = await getClient();
   try {
@@ -921,17 +1016,34 @@ async function updateEnrollment(actor, learnerId, enrollmentId, payload) {
     throw new HttpError(404, "School year record not found.", "ENROLLMENT_NOT_FOUND");
   }
 
+  const adviserScoped = isAdviserScoped(actor);
+  const targetSectionId =
+    payload.sectionId === undefined ? existing.section_id : payload.sectionId;
+  if (adviserScoped && !targetSectionId) {
+    throw new HttpError(
+      400,
+      "Choose the advisory section for this learner.",
+      "ADVISER_SECTION_REQUIRED"
+    );
+  }
+
   const targets = await resolveEnrollmentTargets(learner, {
     schoolYearId: existing.school_year_id,
     gradeLevelId: payload.gradeLevelId || existing.grade_level_id,
-    sectionId: payload.sectionId === undefined ? existing.section_id : payload.sectionId
+    sectionId: targetSectionId
   });
-  const adviserId =
-    payload.adviserId === undefined
-      ? targets.section
-        ? targets.section.adviser_id
-        : existing.adviser_id
-      : payload.adviserId;
+  let adviserId;
+  if (adviserScoped) {
+    assertAdviserTargetSection(actor, targets.section);
+    adviserId = actor.id;
+  } else {
+    adviserId =
+      payload.adviserId === undefined
+        ? targets.section
+          ? targets.section.adviser_id
+          : existing.adviser_id
+        : payload.adviserId;
+  }
 
   const client = await getClient();
   try {
@@ -980,6 +1092,13 @@ async function updateEnrollment(actor, learnerId, enrollmentId, payload) {
 }
 
 async function promoteLearner(actor, learnerId, payload) {
+  if (isAdviserScoped(actor)) {
+    throw new HttpError(
+      403,
+      "Class advisers cannot promote learners. Ask the school head or school staff.",
+      "ADVISER_PROMOTE_FORBIDDEN"
+    );
+  }
   const learner = await loadLearnerForWrite(actor, learnerId);
 
   // Resolve the source folder: an explicit enrollment, a named school year, or

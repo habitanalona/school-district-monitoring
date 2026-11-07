@@ -13,6 +13,8 @@
     editing: null,
     viewing: null,
     canManage: false,
+    canDelete: false,
+    schoolLoadToken: 0,
     formModal: null,
     viewModal: null
   };
@@ -33,6 +35,12 @@
   }
 
   function audienceLabel(announcement) {
+    var names = announcement.schoolNames || [];
+    if (names.length) {
+      return names.length <= 2
+        ? names.join(", ")
+        : names.length + " selected schools";
+    }
     return announcement.districtName || "All districts";
   }
 
@@ -88,6 +96,11 @@
             ? '<button type="button" class="icon-action" data-action="edit" data-id="' + announcement.id +
               '" title="Edit announcement" aria-label="Edit ' + window.UI.escapeHtml(announcement.title) +
               '"><i class="bi bi-pencil-square" aria-hidden="true"></i></button>'
+            : "") +
+          (state.canDelete
+            ? '<button type="button" class="icon-action text-danger" data-action="delete" data-id="' + announcement.id +
+              '" title="Delete announcement" aria-label="Delete ' + window.UI.escapeHtml(announcement.title) +
+              '"><i class="bi bi-trash" aria-hidden="true"></i></button>'
             : "") +
         "</div>" +
       "</article>"
@@ -197,6 +210,64 @@
       }).join("");
   }
 
+  function currentDistrictId() {
+    if (state.session.permissions.canSelectDistrict) {
+      var value = el("announcementDistrict").value;
+      return value ? Number(value) : null;
+    }
+    return state.session.user.districtId || null;
+  }
+
+  function syncAudienceGroups() {
+    var group = el("announcementAudienceGroup");
+    var schoolsGroup = el("announcementSchoolsGroup");
+    if (!group || !schoolsGroup) {
+      return;
+    }
+    var canTarget = Boolean(currentDistrictId()) && state.canManage;
+    group.classList.toggle("d-none", !canTarget);
+    schoolsGroup.classList.toggle(
+      "d-none",
+      !canTarget || el("announcementAudience").value !== "specific"
+    );
+  }
+
+  function loadAudienceSchools(districtId, selectedIds) {
+    var select = el("announcementSchools");
+    if (!select) {
+      return;
+    }
+    var token = ++state.schoolLoadToken;
+    if (!districtId) {
+      select.innerHTML = '<option value="" disabled>Select a district first</option>';
+      return;
+    }
+    select.innerHTML = '<option value="" disabled>Loading schools…</option>';
+    API.get("/schools/sidebar", { districtId: districtId })
+      .then(function (payload) {
+        if (token !== state.schoolLoadToken) {
+          return;
+        }
+        var schools = (payload.data && payload.data.schools) || [];
+        select.innerHTML = schools.length
+          ? schools.map(function (school) {
+              return '<option value="' + school.id + '">' +
+                window.UI.escapeHtml(school.name + " (" + school.code + ")") + "</option>";
+            }).join("")
+          : '<option value="" disabled>No schools available</option>';
+        var wanted = (selectedIds || []).map(String);
+        Array.prototype.forEach.call(select.options, function (option) {
+          option.selected = wanted.indexOf(option.value) !== -1;
+        });
+      })
+      .catch(function () {
+        if (token !== state.schoolLoadToken) {
+          return;
+        }
+        select.innerHTML = '<option value="" disabled>Schools could not be loaded</option>';
+      });
+  }
+
   function openForm(announcement) {
     var form = el("announcementForm");
     if (!form) {
@@ -225,6 +296,14 @@
     } else {
       group.classList.add("d-none");
       select.innerHTML = "";
+    }
+
+    var schoolIds = editing ? announcement.schoolIds || [] : [];
+    el("announcementAudience").value = schoolIds.length ? "specific" : "all";
+    el("announcementSchoolsError").textContent = "";
+    syncAudienceGroups();
+    if (state.canManage && currentDistrictId()) {
+      loadAudienceSchools(currentDistrictId(), schoolIds);
     }
 
     var saveLabel = el("announcementSaveButton").querySelector("span");
@@ -263,6 +342,30 @@
       payload.districtId = districtValue ? Number(districtValue) : null;
     }
 
+    el("announcementSchoolsError").textContent = "";
+    var schoolIds = [];
+    var audienceGroup = el("announcementAudienceGroup");
+    if (
+      audienceGroup &&
+      !audienceGroup.classList.contains("d-none") &&
+      el("announcementAudience").value === "specific"
+    ) {
+      schoolIds = Array.prototype.map
+        .call(el("announcementSchools").selectedOptions, function (option) {
+          return Number(option.value);
+        })
+        .filter(function (value) {
+          return value > 0;
+        });
+      if (!schoolIds.length) {
+        el("announcementSchoolsError").textContent =
+          "Select at least one school, or choose all schools in the district.";
+        el("announcementSchools").focus();
+        return;
+      }
+    }
+    payload.schoolIds = schoolIds;
+
     var editing = state.editing;
     window.UI.setButtonLoading(saveButton, true, editing ? "Saving…" : "Publishing…");
     var request = editing
@@ -294,6 +397,36 @@
     });
   }
 
+  function removeAnnouncement(announcement) {
+    window.UI.confirm({
+      title: "Delete “" + announcement.title + "”?",
+      message:
+        "The notice and its school targeting will be permanently removed. This cannot be undone.",
+      confirmLabel: "Delete announcement",
+      tone: "danger"
+    }).then(function (confirmed) {
+      if (!confirmed) {
+        return;
+      }
+      API.delete("/announcements/" + announcement.id)
+        .then(function () {
+          window.UI.toast("Announcement deleted", announcement.title, "success");
+          if (state.viewing && Number(state.viewing.id) === Number(announcement.id)) {
+            state.viewModal.hide();
+          }
+          loadAnnouncements();
+        })
+        .catch(function (error) {
+          window.UI.showAlert(
+            el("announcementPageAlert"),
+            "danger",
+            error.message || "The announcement could not be deleted.",
+            "Unable to delete announcement"
+          );
+        });
+    });
+  }
+
   function resetFilters() {
     state.search = "";
     state.status = "";
@@ -316,6 +449,8 @@
         openView(announcement);
       } else if (button.dataset.action === "edit" && state.canManage) {
         openForm(announcement);
+      } else if (button.dataset.action === "delete" && state.canDelete) {
+        removeAnnouncement(announcement);
       }
     });
     el("announcementSearch").addEventListener(
@@ -337,6 +472,13 @@
       setText("announcementCount", String(event.target.value.length));
     });
     el("announcementForm").addEventListener("submit", submitForm);
+    el("announcementDistrict").addEventListener("change", function () {
+      syncAudienceGroups();
+      if (state.canManage) {
+        loadAudienceSchools(currentDistrictId(), []);
+      }
+    });
+    el("announcementAudience").addEventListener("change", syncAudienceGroups);
     el("announcementViewEdit").addEventListener("click", function () {
       var announcement = state.viewing;
       if (!announcement) {
@@ -382,6 +524,7 @@
       }
       state.session = session;
       state.canManage = Boolean(session.permissions.canManageAnnouncements);
+      state.canDelete = Boolean(session.permissions.canDeleteAnnouncements);
       if (state.canManage) {
         el("newAnnouncementButton").classList.remove("d-none");
       } else {

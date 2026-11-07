@@ -176,6 +176,20 @@
                 </div>
               </div>
             </div>
+            <div class="form-group d-none" id="announcementAudienceGroup">
+              <label for="announcementAudience">School audience</label>
+              <select class="custom-select" id="announcementAudience" name="audience">
+                <option value="all">All schools in the district</option>
+                <option value="specific">Specific schools only</option>
+              </select>
+              <span class="form-text">Choose the district schools that should receive this notice.</span>
+            </div>
+            <div class="form-group d-none" id="announcementSchoolsGroup">
+              <label for="announcementSchools">Schools</label>
+              <select class="custom-select" id="announcementSchools" name="schoolIds" multiple size="6"></select>
+              <span class="form-text">Hold Ctrl (Windows) or Command (Mac) to select several schools.</span>
+              <span class="field-error" id="announcementSchoolsError"></span>
+            </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>

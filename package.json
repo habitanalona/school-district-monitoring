@@ -21,6 +21,7 @@
     "db:migrate:school-logos": "node scripts/migrate-school-logos.js",
     "db:migrate:subject-attendance": "node scripts/migrate-subject-attendance.js",
     "db:migrate:user-roles": "node scripts/migrate-user-roles.js",
+    "db:migrate:announcement-targets": "node scripts/migrate-announcement-targets.js",
     "db:migrate:security": "node scripts/migrate-security.js",
     "db:migrate:security:rollback": "node scripts/migrate-security-rollback.js",
     "security:bootstrap-superadmin": "node scripts/provision-superadmin.js",

@@ -11,7 +11,6 @@ function allows(matrix, moduleKey, action) {
 function permissionsFor(user) {
   const matrix = user && user.permissionMatrix ? user.permissionMatrix : null;
   const isSystemAdmin = hasRole(user, "system_admin");
-  const isAdmin = isSystemAdmin || hasRole(user, "district_admin");
 
   const schoolsWrite =
     allows(matrix, "schools", "add") ||
@@ -50,10 +49,16 @@ function permissionsFor(user) {
   const reviewerRoles = ["system_admin", "district_admin", "psds", "school_head"];
 
   return {
-    canManageSchools: allows(matrix, "schools", "access") && schoolsWrite,    canManageReports: allows(matrix, "school_reports", "access") && reportWrite,
+    canManageSchools: allows(matrix, "schools", "access") && schoolsWrite,
+    canManageReports: allows(matrix, "school_reports", "access") && reportWrite,
     canManageAnnouncements:
       allows(matrix, "announcements", "access") &&
-      (allows(matrix, "announcements", "add") || allows(matrix, "announcements", "edit")),
+      (allows(matrix, "announcements", "add") ||
+        allows(matrix, "announcements", "edit") ||
+        hasRole(user, "psds")),
+    canDeleteAnnouncements:
+      allows(matrix, "announcements", "access") &&
+      (allows(matrix, "announcements", "delete") || hasRole(user, "psds")),
     canManageUsers: allows(matrix, "users", "access") && userWrite,
     canManageDistricts:
       allows(matrix, "districts", "access") &&

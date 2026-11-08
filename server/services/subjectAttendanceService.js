@@ -38,15 +38,15 @@ const CONFIG_ROLES = new Set(["system_admin", "district_admin", "staff", "school
 
 // Suggested only. Nothing is written until an administrator applies a layout.
 const SUGGESTED_PERIODS = [
-  { periodNo: 1, label: "Period 1", startTime: "07:30", endTime: "08:00" },
-  { periodNo: 2, label: "Period 2", startTime: "08:00", endTime: "08:45" },
-  { periodNo: 3, label: "Period 3", startTime: "08:50", endTime: "09:35" },
-  { periodNo: 4, label: "Period 4", startTime: "09:55", endTime: "10:40" },
-  { periodNo: 5, label: "Period 5", startTime: "10:45", endTime: "11:30" },
-  { periodNo: 6, label: "Period 6", startTime: "13:00", endTime: "13:45" },
-  { periodNo: 7, label: "Period 7", startTime: "13:50", endTime: "14:35" },
-  { periodNo: 8, label: "Period 8", startTime: "14:40", endTime: "15:25" },
-  { periodNo: 9, label: "Period 9", startTime: "15:30", endTime: "16:15" }
+  { periodNo: 1, label: "Period 1", startTime: "07:30", endTime: "08:30" },
+  { periodNo: 2, label: "Period 2", startTime: "08:30", endTime: "09:30" },
+  { periodNo: 3, label: "Period 3", startTime: "09:45", endTime: "10:45" },
+  { periodNo: 4, label: "Period 4", startTime: "10:45", endTime: "11:45" },
+  { periodNo: 5, label: "Period 5", startTime: "12:45", endTime: "13:45" },
+  { periodNo: 6, label: "Period 6", startTime: "13:45", endTime: "14:45" },
+  { periodNo: 7, label: "Period 7", startTime: "14:45", endTime: "15:45" },
+  { periodNo: 8, label: "Period 8", startTime: "15:45", endTime: "16:45" },
+  { periodNo: 9, label: "Period 9", startTime: "16:45", endTime: "17:45" }
 ];
 
 function toIsoDate(value) {
